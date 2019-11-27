@@ -69,7 +69,6 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, blur=20, cTop=None, cBottom=No
     :param cRight: Legacy right.
     :return: Clip with color offsets fixed.
     """
-    import math
 
     if cTop is not None:
         top = cTop
@@ -736,10 +735,8 @@ def DynamicTonemap(clip, show=False):
     :param show: Whether to show nits values.
     :return: SDR clip.
     """
-    import functools
 
     def __dt(n, f, clip, show):
-        import math
         import numpy as np
 
         ST2084_PEAK_LUMINANCE = 10000
@@ -780,7 +777,7 @@ def DynamicTonemap(clip, show=False):
                                 range_s="full", dither_type="none")
 
     luma_props = core.std.PlaneStats(clip, plane=0)
-    tonemapped_clip = core.std.FrameEval(clip, functools.partial(__dt, clip=clip, show=show), prop_src=[luma_props])
+    tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
 
     tonemapped_clip = tonemapped_clip.resize.Spline36(format=vs.YUV420P10)
 
@@ -823,7 +820,6 @@ def FrameInfo(clip, title,
     > Usage: FrameInfo(clip, title)
       * Print the frame number, the picture type and a title on each frame
     '''
-    import functools
 
     def FrameProps(n, clip):
         if "_PictType" in clip.get_frame(n).props:
@@ -835,7 +831,7 @@ def FrameInfo(clip, title,
 
         return clip
 
-    clip = core.std.FrameEval(clip, functools.partial(FrameProps, clip=clip))
+    clip = core.std.FrameEval(clip, partial(FrameProps, clip=clip))
     clip = core.sub.Subtitle(clip, text=['\n \n \n' + title], style=style)
 
     return clip
