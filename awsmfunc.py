@@ -258,12 +258,12 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999):
 
 
 def BlackBorders(clip, left=0, right=0, top=0, bottom=0):
-    '''	
+    """
     BlackBorders, avoids dirty lines introduced by AddBorders. From sgvsfunc.
       Actually avoids dirty lines *most of the time*, but borders may stay slightly dirty where there are vivid colors
     > Usage: BlackBorders(clip, left, right, top, bottom)
       * left, right, top, bottom are the thicknesses of black borders in pixels 
-    '''
+    """
     import adjust
 
     if not (left % 2 == 0 and right % 2 == 0 and top % 2 == 0 and bottom % 2 == 0):
@@ -316,7 +316,7 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0):
 
 def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=[0, 0, 0, 0], cfill=None,
                resizer='spline36', filter_param_a=None, filter_param_b=None) -> vs.VideoNode:
-    '''
+    """
     Originally from sgvsfunc.  Added chroma filling option.
     This function is a wrapper around cropping and resizing with the option to fill and remove columns/rows.
     :param clip: Clip to be processed.
@@ -333,7 +333,7 @@ def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, 
     :param resizer: Resize kernel to be used.  For internal resizers, use strings, else lambda functions can be used.
     :param filter_param_a, filter_param_b: Filter parameters for internal resizers, b & c for bicubic, taps for lanczos.
     :return: Resized clip.
-    '''
+    """
     if len(fill) == 4:
         if left - int(fill[0]) >= 0 and right - int(fill[1]) >= 0 and top - int(fill[2]) >= 0 and bottom - int(
                 fill[3]) >= 0:
@@ -451,7 +451,7 @@ cropresize = CropResize
 
 def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=None, column=None, adj_column=None,
                      fill_max=2, bb=None, FixUncrop=[False, False, False, False], resizer='spline36'):
-    '''
+    """
     CropResizeReader, cropResize for variable borders by loading crop values from a csv file
       Also fill small borders and fix brightness/apply bbmod relatively to the variable border
       From sgvsfunc.
@@ -469,7 +469,7 @@ def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=N
       * FixUncrop is a list of 4 booleans [left right top bottom]
         False means that FixBrightness/bbmod is only apply where crop>0, True means it is applied on the whole clip
       * resizer should be Bilinear, Bicubic, Point, Lanczos, Spline16 or Spline36 (default)
-    '''
+    """
     import csv
 
     if len(FixUncrop) != 4:
@@ -609,13 +609,13 @@ def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=N
 
 
 def DebandReader(clip, csvfile, grain=64, range=30):
-    '''
+    """
     DebandReader, read a csv file to apply a f3kdb filter for given strengths and frames. From sgvsfunc.
     > Usage: DebandReader(clip, csvfile, grain, range)
       * csvfile is the path to a csv file containing in each row: <startframe> <endframe> <strength>
       * grain is passed as grainy and grainc in the f3kdb filter
       * range is passed as range in the f3kdb filter
-    '''
+    """
     import csv
 
     filtered = clip
@@ -633,40 +633,40 @@ def DebandReader(clip, csvfile, grain=64, range=30):
     return filtered
 
 
-def LumaMaskMerge(clipa, clipb, threshold=128, invert=False, scale_inputs=False, planes=0):
-    '''
+def LumaMaskMerge(clipa, clipb, threshold=None, invert=False, scale_inputs=False, planes=0):
+    """
     LumaMaskMerge, merges clips using a binary mask defined by a brightness level. From sgvsfunc, with added planes.
     > Usage: LumaMaskMerge(clipa, clipb, threshold, invert, scale_inputs)
       * threshold is the brightness level. clipb is applied where the brightness is below threshold
       * If invert = True, clipb is applied where the brightness is above threshold
       * scale_inputs = True scales threshold from 8bits to current bit depth.
       * Use planes to specify which planes should be merged from clipb into clipa. Default is first plane.
-    '''
+    """
     p = (1 << clipa.format.bits_per_sample) - 1
 
-    if scale_inputs == True:
+    if scale_inputs and threshold is not None:
         threshold = scale(threshold, clipa.format.bits_per_sample)
+    elif threshold is None:
+        threshold = (p + 1) / 2
 
-    if invert == False:
+    if invert:
         mask = core.std.Binarize(clip=clipa.std.ShufflePlanes(0, vs.GRAY), threshold=threshold, v0=p, v1=0)
-    elif invert == True:
+    else:
         mask = core.std.Binarize(clip=clipa.std.ShufflePlanes(0, vs.GRAY), threshold=threshold, v0=0, v1=p)
 
-    merge = core.std.MaskedMerge(clipa=clipa, clipb=clipb, mask=mask, planes=planes)
-
-    return merge
+    return core.std.MaskedMerge(clipa=clipa, clipb=clipb, mask=mask, planes=planes)
 
 
 def RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs=False):
-    '''
+    """
     RGBMaskMerge, merges clips using a binary mask defined by a RGB range. From sgvsfunc.
     > Usage: RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs)
       * clipb is applied where Rmin < R < Rmax and Gmin < G < Gmax and Bmin < B < Bmax
       * scale_inputs = True scales Rmin, Rmax, Gmin, Gmax, Bmin, Bmax from 8bits to current bit depth (8, 10 or 16).
-    '''
+    """
     p = (1 << clipa.format.bits_per_sample) - 1
 
-    if scale_inputs == True:
+    if scale_inputs:
         Rmin = scale(Rmin, clipa.format.bits_per_sample)
         Rmax = scale(Rmax, clipa.format.bits_per_sample)
         Gmin = scale(Gmin, clipa.format.bits_per_sample)
@@ -798,12 +798,12 @@ fb = FillBorders
 
 
 def SelectRangeEvery(clip, every, length, offset=[0, 0]):
-    '''
+    """
     SelectRangeEvery, port from Avisynth's function. From sgvsfunc.
     Offset can be an array with the first entry being the offset from the start and the second from the end.
     > Usage: SelectRangeEvery(clip, every, length, offset)
       * select <length> frames every <every> frames, starting at frame <offset>
-    '''
+    """
     if isinstance(offset, int):
         offset = [offset, 0]
     select = core.std.Trim(clip, first=offset[0], last=clip.num_frames - 1 - offset[1])
@@ -815,11 +815,11 @@ def SelectRangeEvery(clip, every, length, offset=[0, 0]):
 
 def FrameInfo(clip, title,
               style="sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1"):
-    '''
+    """
     FrameInfo. From sgvsfunc, with additional style option.
     > Usage: FrameInfo(clip, title)
       * Print the frame number, the picture type and a title on each frame
-    '''
+    """
 
     def FrameProps(n, clip):
         if "_PictType" in clip.get_frame(n).props:
@@ -838,26 +838,26 @@ def FrameInfo(clip, title,
 
 
 def DelFrameProp(clip, primaries=True, matrix=True, transfer=True):
-    '''
+    """
     DelFrameProp, delete primaries, matrix or transfer frame properties. From sgvsfunc.
       Avoids "Unrecognized transfer characteristics" or "unrecognized color primaries" associated with Vapoursynth Editor
     > Usage: DelFrameProp(clip, primaries, matrix, transfer)
       * primaries, matrix, transfer are boolean, True meaning that the property is deleted (default)
-    '''
-    if primaries == True:
+    """
+    if primaries:
         clip = core.std.SetFrameProp(clip, prop="_Primaries", delete=True)
 
-    if matrix == True:
+    if matrix:
         clip = core.std.SetFrameProp(clip, prop="_Matrix", delete=True)
 
-    if transfer == True:
+    if transfer:
         clip = core.std.SetFrameProp(clip, prop="_Transfer", delete=True)
 
     return clip
 
 
 def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=False):
-    '''
+    """
     InterleaveDir, load all mkv files located in a directory and interleave them. From sgvsfunc.
     > Usage: InterleaveDir(folder, PrintInfo, DelProp, first, repeat)
       * folder is the folder path
@@ -865,7 +865,7 @@ def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=Fal
       * DelProp = True means deleting primaries, matrix and transfer characteristics
       * first is an optional clip to append in first position of the interleaving list
       * repeat = True means that the appended clip is repeated between each loaded clip from the folder
-    '''
+    """
     import os
 
     files = sorted(os.listdir(folder))
@@ -911,12 +911,12 @@ def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=Fal
 
 
 def ExtractFramesReader(clip, csvfile):
-    '''
+    """
     ExtractFramesReader, reads a csv file to extract ranges of frames. From sgvsfunc.
     > Usage: ExtractFramesReader(clip, csvfile)
       * csvfile is the path to a csv file containing in each row: <startframe> <endframe>
         the csv file may contain other columns, which will not be read
-    '''
+    """
     import csv
 
     selec = core.std.BlankClip(clip=clip, length=1)
@@ -934,7 +934,7 @@ def ExtractFramesReader(clip, csvfile):
     return selec
 
 
-def fixlvls(clip, gamma=0.88, min_in=4096, max_in=60160, min_out=4096, max_out=60160, planes=0, preset=None):
+def fixlvls(clip, gamma=None, min_in=4096, max_in=60160, min_out=4096, max_out=60160, planes=0, preset=None):
     """
     A wrapper around std.Levels to fix what's commonly known as the gamma bug.
     :param clip: Processed clip.
@@ -947,26 +947,30 @@ def fixlvls(clip, gamma=0.88, min_in=4096, max_in=60160, min_out=4096, max_out=6
     overflow explained: https://guide.encode.moe/encoding/video-artifacts.html#underflow--overflow
     :return: Clip with gamma adjusted or levels fixed.
     """
-    clip = fvf.Depth(clip, 16)
+    clip_ = fvf.Depth(clip, 16)
+    if gamma is None and preset is not None:
+        gamma = 0.88
+    elif gamma is None and preset is None:
+        gamma = 1
     if preset is None:
-        adj = core.std.Levels(clip, gamma=gamma, min_in=min_in, max_in=max_in, min_out=min_out, max_out=max_out,
+        adj = core.std.Levels(clip_, gamma=gamma, min_in=min_in, max_in=max_in, min_out=min_out, max_out=max_out,
                               planes=planes)
     elif preset == 1:
-        adj = core.std.Levels(clip, gamma=gamma, min_in=4096, max_in=60160, min_out=4096, max_out=60160, planes=0)
+        adj = core.std.Levels(clip_, gamma=gamma, min_in=4096, max_in=60160, min_out=4096, max_out=60160, planes=0)
     elif preset == 2:
-        adj = core.std.Levels(clip, min_out=0, max_out=65535, min_in=4096, max_in=60160, planes=0)
+        adj = core.std.Levels(clip_, min_out=0, max_out=65535, min_in=4096, max_in=60160, planes=0)
     elif preset == 3:
-        adj = core.std.Levels(clip, min_in=0, max_in=65535, min_out=4096, max_out=60160, planes=0)
+        adj = core.std.Levels(clip_, min_in=0, max_in=65535, min_out=4096, max_out=60160, planes=0)
         adj = core.std.Levels(adj, min_in=0, max_in=65535, min_out=4096, max_out=61440, planes=[1, 2])
     return fvf.Depth(adj, clip.format.bits_per_sample)
 
 
 def mt_lut(clip, expr, planes=[0]):
-    '''
+    """
     mt_lut, port from Avisynth's function. From sgvsfunc.
     > Usage: mt_lut(clip, expr, planes)
       * expr is an infix expression, not like avisynth's mt_lut which takes a postfix one
-    '''
+    """
     minimum = 16 * ((1 << clip.format.bits_per_sample) - 1) // 256
     maximum = 235 * ((1 << clip.format.bits_per_sample) - 1) // 256
 
