@@ -788,9 +788,11 @@ def FillBorders(clip, left=0, right=0, top=0, bottom=0):
     """
     FillBorders wrapper that automatically sets fillmargins mode.
     """
-    return core.fb.FillBorders(clip, left = left, right = right, top = top, bottom = bottom, mode = "fillmargins")
+    return core.fb.FillBorders(clip, left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+
 
 fb = FillBorders
+
 
 #####################
 # Utility functions #
