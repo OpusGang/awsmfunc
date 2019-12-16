@@ -29,8 +29,8 @@ FixBrightnessProtect2 = rektlvls
 def FixColumnBrightness(clip, column, input_low=16, input_high=235, output_low=16, output_high=235):
     hbd = fvf.Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
-    adj = lambda x: core.std.Levels(x, min_in=min_in << 8, max_in=max_in << 8, min_out=min_out << 8,
-                                    max_out=max_out << 8, planes=0)
+    adj = lambda x: core.std.Levels(x, min_in=input_low << 8, max_in=input_high << 8, min_out=output_low << 8,
+                                    max_out=output_high << 8, planes=0)
     prc = rekt_fast(lma, adj, left=column, right=clip.width - column - 1)
     if clip.format.color_family is vs.YUV:
         prc = core.std.ShufflePlanes([prc, hbd], [0, 1, 2], vs.YUV)
@@ -40,8 +40,8 @@ def FixColumnBrightness(clip, column, input_low=16, input_high=235, output_low=1
 def FixRowBrightness(clip, row, input_low=16, input_high=235, output_low=16, output_high=235):
     hbd = fvf.Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
-    adj = lambda x: core.std.Levels(x, min_in=min_in << 8, max_in=max_in << 8, min_out=min_out << 8,
-                                    max_out=max_out << 8, planes=0)
+    adj = lambda x: core.std.Levels(x, min_in=input_low << 8, max_in=input_high << 8, min_out=output_low << 8,
+                                    max_out=output_high << 8, planes=0)
     prc = rekt_fast(lma, adj, top=row, bottom=clip.height - row - 1)
     if clip.format.color_family is vs.YUV:
         prc = core.std.ShufflePlanes([prc, hbd], [0, 1, 2], vs.YUV)
