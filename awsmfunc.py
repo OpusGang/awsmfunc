@@ -26,7 +26,7 @@ def FixRowBrightnessProtect2(clip, row, adj_val=0, prot_val=20):
 FixBrightnessProtect2 = rektlvls
 
 
-def FixColumnBrightness(clip, column, min_in=16, max_in=235, min_out=16, max_out=235):
+def FixColumnBrightness(clip, column, input_low=16, input_high=235, output_low=16, output_high=235):
     hbd = fvf.Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
     adj = lambda x: core.std.Levels(x, min_in=min_in << 8, max_in=max_in << 8, min_out=min_out << 8,
@@ -37,7 +37,7 @@ def FixColumnBrightness(clip, column, min_in=16, max_in=235, min_out=16, max_out
     return fvf.Depth(prc, clip.format.bits_per_sample)
 
 
-def FixRowBrightness(clip, row, min_in=16, max_in=235, min_out=16, max_out=235):
+def FixRowBrightness(clip, row, input_low=16, input_high=235, output_low=16, output_high=235):
     hbd = fvf.Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
     adj = lambda x: core.std.Levels(x, min_in=min_in << 8, max_in=max_in << 8, min_out=min_out << 8,
@@ -266,8 +266,17 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0):
     """
     import adjust
 
-    if not (left % 2 == 0 and right % 2 == 0 and top % 2 == 0 and bottom % 2 == 0):
-        raise ValueError('BlackBorders: border size needs to be mod 2.')
+    if not (left % 2 == 0 and right % 2 == 0) and clip.format.subsampling_w == 1:
+        raise ValueError('BlackBorders: border size needs to be mod 2 if width subsampling is 1 (e.g. 420/422).')
+
+    if not (top % 2 == 0 and bottom % 2 == 0) and clip.format.subsampling_h == 1:
+        raise ValueError('BlackBorders: border size needs to be mod 2 if height subsampling is 1 (e.g. 420).')
+
+    if not (left % 4 == 0 and right % 4 == 0) and clip.format.subsampling_w == 2:
+        raise ValueError('BlackBorders: border size needs to be mod 2 if width subsampling is 2 (e.g. 410/411).')
+
+    if not (top % 4 == 0 and bottom % 4 == 0) and clip.format.subsampling_h == 2:
+        raise ValueError('BlackBorders: border size needs to be mod 2 if height subsampling is 2 (e.g. 410).')
 
     if left > 0:
         clip = core.std.AddBorders(clip=clip, left=left)
@@ -279,9 +288,9 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0):
         desat = adjust.Tweak(flip, sat=0.4)
         stack = core.std.StackHorizontal([clip, desat])
         clip1 = FixColumnBrightness(clip=stack, column=clip.width, input_low=16, input_high=255, output_low=16,
-                                    output_high=16, scale_inputs=True)
+                                    output_high=16)
         clip = FixColumnBrightness(clip=clip1, column=clip.width + 1, input_low=16, input_high=255, output_low=16,
-                                   output_high=16, scale_inputs=True)
+                                   output_high=16)
         if right > 2:
             clip = core.std.AddBorders(clip=clip, right=right - 2)
 
@@ -291,10 +300,8 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0):
         flip = core.std.FlipVertical(copy)
         desat = adjust.Tweak(flip, sat=0.4)
         stack = core.std.StackVertical([desat, clip])
-        clip1 = FixRowBrightness(clip=stack, row=0, input_low=16, input_high=255, output_low=16, output_high=16,
-                                 scale_inputs=True)
-        clip = FixRowBrightness(clip=clip1, row=1, input_low=16, input_high=255, output_low=16, output_high=16,
-                                scale_inputs=True)
+        clip1 = FixRowBrightness(clip=stack, row=0, input_low=16, input_high=255, output_low=16, output_high=16)
+        clip = FixRowBrightness(clip=clip1, row=1, input_low=16, input_high=255, output_low=16, output_high=16)
         if top > 2:
             clip = core.std.AddBorders(clip=clip, top=top - 2)
 
@@ -764,7 +771,7 @@ def DynamicTonemap(clip, show=False):
         nits = max(math.ceil(nits_max), 100)
 
         # Tonemap
-        clip = clip.resize.Spline36(transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
+        clip = clip.resize.Point(transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
                                     primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
                                     dither_type="none", nominal_luminance=nits)
 
@@ -773,15 +780,15 @@ def DynamicTonemap(clip, show=False):
 
         return clip
 
-    clip = clip.resize.Spline36(format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
+    clip_orig = clip
+
+    clip = clip.resize.Point(format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
                                 range_s="full", dither_type="none")
 
     luma_props = core.std.PlaneStats(clip, plane=0)
     tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
 
-    tonemapped_clip = tonemapped_clip.resize.Spline36(format=vs.YUV420P10)
-
-    return tonemapped_clip
+    return tonemapped_clip.resize.Point(format=clip_orig.format)
 
 
 def FillBorders(clip, left=0, right=0, top=0, bottom=0):
