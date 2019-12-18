@@ -4,7 +4,7 @@ from functools import partial
 import math
 from vsutil import plane, get_subsampling
 import fvsfunc as fvf
-from rekt import rektlvl, rektlvls
+from rekt import rektlvl, rektlvls, rekt_fast
 
 """
 To-do list:
@@ -257,9 +257,11 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999):
     return c
 
 
-def BlackBorders(clip, left=0, right=0, top=0, bottom=0):
+def BlackBorders(clip, left=0, right=0, top=0, bottom=0, rsat=.4, tsat=.2, bsat=.2):
     """
     BlackBorders, avoids dirty lines introduced by AddBorders. From sgvsfunc.
+    This shifts dirty lines from the video onto borders, meaning there'll be leftover chroma on the black borders.
+    Added saturation options for right, top, and bottom.
       Actually avoids dirty lines *most of the time*, but borders may stay slightly dirty where there are vivid colors
     > Usage: BlackBorders(clip, left, right, top, bottom)
       * left, right, top, bottom are the thicknesses of black borders in pixels 
@@ -285,7 +287,7 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0):
 
         copy = core.std.Crop(clip, left=clip.width - 2)
         flip = core.std.FlipHorizontal(copy)
-        desat = adjust.Tweak(flip, sat=0.4)
+        desat = adjust.Tweak(flip, sat=rsat)
         stack = core.std.StackHorizontal([clip, desat])
         clip1 = FixColumnBrightness(clip=stack, column=clip.width, input_low=16, input_high=255, output_low=16,
                                     output_high=16)
@@ -298,7 +300,7 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0):
 
         copy = core.std.Crop(clip, bottom=clip.height - 2)
         flip = core.std.FlipVertical(copy)
-        desat = adjust.Tweak(flip, sat=0.4)
+        desat = adjust.Tweak(flip, sat=tsat)
         stack = core.std.StackVertical([desat, clip])
         clip1 = FixRowBrightness(clip=stack, row=0, input_low=16, input_high=255, output_low=16, output_high=16)
         clip = FixRowBrightness(clip=clip1, row=1, input_low=16, input_high=255, output_low=16, output_high=16)
@@ -309,12 +311,12 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0):
 
         copy = core.std.Crop(clip, top=clip.height - 2)
         flip = core.std.FlipVertical(copy)
-        desat = adjust.Tweak(flip, sat=0.4)
+        desat = adjust.Tweak(flip, sat=bsat)
         stack = core.std.StackVertical([clip, desat])
         clip1 = FixRowBrightness(clip=stack, row=clip.height, input_low=16, input_high=255, output_low=16,
-                                 output_high=16, scale_inputs=True)
+                                 output_high=16)
         clip = FixRowBrightness(clip=clip1, row=clip.height + 1, input_low=16, input_high=255, output_low=16,
-                                output_high=16, scale_inputs=True)
+                                output_high=16)
         if bottom > 2:
             clip = core.std.AddBorders(clip=clip, bottom=bottom - 2)
 
