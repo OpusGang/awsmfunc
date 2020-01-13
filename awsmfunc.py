@@ -699,13 +699,14 @@ def RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs=
     return clip
 
 
-def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt"):
+def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1):
     """
     Narkyy's screenshot generator.
     Generates screenshots from a list of frame numbers
     folder is the folder name that is created
     video_type is the final name appended
     frame_numbers is the file path to the list, defaults to screens.txt
+    start is the number at which the filenames start
 
     > Usage: ScreenGen(src, "Screenshots", "a")
              ScreenGen(enc, "Screenshots", "b")
@@ -724,7 +725,7 @@ def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt"):
 
         screens = [int(x.strip()) for x in screens]
 
-        for i, num in enumerate(screens, start=1):
+        for i, num in enumerate(screens, start=start):
             filename = "{path}/{:02d}{type}.png".format(i, path=folder_path, type=video_type)
             core.imwri.Write(clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709"), "PNG", filename,
                              overwrite=True).get_frame(num)
