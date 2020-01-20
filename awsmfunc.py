@@ -10,7 +10,6 @@ from rekt import rektlvl, rektlvls, rekt_fast
 To-do list:
 
  - CropResize: default chroma fill might make more sense
- - Figure out if BlackBorders even makes sense
  - CropResizeReader needs cfill
 """
 
@@ -257,70 +256,88 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999):
     return c
 
 
-def BlackBorders(clip, left=0, right=0, top=0, bottom=0, rsat=.4, tsat=.2, bsat=.2):
+def AddBordersMod(clip, left=0, top=0, right=0, bottom=0, lsat=.88, tsat=.2, rsat=None, bsat=.2, color=None):
     """
-    BlackBorders, avoids dirty lines introduced by AddBorders. From sgvsfunc.
-    This shifts dirty lines from the video onto borders, meaning there'll be leftover chroma on the black borders.
-    Added saturation options for right, top, and bottom.
-      Actually avoids dirty lines *most of the time*, but borders may stay slightly dirty where there are vivid colors
-    > Usage: BlackBorders(clip, left, right, top, bottom)
-      * left, right, top, bottom are the thicknesses of black borders in pixels 
+    VapourSynth port of AddBordersMod.  Replacement for BlackBorders from sgvsfunc.
+    Fuck writing a proper docstring.
+    :param clip:
+    :param left:
+    :param top:
+    :param right:
+    :param bottom:
+    :param lsat:
+    :param tsat:
+    :param rsat:
+    :param bsat:
+    :param color:
+    :return:
     """
-    import adjust
+    if clip.format.subsampling_w != 1 and clip.format.subsampling_h != 1:
+        raise TypeError("AddBordersMod: input must be 4:2:0")
 
-    if not (left % 2 == 0 and right % 2 == 0) and clip.format.subsampling_w == 1:
-        raise ValueError('BlackBorders: border size needs to be mod 2 if width subsampling is 1 (e.g. 420/422).')
-
-    if not (top % 2 == 0 and bottom % 2 == 0) and clip.format.subsampling_h == 1:
-        raise ValueError('BlackBorders: border size needs to be mod 2 if height subsampling is 1 (e.g. 420).')
-
-    if not (left % 4 == 0 and right % 4 == 0) and clip.format.subsampling_w == 2:
-        raise ValueError('BlackBorders: border size needs to be mod 2 if width subsampling is 2 (e.g. 410/411).')
-
-    if not (top % 4 == 0 and bottom % 4 == 0) and clip.format.subsampling_h == 2:
-        raise ValueError('BlackBorders: border size needs to be mod 2 if height subsampling is 2 (e.g. 410).')
+    from adjust import Tweak
+    if rsat is None:
+        if right > 2:
+            rsat = .4
+        else:
+            rsat = .28
 
     if left > 0:
-        clip = core.std.AddBorders(clip=clip, left=left)
+        if lsat != 1:
+            lcl = clip.std.AddBorders(left=left, color=color)
+            lcl = lcl.std.CropAbs(left, clip.height)
+            lcm = clip.std.CropAbs(2, clip.height)
+            lcm = Tweak(lcm, sat=lsat)
+            lcr = clip.std.Crop(left=2)
+            clip = core.std.StackHorizontal([lcl, lcm, lcr])
+        else:
+            clip = clip.std.AddBorders(left=left, color=color)
 
-    if right > 0:
+    if top > 2:
+        tcl = clip.std.AddBorders(top=top, color=color)
+        tcl = tcl.std.CropAbs(clip.width, top - 2)
+        tcm = clip.std.CropAbs(clip.width, 2)
+        tcm = Tweak(tcm, sat=tsat)
+        tcm = rektlvls(tcm, [0, 1], [16 - 235] * 2, prot_val=0)
+        clip = core.std.StackVertical([tcl, tcm, clip])
+    elif top == 2:
+        tcl = clip.std.CropAbs(clip.width, 2)
+        tcl = Tweak(tcl, sat=tsat)
+        tcl = rektlvls(tcl, [0, 1], [16 - 235] * 2, prot_val=0)
+        clip = core.std.StackVertical([tcl, clip])
 
-        copy = core.std.Crop(clip, left=clip.width - 2)
-        flip = core.std.FlipHorizontal(copy)
-        desat = adjust.Tweak(flip, sat=rsat)
-        stack = core.std.StackHorizontal([clip, desat])
-        clip1 = FixColumnBrightness(clip=stack, column=clip.width, input_low=16, input_high=255, output_low=16,
-                                    output_high=16)
-        clip = FixColumnBrightness(clip=clip1, column=clip.width + 1, input_low=16, input_high=255, output_low=16,
-                                   output_high=16)
-        if right > 2:
-            clip = core.std.AddBorders(clip=clip, right=right - 2)
+    if right > 2:
+        rcm = clip.std.Crop(left=clip.width - 2)
+        rcm = Tweak(rcm, sat=rsat)
+        rcm = rektlvls(rcm, colnum=[0, 1], colval=[16 - 235] * 2, prot_val=0)
+        rcr = clip.std.AddBorders(right=right, color=color)
+        rcr = rcr.std.Crop(left=clip.width + 2)
+        clip = core.std.StackHorizontal([clip, rcm, rcr])
+    elif right == 2:
+        rcr = clip.std.Crop(left=clip.width - 2)
+        rcr = Tweak(rcr, sat=rsat)
+        rcr = rektlvls(rcr, colnum=[0, 1], colval=[16 - 235] * 2, prot_val=0)
+        clip = core.std.StackHorizontal([clip, rcr])
 
-    if top > 0:
-
-        copy = core.std.Crop(clip, bottom=clip.height - 2)
-        flip = core.std.FlipVertical(copy)
-        desat = adjust.Tweak(flip, sat=tsat)
-        stack = core.std.StackVertical([desat, clip])
-        clip1 = FixRowBrightness(clip=stack, row=0, input_low=16, input_high=255, output_low=16, output_high=16)
-        clip = FixRowBrightness(clip=clip1, row=1, input_low=16, input_high=255, output_low=16, output_high=16)
-        if top > 2:
-            clip = core.std.AddBorders(clip=clip, top=top - 2)
-
-    if bottom > 0:
-
-        copy = core.std.Crop(clip, top=clip.height - 2)
-        flip = core.std.FlipVertical(copy)
-        desat = adjust.Tweak(flip, sat=bsat)
-        stack = core.std.StackVertical([clip, desat])
-        clip1 = FixRowBrightness(clip=stack, row=clip.height, input_low=16, input_high=255, output_low=16,
-                                 output_high=16)
-        clip = FixRowBrightness(clip=clip1, row=clip.height + 1, input_low=16, input_high=255, output_low=16,
-                                output_high=16)
-        if bottom > 2:
-            clip = core.std.AddBorders(clip=clip, bottom=bottom - 2)
+    if bottom > 2:
+        bcm = clip.std.Crop(top=clip.height - 2)
+        bcm = Tweak(bcm, sat=bsat)
+        bcm = rektlvls(bcm, [0, 1], [16 - 235] * 2, prot_val=0)
+        bcr = clip.std.AddBorders(bottom=bottom)
+        bcr = bcr.std.Crop(top=clip.height + 2)
+        clip = core.std.StackVertical([clip, bcm, bcr])
+    elif bottom == 2:
+        bcr = clip.std.Crop(top=clip.height - 2)
+        bcr = Tweak(bcr, sat=bsat)
+        bcr = rektlvls(bcr, [0, 1], [16 - 235] * 2, prot_val=0)
+        clip = core.std.StackVertical([clip, bcr])
 
     return clip
+
+
+def BlackBorders(clip, left=0, right=0, top=0, bottom=0, lsat=.88, rsat=None, tsat=.2, bsat=.2, color=None):
+    return AddBordersMod(clip, left, top, right, bottom, lsat, tsat, rsat, bsat, color)
+
 
 
 def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=[0, 0, 0, 0], cfill=None,
