@@ -2,7 +2,7 @@ import vapoursynth as vs
 from vapoursynth import core
 from functools import partial
 import math
-from vsutil import plane, get_subsampling
+from vsutil import plane, get_subsampling, get_depth
 import fvsfunc as fvf
 from rekt import rektlvl, rektlvls, rekt_fast
 
@@ -644,9 +644,9 @@ def DebandReader(clip, csvfile, grain=64, range=30, delimiter=' '):
     """
     import csv
 
-    filtered = clip
+    filtered = clip if get_depth(clip) <= 16 else fvf.Depth(clip, 16)
+    depth = get_depth(clip)
 
-    depth = filtered.format.bits_per_sample
 
     with open(csvfile) as debandcsv:
         csvzones = csv.reader(debandcsv, delimiter=delimiter)
