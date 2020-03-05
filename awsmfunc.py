@@ -52,7 +52,8 @@ GetPlane = plane
 ReplaceFrames = fvf.ReplaceFramesSimple
 
 
-def bbmod(clip, top=0, bottom=0, left=0, right=0, blur=20, cTop=None, cBottom=None, cLeft=None, cRight=None):
+def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, cTop=None, cBottom=None, cLeft=None,
+          cRight=None):
     """
     Narkyy's bbmod helper for a significant speedup from cropping unnecessary pixels before processing.
     Thresh value is also automatically determined based on the clip's bit depth.
@@ -82,7 +83,8 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, blur=20, cTop=None, cBottom=No
         right = cRight
 
     depth = clip.format.bits_per_sample
-    thresh = int(math.pow(2, depth - 1))
+    if thresh is None:
+        thresh = int(math.pow(2, depth - 1))
 
     filtered = clip
 
@@ -173,7 +175,7 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999):
            and a small "blur" that can lead to unwanted artifacts "in a clean place".
            For each function call, try to set as few pixels as possible to change and as low a threshold as possible "thresh" (when using blur 0..16).
     """
-    funcName = "bbmod"
+    funcName = "bbmoda"
 
     if not isinstance(c, vs.VideoNode):
         raise TypeError(funcName + ': \"c\" must be a clip!')
@@ -393,7 +395,7 @@ def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, 
 
     if bb != None:
         if len(bb) == 4:
-            bb.append(128)
+            bb.append(None)
             bb.append(999)
         elif len(bb) != 6:
             raise TypeError('CropResize: bbmod arguments not valid.')
@@ -413,8 +415,8 @@ def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, 
     if bb != None:
         bb = [int(bb[0]) + lr + int(fill[0]), int(bb[1]) + rr + int(fill[1]), int(bb[2]) + tr + int(fill[2]),
               int(bb[3]) + br + int(fill[3]), int(bb[4]), int(bb[5])]
-        cropeven = bbmoda(c=cropeven, cTop=int(bb[2]) + tr, cBottom=int(bb[3]) + br, cLeft=int(bb[0]) + lr,
-                          cRight=int(bb[1]) + rr, thresh=int(bb[4]), blur=int(bb[5]))
+        cropeven = bbmod(c=cropeven, cTop=int(bb[2]) + tr, cBottom=int(bb[3]) + br, cLeft=int(bb[0]) + lr,
+                         cRight=int(bb[1]) + rr, thresh=int(bb[4]), blur=int(bb[5]))
 
     if resizer.lower() == 'bilinear':
         if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
@@ -523,7 +525,7 @@ def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=N
 
     if bb != None:
         if len(bb) == 4:
-            bb.append(128)
+            bb.append(None)
             bb.append(999)
         elif len(bb) != 6:
             raise TypeError('CropResizeReader: bbmod arguments not valid.')
@@ -536,8 +538,8 @@ def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=N
             bbtemp[2] = 0
         if FixUncrop[3] == False:
             bbtemp[3] = 0
-        filtered = bbmoda(c=filtered, cTop=bbtemp[2], cBottom=bbtemp[3], cLeft=bbtemp[0], cRight=bbtemp[1],
-                          thresh=bbtemp[4], blur=bbtemp[5])
+        filtered = bbmod(c=filtered, cTop=bbtemp[2], cBottom=bbtemp[3], cLeft=bbtemp[0], cRight=bbtemp[1],
+                         thresh=bbtemp[4], blur=bbtemp[5])
 
     resized = core.resize.Spline36(clip=filtered, width=width, height=height, dither_type="error_diffusion")
 
