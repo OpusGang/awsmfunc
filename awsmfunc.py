@@ -339,7 +339,6 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0, lsat=.88, rsat=None, ts
     return AddBordersMod(clip, left, top, right, bottom, lsat, tsat, rsat, bsat, color)
 
 
-
 def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=[0, 0, 0, 0], cfill=None,
                resizer='spline36', filter_param_a=None, filter_param_b=None) -> vs.VideoNode:
     """
@@ -414,8 +413,8 @@ def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, 
     if bb != None:
         bb = [int(bb[0]) + lr + int(fill[0]), int(bb[1]) + rr + int(fill[1]), int(bb[2]) + tr + int(fill[2]),
               int(bb[3]) + br + int(fill[3]), int(bb[4]), int(bb[5])]
-        cropeven = bbmod(c=cropeven, cTop=int(bb[2]) + tr, cBottom=int(bb[3]) + br, cLeft=int(bb[0]) + lr,
-                         cRight=int(bb[1]) + rr, thresh=int(bb[4]), blur=int(bb[5]))
+        cropeven = bbmoda(c=cropeven, cTop=int(bb[2]) + tr, cBottom=int(bb[3]) + br, cLeft=int(bb[0]) + lr,
+                          cRight=int(bb[1]) + rr, thresh=int(bb[4]), blur=int(bb[5]))
 
     if resizer.lower() == 'bilinear':
         if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
@@ -423,7 +422,8 @@ def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, 
                                          sh=cropeven.height - tr - br, kernel='bilinear')
         else:
             resized = core.resize.Bilinear(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br)
+                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
+                                           dither_type="error_diffusion")
     elif resizer.lower() == 'bicubic':
         if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
             resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
@@ -432,14 +432,16 @@ def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, 
         else:
             resized = core.resize.Bicubic(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
-                                          filter_param_a=filter_param_a, filter_param_b=filter_param_b)
+                                          filter_param_a=filter_param_a, filter_param_b=filter_param_b,
+                                          dither_type="error_diffusion")
     elif resizer.lower() == 'point':
         if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
             resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
                                          sh=cropeven.height - tr - br, kernel='point')
         else:
             resized = core.resize.Point(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                        src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br)
+                                        src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
+                                        dither_type="error_diffusion")
     elif resizer.lower() == 'lanczos':
         if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
             resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
@@ -447,21 +449,23 @@ def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, 
         else:
             resized = core.resize.Lanczos(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
-                                          filter_param_a=filter_param_a)
+                                          filter_param_a=filter_param_a, dither_type="error_diffusion")
     elif resizer.lower() == 'spline16':
         if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
             resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
                                          sh=cropeven.height - tr - br, kernel='spline16')
         else:
             resized = core.resize.Spline16(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br)
+                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
+                                           dither_type="error_diffusion")
     elif resizer.lower() == 'spline36':
         if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
             resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
                                          sh=cropeven.height - tr - br, kernel='spline36')
         else:
             resized = core.resize.Spline36(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br)
+                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
+                                           dither_type="error_diffusion")
     elif isinstance(resizer, str):
         raise TypeError('CropResize: Resizer "{}" unknown'.format(resizer))
     else:
@@ -532,10 +536,10 @@ def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=N
             bbtemp[2] = 0
         if FixUncrop[3] == False:
             bbtemp[3] = 0
-        filtered = bbmod(c=filtered, cTop=bbtemp[2], cBottom=bbtemp[3], cLeft=bbtemp[0], cRight=bbtemp[1],
-                         thresh=bbtemp[4], blur=bbtemp[5])
+        filtered = bbmoda(c=filtered, cTop=bbtemp[2], cBottom=bbtemp[3], cLeft=bbtemp[0], cRight=bbtemp[1],
+                          thresh=bbtemp[4], blur=bbtemp[5])
 
-    resized = core.resize.Spline36(clip=filtered, width=width, height=height)
+    resized = core.resize.Spline36(clip=filtered, width=width, height=height, dither_type="error_diffusion")
 
     with open(csvfile) as cropcsv:
         cropzones = csv.reader(cropcsv, delimiter=' ')
@@ -647,7 +651,6 @@ def DebandReader(clip, csvfile, grain=64, range=30, delimiter=' '):
     filtered = clip if get_depth(clip) <= 16 else fvf.Depth(clip, 16)
     depth = get_depth(clip)
 
-
     with open(csvfile) as debandcsv:
         csvzones = csv.reader(debandcsv, delimiter=delimiter)
         for row in csvzones:
@@ -753,17 +756,22 @@ def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1):
 
         for i, num in enumerate(screens, start=start):
             filename = "{path}/{:02d}{type}.png".format(i, path=folder_path, type=video_type)
-            core.imwri.Write(clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709"), "PNG", filename,
-                             overwrite=True).get_frame(num)
+            core.imwri.Write(clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion"),
+                             "PNG", filename, overwrite=True).get_frame(num)
 
 
-def DynamicTonemap(clip, show=False):
+def DynamicTonemap(clip, show=False, src_fmt=False):
     """
     Narkyy's dynamic tonemapping function.
     :param clip: HDR clip.
     :param show: Whether to show nits values.
+    :param src_fmt: Whether to output source bit depth instead of 8-bit 4:4:4.
     :return: SDR clip.
     """
+    if src_fmt:
+        resizer = core.resize.Point
+    else:
+        resizer = core.resize.Spline36
 
     def __dt(n, f, clip, show):
         import numpy as np
@@ -793,9 +801,9 @@ def DynamicTonemap(clip, show=False):
         nits = max(math.ceil(nits_max), 100)
 
         # Tonemap
-        clip = clip.resize.Point(transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
-                                    primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
-                                    dither_type="none", nominal_luminance=nits)
+        clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
+                       primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
+                       dither_type="none", nominal_luminance=nits)
 
         if show:
             clip = core.sub.Subtitle(clip, "Peak nits: {}, Target: {} nits".format(nits_max, nits))
@@ -804,13 +812,16 @@ def DynamicTonemap(clip, show=False):
 
     clip_orig = clip
 
-    clip = clip.resize.Point(format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
-                                range_s="full", dither_type="none")
+    clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
+                   range_s="full", dither_type="none")
 
     luma_props = core.std.PlaneStats(clip, plane=0)
     tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
 
-    return tonemapped_clip.resize.Point(format=clip_orig.format)
+    if src_fmt:
+        return tonemapped_clip.resize.Point(format=clip_orig.format, dither_type="error_diffusion")
+    else:
+        return fvf.Depth(tonemapped_clip, 8)
 
 
 def FillBorders(clip, left=0, right=0, top=0, bottom=0):
