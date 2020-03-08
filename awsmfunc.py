@@ -762,7 +762,7 @@ def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1):
                              "PNG", filename, overwrite=True).get_frame(num)
 
 
-def DynamicTonemap(clip, show=False, src_fmt=False):
+def DynamicTonemap(clip, show=False, src_fmt=True):
     """
     Narkyy's dynamic tonemapping function.
     :param clip: HDR clip.
