@@ -209,6 +209,7 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         cTop = min(cTop, cHeight - 1)
         blurWidth = max(8, math.floor(cWidth / blur))
         scale128 = str(scale(128, c.format.bits_per_sample))
+        exprchroma = "x {} - abs 2 *".format(scale128)
         expruv = "z y / 8 min 0.4 max x " + scale128 + " - * " + scale128 + " +"
         scale16 = str(scale(16, c.format.bits_per_sample))
         yexpr = "z " + scale16 + " - y " + scale16 + " - / 8 min 0.4 max x " + scale16 + " - * " + scale16 + " +"
@@ -223,12 +224,12 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
             c2 = core.resize.Point(c, cWidth * 2, cHeight * 2)
             last = core.std.CropAbs(c2, cWidth * 2, 2, 0, cTop * 2)
             last = core.resize.Point(last, cWidth * 2, cTop * 2)
-            BlurCExpr = ["", "x {} - abs 2 *".format(scale128)]
-            referenceBlurChroma = last.std.Expr(BlurCExpr).resize.Bicubic(blurWidth * 2, cTop * 2, filter_param_a=1,
-                                                                          filter_param_b=0).resize.Bicubic(cWidth * 2,
-                                                                                                           cTop * 2,
-                                                                                                           filter_param_a=1,
-                                                                                                           filter_param_b=0)
+            exprchroma = [exprchroma, ""]
+            referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth * 2, cTop * 2, filter_param_a=1,
+                                                                           filter_param_b=0).resize.Bicubic(cWidth * 2,
+                                                                                                            cTop * 2,
+                                                                                                            filter_param_a=1,
+                                                                                                            filter_param_b=0)
             referenceBlur = core.resize.Bicubic(last, blurWidth * 2, cTop * 2, filter_param_a=1,
                                                 filter_param_b=0).resize.Bicubic(cWidth * 2, cTop * 2, filter_param_a=1,
                                                                                  filter_param_b=0)
@@ -237,12 +238,12 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
 
             last = core.resize.Bicubic(original, blurWidth * 2, cTop * 2, filter_param_a=1, filter_param_b=0)
 
-            originalBlurChroma = last.std.Expr(BlurCExpr).resize.Bicubic(blurWidth * 2, cTop * 2,
-                                                                         filter_param_a=1,
-                                                                         filter_param_b=0).resize.Bicubic(cWidth * 2,
-                                                                                                          cTop * 2,
-                                                                                                          filter_param_a=1,
-                                                                                                          filter_param_b=0)
+            originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth * 2, cTop * 2,
+                                                                          filter_param_a=1,
+                                                                          filter_param_b=0).resize.Bicubic(cWidth * 2,
+                                                                                                           cTop * 2,
+                                                                                                           filter_param_a=1,
+                                                                                                           filter_param_b=0)
             originalBlur = core.resize.Bicubic(last, blurWidth * 2, cTop * 2, filter_param_a=1,
                                                filter_param_b=0).resize.Bicubic(cWidth * 2, cTop * 2, filter_param_a=1,
                                                                                 filter_param_b=0)
@@ -295,9 +296,8 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                 c2 = core.resize.Point(c2, cWidth, cHeight)
                 last = core.std.CropAbs(c2, cWidth, 1, 0, cTop)
                 last = core.resize.Point(last, cWidth, cTop)
-                referenceBlurChroma = last.std.Expr("x {} - abs 2 *".format(scale128)).resize.Bicubic(blurWidth, cTop,
-                                                                                                      filter_param_a=1,
-                                                                                                      filter_param_b=0).resize.Bicubic(
+                referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth, cTop, filter_param_a=1,
+                                                                               filter_param_b=0).resize.Bicubic(
                     cWidth,
                     cTop,
                     filter_param_a=1,
@@ -309,9 +309,8 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
 
                 last = core.resize.Bicubic(original, blurWidth, cTop, filter_param_a=1, filter_param_b=0)
 
-                originalBlurChroma = last.std.Expr("x {} - abs 2 *".format(scale128)).resize.Bicubic(blurWidth, cTop,
-                                                                                                     filter_param_a=1,
-                                                                                                     filter_param_b=0).resize.Bicubic(
+                originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth, cTop, filter_param_a=1,
+                                                                              filter_param_b=0).resize.Bicubic(
                     cWidth,
                     cTop,
                     filter_param_a=1,
