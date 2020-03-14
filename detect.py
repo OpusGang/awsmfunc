@@ -5,6 +5,12 @@ from functools import partial
 from vsutil import iterate
 from vsutil import plane as fplane
 
+def __vs_out_updated(c, t):
+    if c == t:
+        print("Frame: {}/{}".format(c, t), end="\n")
+    else:
+        print("Frame: {}/{}".format(c, t), end="\r")
+
 
 def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, plane=0):
     """
@@ -42,12 +48,11 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
     h2 = comp(pln, 2 * [0] + [left] + 2 * [0] + [mid] + 2 * [0] + [right])
     return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
 
-
-def merge_detections(input, output, cycle=1, delim=" "):
+def merge_detections(input, output, cycle=1, min_zone_len=0, delim=" "):
     import numpy as np
 
     def consecutive(data, cycle=cycle):
-        return np.split(data, np.where(np.diff(data) != cycle)[0] + 1)
+        return np.split(data, np.where(np.diff(data) != cycle)[0]+1)
 
     with open(input, 'r') as in_f:
         a = np.array(in_f.read().splitlines(), dtype=np.int)
@@ -56,42 +61,43 @@ def merge_detections(input, output, cycle=1, delim=" "):
         zones = []
         actual_cycle = cycle - 1
         for dtc in c:
-            zone = "{start}{delim}{end}\n".format(start=dtc[0], end=dtc[-1] + actual_cycle, delim=delim)
-            zones.append(zone)
+            start = dtc[0]
+            end = dtc[-1] + actual_cycle
+
+            if end - start >= min_zone_len:
+                zone = "{}{delim}{}\n".format(start, end, delim=delim)
+                zones.append(zone)
 
         if zones:
             with open(output, 'w') as out_f:
                 out_f.writelines(zones)
                 print("Merged frames into zonefile: {}".format(output))
 
-
-def detect_banding(clip, output, hi, lo, cycle=1, merged_output=None):
+def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True, min_zone_len=0):
     import os
     import sys
     import time
 
     def detect(n, f, clip, hi, lo, detections):
-        if f.props.PlaneStatsAverage > lo and f.props.PlaneStatsAverage < hi:
-            detections.append(n * cycle)
+        if f.props.PlaneStatsAverage >= lo and f.props.PlaneStatsAverage <= hi:
+            detections.append(n*cycle)
 
         return clip
 
-    def updated(c, t):
-        if c == t:
-            print("Frame: {}/{}".format(c, t), end="\n")
-        else:
-            print("Frame: {}/{}".format(c, t), end="\r")
+    clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0)
+
+    if trim and cycle > 1:
+        clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
 
     clip = clip.std.PlaneStats()
     total_frames = clip.num_frames
-
+    
     detected_frames = []
 
     with open(os.devnull, 'wb') as f:
-        processed = core.std.FrameEval(clip, partial(detect, clip=clip, hi=hi, lo=lo, detections=detected_frames),
-                                       prop_src=clip)
+        processed = core.std.FrameEval(clip, partial(detect, clip=clip, hi=hi, lo=lo, detections=detected_frames), prop_src=clip)
         start = time.time()
-        processed.output(f, progress_update=updated)
+        processed.output(f, progress_update=__vs_out_updated)
 
     end = time.time()
     print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
@@ -100,27 +106,13 @@ def detect_banding(clip, output, hi, lo, cycle=1, merged_output=None):
         for f in detected_frames:
             out_file.write("{}\n".format(f))
 
-    if merged_output:
-        merge_detections(output, merged_output, cycle=cycle)
-
-    return None
-
-
-def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=24, merge=True):
-    mask = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0)
-
-    if trim and cycle > 1:
-        mask = mask.std.SelectEvery(cycle=cycle, offsets=0)
-    else:
-        cycle = 1
-
     if merge:
-        merge = "merged-{}".format(output)
+        merged_output = "merged-{}".format(output)
+        merge_detections(output, merged_output, cycle=cycle, min_zone_len=min_zone_len)
 
-    dtc = detect_banding(mask, output, hi, lo, cycle=cycle, merged_output=merge)
     quit("Finished detecting banding, output file: {}".format(output))
 
-    return dtc
+    return None
 
 
 def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, cycle=1):
@@ -152,12 +144,6 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
             detections.append(n * cycle)
         return clip
 
-    def updated(c, t):
-        if c == t:
-            print("Frame: {}/{}".format(c, t), end="\n")
-        else:
-            print("Frame: {}/{}".format(c, t), end="\r")
-
     total_frames = clip.num_frames
 
     detected_frames = []
@@ -180,7 +166,7 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
                 processed = core.std.FrameEval(clip, partial(detect, clip=clip, thr=thr, detections=detected_frames),
                                                prop_src=clip_diff)
         start = time.time()
-        processed.output(f, progress_update=updated)
+        processed.output(f, progress_update=__vs_out_updated)
 
     end = time.time()
     print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
