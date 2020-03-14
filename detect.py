@@ -2,7 +2,7 @@ import vapoursynth as vs
 from vapoursynth import core
 import fvsfunc as fvf
 from functools import partial
-from vsutil import iterate
+from vsutil import iterate, get_y
 from vsutil import plane as fplane
 
 def __vs_out_updated(c, t):
@@ -123,37 +123,43 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
     luma = get_y(clip)
 
     def get_rows(luma, ori, num):
-        if ori is "row":
+        if ori == "row":
             clip_a = luma.std.Crop(top=num, bottom=luma.height - num - 1)
             if num + 1 < luma.height:
                 clip_b = luma.std.Crop(top=num + 1, bottom=luma.height - num - 2)
             else:
-                clip_b = luma.std.Crop(top=num - 1)
-        elif ori is "column" or ori is "col":
+                clip_b = luma.std.Crop(top=num - 1, right=1)
+        elif ori == "column" or ori == "col":
             clip_a = luma.std.Crop(left=num, right=luma.width - num - 1)
             if num + 1 < luma.width:
                 clip_b = luma.std.Crop(left=num + 1, right=luma.width - num - 2)
             else:
-                clip_b = luma.std.Crop(left=num - 1)
+                clip_b = luma.std.Crop(left=num - 1, right=1)
         else:
             raise ValueError("blckdtct: ori must be either row, column, or None for both!")
         return core.std.PlaneStats(clip_a, clip_b)
 
-    def detect(n, f, clip, detections):
+    def detect(n, f, clip, thr, detections):
         if f.props.PlaneStatsDiff > thr:
             detections.append(n * cycle)
         return clip
+
+    def updated(c, t):
+        if c == t:
+            print("Frame: {}/{}".format(c, t), end="\n")
+        else:
+            print("Frame: {}/{}".format(c, t), end="\r")
 
     total_frames = clip.num_frames
 
     detected_frames = []
 
-    if isinstance(num, list):
+    if isinstance(num, int):
         num = [num]
 
     with open(os.devnull, 'wb') as f:
         for i in num:
-            if None:
+            if ori is None:
                 clip_diff = get_rows(luma, "row", i)
                 processed = core.std.FrameEval(clip, partial(detect, clip=clip, thr=thr, detections=detected_frames),
                                                prop_src=clip_diff)
@@ -166,7 +172,7 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
                 processed = core.std.FrameEval(clip, partial(detect, clip=clip, thr=thr, detections=detected_frames),
                                                prop_src=clip_diff)
         start = time.time()
-        processed.output(f, progress_update=__vs_out_updated)
+        processed.output(f, progress_update=updated)
 
     end = time.time()
     print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
