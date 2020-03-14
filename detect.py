@@ -60,7 +60,11 @@ def merge_detections(input, output, cycle=1, min_zone_len=0, delim=" "):
 
         zones = []
         actual_cycle = cycle - 1
-        min_zone = min_zone_len if min_zone_len != cycle else min_zone_len - 1
+
+        if min_zone_len >= cycle:
+            min_zone = min_zone_len - 1 if min_zone_len % cycle == 0 else min_zone_len
+        else:
+            min_zone = min_zone_len - 1 if cycle % min_zone_len == 0 else min_zone_len
 
         for dtc in c:
             start = dtc[0]
