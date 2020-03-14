@@ -860,7 +860,7 @@ def RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs=
     return clip
 
 
-def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1):
+def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1, delim=" "):
     """
     quietvoid's screenshot generator.
     Generates screenshots from a list of frame numbers
@@ -880,6 +880,9 @@ def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1):
     if os.path.isfile(frame_num_path):
         with open(frame_numbers) as f:
             screens = f.readlines()
+
+        # Keep value before first delim, so that we can parse default detect zones files
+        screens = [v.split(delim)[0] for v in screens]
 
         if not os.path.isdir(folder_path):
             os.mkdir(folder_path)
