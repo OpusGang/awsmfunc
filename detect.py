@@ -5,6 +5,7 @@ from functools import partial
 from vsutil import iterate, get_y
 from vsutil import plane as fplane
 
+
 def __vs_out_updated(c, t):
     if c == t:
         print("Frame: {}/{}".format(c, t), end="\n")
@@ -48,11 +49,12 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
     h2 = comp(pln, 2 * [0] + [left] + 2 * [0] + [mid] + 2 * [0] + [right])
     return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
 
+
 def merge_detections(input, output, cycle=1, min_zone_len=0, delim=" "):
     import numpy as np
 
     def consecutive(data, cycle=cycle):
-        return np.split(data, np.where(np.diff(data) != cycle)[0]+1)
+        return np.split(data, np.where(np.diff(data) != cycle)[0] + 1)
 
     with open(input, 'r') as in_f:
         a = np.array(in_f.read().splitlines(), dtype=np.int)
@@ -79,29 +81,44 @@ def merge_detections(input, output, cycle=1, min_zone_len=0, delim=" "):
                 out_f.writelines(zones)
                 print("Merged frames into zonefile: {}".format(output))
 
-def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True, min_zone_len=0):
+
+def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
+             min_zone_len=1, prev=False, diff=0.10):
     import os
     import sys
     import time
 
-    def detect(n, f, clip, hi, lo, detections):
-        if f.props.PlaneStatsAverage >= lo and f.props.PlaneStatsAverage <= hi:
-            detections.append(n*cycle)
+    def detect(n, f, clip, hi, lo, detections, diff, prev):
+        if f[0].props.PlaneStatsAverage >= lo and f[0].props.PlaneStatsAverage <= hi:
+            if prev:
+                if (n * cycle) not in detections:
+                    detections.append(n * cycle)
+                if f[1].props.PlaneStatsDiff < diff and f[2].props.PlaneStatsAverage >= lo / 2 and f[
+                    2].props.PlaneStatsAverage <= hi:
+                    detections.append((n + 1) * cycle)
+            else:
+                detections.append(n * cycle)
 
         return clip
 
     clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0)
+    next_frame = clip[1:]
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
 
+    clip_diff = core.std.PlaneStats(clip, next_frame)
     clip = clip.std.PlaneStats()
+    next_frame = next_frame.std.PlaneStats()
     total_frames = clip.num_frames
-    
+
     detected_frames = []
 
     with open(os.devnull, 'wb') as f:
-        processed = core.std.FrameEval(clip, partial(detect, clip=clip, hi=hi, lo=lo, detections=detected_frames), prop_src=clip)
+        processed = core.std.FrameEval(clip,
+                                       partial(detect, clip=clip, hi=hi, lo=lo, detections=detected_frames, diff=diff,
+                                               prev=prev),
+                                       prop_src=[clip, clip_diff, next_frame])
         start = time.time()
         processed.output(f, progress_update=__vs_out_updated)
 
