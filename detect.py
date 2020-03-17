@@ -101,10 +101,11 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
         return clip
 
     clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0)
-    next_frame = clip[1:]
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
+
+    next_frame = clip[1:]
 
     clip_diff = core.std.PlaneStats(clip, next_frame)
     clip = clip.std.PlaneStats()
