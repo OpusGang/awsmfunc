@@ -72,7 +72,7 @@ def merge_detections(input, output, cycle=1, min_zone_len=0, delim=" "):
             start = dtc[0]
             end = dtc[-1] + actual_cycle
 
-            if end - start >= min_zone:
+            if end - start >= min_zone and start != end:
                 zone = "{}{delim}{}\n".format(start, end, delim=delim)
                 zones.append(zone)
 
@@ -91,14 +91,12 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
     def detect(n, f, clip, hi, lo, detections, diff, check_next):
         if f[0].props.PlaneStatsAverage >= lo and f[0].props.PlaneStatsAverage <= hi:
             if check_next:
-                if n * cycle not in detections:
-                    detections.append(n * cycle)
+                detections.add(n * cycle)
                 if f[1].props.PlaneStatsDiff < diff and f[2].props.PlaneStatsAverage >= lo / 2 and f[
                     2].props.PlaneStatsAverage <= hi:
-                    if (n + 1) * cycle not in detections:
-                        detections.append((n + 1) * cycle)
+                    detections.add((n + 1) * cycle)
             else:
-                detections.append(n * cycle)
+                detections.add(n * cycle)
 
         return clip
 
@@ -113,7 +111,7 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
     next_frame = next_frame.std.PlaneStats()
     total_frames = clip.num_frames
 
-    detected_frames = []
+    detected_frames = set([])
 
     with open(os.devnull, 'wb') as f:
         processed = core.std.FrameEval(clip,
@@ -122,6 +120,10 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
                                        prop_src=[clip, clip_diff, next_frame])
         start = time.time()
         processed.output(f, progress_update=__vs_out_updated)
+
+    # Sort frames because multithreading likely made them weird
+    detected_frames = list(detected_frames)
+    detected_frames.sort()
 
     end = time.time()
     print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
