@@ -770,7 +770,7 @@ def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=N
     return resized
 
 
-def DebandReader(clip, csvfile, grain=64, range=30, delimiter=' '):
+def DebandReader(clip, csvfile, grain=64, range=30, delimiter=' ', mask=None):
     """
     DebandReader, read a csv file to apply a f3kdb filter for given strengths and frames. From sgvsfunc.
     > Usage: DebandReader(clip, csvfile, grain, range)
@@ -792,6 +792,9 @@ def DebandReader(clip, csvfile, grain=64, range=30, delimiter=' '):
                                    dynamic_grain=True, range=range, output_depth=depth)
 
             filtered = ReplaceFrames(filtered, db, mappings="[" + row[0] + " " + row[1] + "]")
+
+        if mask:
+            filtered = core.std.MaskedMerge(clip, filtered, mask)
 
     return filtered
 
