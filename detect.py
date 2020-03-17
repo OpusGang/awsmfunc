@@ -83,19 +83,20 @@ def merge_detections(input, output, cycle=1, min_zone_len=0, delim=" "):
 
 
 def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
-             min_zone_len=1, prev=False, diff=0.10):
+             min_zone_len=1, check_next=True, diff=0.10):
     import os
     import sys
     import time
 
-    def detect(n, f, clip, hi, lo, detections, diff, prev):
+    def detect(n, f, clip, hi, lo, detections, diff, check_next):
         if f[0].props.PlaneStatsAverage >= lo and f[0].props.PlaneStatsAverage <= hi:
-            if prev:
-                if (n * cycle) not in detections:
+            if check_next:
+                if n * cycle not in detections:
                     detections.append(n * cycle)
                 if f[1].props.PlaneStatsDiff < diff and f[2].props.PlaneStatsAverage >= lo / 2 and f[
                     2].props.PlaneStatsAverage <= hi:
-                    detections.append((n + 1) * cycle)
+                    if (n + 1) * cycle not in detections:
+                        detections.append((n + 1) * cycle)
             else:
                 detections.append(n * cycle)
 
@@ -117,7 +118,7 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
     with open(os.devnull, 'wb') as f:
         processed = core.std.FrameEval(clip,
                                        partial(detect, clip=clip, hi=hi, lo=lo, detections=detected_frames, diff=diff,
-                                               prev=prev),
+                                               check_next=check_next),
                                        prop_src=[clip, clip_diff, next_frame])
         start = time.time()
         processed.output(f, progress_update=__vs_out_updated)
