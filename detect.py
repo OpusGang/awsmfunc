@@ -13,7 +13,7 @@ def __vs_out_updated(c, t):
         print("Frame: {}/{}".format(c, t), end="\r")
 
 
-def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, plane=0):
+def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, plane=0, grain_darks=True):
     """
     A mask that finds areas lacking in grain by simply binarizing the gradient.
     :param clip: Clip to be processed
@@ -33,6 +33,14 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
         clip = fvf.Depth(clip, 16)
     if exp is None:
         exp = dec + pix
+
+    if grain_darks:
+        grain = core.std.BlankClip(clip, format=clip.format, color=[32768, 32768, 32768], length=1)
+        grain = core.grain.Add(grain, var=100.0, constant=True)
+
+        msk = clip.std.Expr(["x 5632 < 65535 0 ?", ""]).std.Maximum()
+        clip = core.std.Expr([msk, grain, clip], "x 65535 = y z ?")
+
     pln = fplane(clip, plane)
 
     def comp(c, mat):
@@ -82,7 +90,7 @@ def merge_detections(input, output, cycle=1, min_zone_len=0, delim=" "):
                 print("Merged frames into zonefile: {}".format(output))
 
 
-def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
+def banddtct(clip, output="banding-frames.txt", thr=150, lothr=50, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
              min_zone_len=1, check_next=True, diff=0.10):
     import os
     import sys
@@ -100,7 +108,7 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
 
         return clip
 
-    clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0)
+    clip = bandmask(clip, thr=thr, lothr=lothr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0)
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
