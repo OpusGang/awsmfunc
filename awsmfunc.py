@@ -935,7 +935,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True):
         luma_max = np.percentile(luma_arr, float(99.99))
         nits_max = st2084_eotf(luma_max / 65535) * ST2084_PEAK_LUMINANCE
 
-        # Don't go below 120 nits
+        # Don't go below 100 nits
         nits = max(math.ceil(nits_max), 100)
 
         # Tonemap
