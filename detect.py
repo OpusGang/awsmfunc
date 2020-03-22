@@ -13,7 +13,7 @@ def __vs_out_updated(c, t):
         print("Frame: {}/{}".format(c, t), end="\r")
 
 
-def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, plane=0, grain_darks=True):
+def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, plane=0, grain_darks=True, dark_thr=5632):
     """
     A mask that finds areas lacking in grain by simply binarizing the gradient.
     :param clip: Clip to be processed
@@ -38,7 +38,7 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
         grain = core.std.BlankClip(clip, format=clip.format, color=[32768, 32768, 32768], length=1)
         grain = core.grain.Add(grain, var=100.0, constant=True)
 
-        msk = clip.std.Expr(["x 5632 < 65535 0 ?", ""]).std.Maximum()
+        msk = clip.std.Expr(["x {} < 65535 0 ?".format(dark_thr), ""]).std.Maximum()
         clip = core.std.Expr([msk, grain, clip], "x 65535 = y z ?")
 
     pln = fplane(clip, plane)
