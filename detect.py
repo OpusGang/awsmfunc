@@ -91,7 +91,7 @@ def merge_detections(input, output, cycle=1, min_zone_len=0, delim=" "):
 
 
 def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
-             min_zone_len=1, check_next=True, diff=0.10):
+             min_zone_len=1, check_next=True, diff=0.10, grain_darks=True):
     import os
     import sys
     import time
@@ -108,7 +108,7 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
 
         return clip
 
-    clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0)
+    clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0, grain_darks=grain_darks)
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
