@@ -50,8 +50,23 @@ def FixRowBrightness(clip, row, input_low=16, input_high=235, output_low=16, out
 
 GetPlane = plane
 
-ReplaceFrames = fvf.ReplaceFramesSimple
+def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
+    """
+    ReplaceFramesSimple wrapper that attempts to use the plugin version with a fallback to fvsfunc.
+    https://github.com/Irrational-Encoding-Wizardry/Vapoursynth-RemapFrames
+    :param clipa: Main clip.
+    :param clipb: Filtered clip to splice into main clip.
+    :param mappings: String of frames to be replaced, e.g. "[0 500] [1000 1500]".
+    :param filename: File with frames to be replaced.
+    :return: clipa with clipb spliced in according to specified frames.
+    """
+    try:
+        return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
+    except AttributeError:
+        return fvf.rfs(clipa, clipb, mappings, filename)
 
+
+rfs = ReplaceFrames
 
 def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, u=True, v=True, scale_thresh=False,
           cTop=None, cBottom=None, cLeft=None, cRight=None):
