@@ -956,14 +956,17 @@ def DynamicTonemap(clip, show=False, src_fmt=True):
         return fvf.Depth(tonemapped_clip, 8)
 
 
-def FillBorders(clip, left=0, right=0, top=0, bottom=0):
+def FillBorders(clip, left=0, right=0, top=0, bottom=0, fix_chroma=False):
     """
     FillBorders wrapper that automatically sets fillmargins mode.
     """
-    return core.fb.FillBorders(clip, left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+    clip = core.fb.FillBorders(clip, left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
 
+    if fix_chroma:
+        clip = core.fb.FillBorders(clip, left=left+2, right=right+2, top=top+2, bottom=bottom+2, mode="fillmargins").std.Merge(clip, [1, 0])
 
-fb = FillBorders
+    return clip
+
 
 
 #####################
