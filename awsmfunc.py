@@ -956,18 +956,29 @@ def DynamicTonemap(clip, show=False, src_fmt=True):
         return fvf.Depth(tonemapped_clip, 8)
 
 
-def FillBorders(clip, left=0, right=0, top=0, bottom=0, fix_chroma=False):
+def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
     """
     FillBorders wrapper that automatically sets fillmargins mode.
+    Chroma planes are processed according to the affected rows in 4:4:4. This means that if the input clip is 4:2:0 and
+    two rows are grayed out, but one doesn't want to process luma, one still has to use top/bottom=2 instead of 1.
     """
-    clip = core.fb.FillBorders(clip, left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+    if isinstance(planes, int):
+        planes = [planes]
+    y, u, v = split(clip)
+    if 0 in planes:
+        y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+    if clip.format.subsampling_w == 1:
+        left, right= math.ceil(left / 2), math.ceil(right / 2)
+    if clip.format.subsampling_h == 1:
+        top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
+    if 1 in planes:
+        u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+    if 2 in planes:
+        v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
 
-    if fix_chroma:
-        clip = core.fb.FillBorders(clip, left=left+2, right=right+2, top=top+2, bottom=bottom+2, mode="fillmargins").std.Merge(clip, [1, 0])
+    return join([y, u, v])
 
-    return clip
-
-
+fb = FillBorders
 
 #####################
 # Utility functions #
