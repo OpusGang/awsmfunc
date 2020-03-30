@@ -2,7 +2,7 @@ import vapoursynth as vs
 from vapoursynth import core
 from functools import partial
 import math
-from vsutil import plane, get_subsampling, get_depth, split
+from vsutil import plane, get_subsampling, get_depth, split, join
 import fvsfunc as fvf
 from rekt import rektlvl, rektlvls, rekt_fast
 
@@ -964,21 +964,22 @@ def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
     """
     if isinstance(planes, int):
         planes = [planes]
+
     y, u, v = split(clip)
-    if 0 in planes:
-        y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+
     if clip.format.subsampling_w == 1:
         left, right= math.ceil(left / 2), math.ceil(right / 2)
     if clip.format.subsampling_h == 1:
         top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
+
+    if 0 in planes:
+        y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
     if 1 in planes:
         u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
     if 2 in planes:
         v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
 
     return join([y, u, v])
-
-fb = FillBorders
 
 #####################
 # Utility functions #
