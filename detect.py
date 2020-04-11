@@ -198,6 +198,7 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
                 clip_diff = get_rows(luma, "row", i)
                 processed = core.std.FrameEval(clip, partial(detect, clip=clip, thr=thr, detections=detected_frames),
                                                prop_src=clip_diff)
+
                 clip_diff = get_rows(luma, "col", i)
                 processed = core.std.FrameEval(processed,
                                                partial(detect, clip=processed, thr=thr, detections=detected_frames),
@@ -224,7 +225,7 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
 
 def dirtdtct(clip, output="dirty-frames.txt", num=[0], ori=None, thr=.1, trim=False, cycle=24, merge=True):
     if trim and cycle > 1:
-        clip = mask.std.SelectEvery(cycle=cycle, offsets=0)
+        clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
     else:
         cycle = 1
 
