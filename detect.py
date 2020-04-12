@@ -136,16 +136,18 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
 
     end = time.time()
     print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
+    print("Detected frames: {}".format(len(detected_frames)))
 
-    with open(output, 'w') as out_file:
-        for f in detected_frames:
-            out_file.write("{}\n".format(f))
+    if detected_frames:
+        with open(output, 'w') as out_file:
+            for f in detected_frames:
+                out_file.write("{}\n".format(f))
 
-    if merge:
-        merged_output = "merged-{}".format(output)
-        merge_detections(output, merged_output, cycle=cycle, min_zone_len=min_zone_len)
+        if merge:
+            merged_output = "merged-{}".format(output)
+            merge_detections(output, merged_output, cycle=cycle, min_zone_len=min_zone_len)
 
-    quit("Finished detecting banding, output file: {}".format(output))
+        quit("Finished detecting banding, output file: {}".format(output))
 
     return None
 
@@ -212,13 +214,15 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
 
     end = time.time()
     print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
+    print("Detected frames: {}".format(len(detected_frames)))
 
-    with open(output, 'w') as out_file:
-        for f in detected_frames:
-            out_file.write("{}\n".format(f))
+    if detected_frames:
+        with open(output, 'w') as out_file:
+            for f in detected_frames:
+                out_file.write("{}\n".format(f))
 
-    if merged_output:
-        merge_detections(output, merged_output, cycle=cycle)
+        if merged_output:
+            merge_detections(output, merged_output, cycle=cycle)
 
     return None
 
