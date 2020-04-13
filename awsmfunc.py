@@ -990,24 +990,29 @@ def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
     Chroma planes are processed according to the affected rows in 4:4:4. This means that if the input clip is 4:2:0 and
     two rows are grayed out, but one doesn't want to process luma, one still has to use top/bottom=2 instead of 1.
     """
-    if isinstance(planes, int):
-        planes = [planes]
+    if clip.format.num_planes == 3:
+        if isinstance(planes, int):
+            planes = [planes]
 
-    y, u, v = split(clip)
+        y, u, v = split(clip)
 
-    if clip.format.subsampling_w == 1:
-        left, right= math.ceil(left / 2), math.ceil(right / 2)
-    if clip.format.subsampling_h == 1:
-        top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
+        if clip.format.subsampling_w == 1:
+            left, right= math.ceil(left / 2), math.ceil(right / 2)
+        if clip.format.subsampling_h == 1:
+            top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
 
-    if 0 in planes:
-        y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
-    if 1 in planes:
-        u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
-    if 2 in planes:
-        v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        if 0 in planes:
+            y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        if 1 in planes:
+            u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        if 2 in planes:
+            v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
 
-    return join([y, u, v])
+        return join([y, u, v])
+    else:
+        return clip.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+
+fb = FillBorders
 
 #####################
 # Utility functions #
