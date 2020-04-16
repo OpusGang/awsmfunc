@@ -1001,8 +1001,6 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
 
         props = core.std.PlaneStats(clip, plane=0)
         tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, use_placebo=use_placebo, show=show), prop_src=[props])
-
-        tonemapped_clip = tonemapped_clip.resize.Point(range_in_s="full", range_s="limited")
     else:
         clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
                     range_s="full", dither_type="none")
