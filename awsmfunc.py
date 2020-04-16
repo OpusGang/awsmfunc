@@ -926,12 +926,13 @@ def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1, de
                              "PNG", filename, overwrite=True).get_frame(num)
 
 
-def DynamicTonemap(clip, show=False, src_fmt=True):
+def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
     """
     Narkyy's dynamic tonemapping function.
     :param clip: HDR clip.
     :param show: Whether to show nits values.
     :param src_fmt: Whether to output source bit depth instead of 8-bit 4:4:4.
+    :param libplacebo: Whether to use vs-placebo as tonemapper
     :return: SDR clip.
     """
     if src_fmt:
@@ -939,7 +940,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True):
     else:
         resizer = core.resize.Spline36
 
-    def __dt(n, f, clip, show):
+    def __dt(n, f, clip, use_placebo, show):
         import numpy as np
 
         ST2084_PEAK_LUMINANCE = 10000
@@ -948,6 +949,8 @@ def DynamicTonemap(clip, show=False, src_fmt=True):
         ST2084_C1 = 0.8359375
         ST2084_C2 = 18.8515625
         ST2084_C3 = 18.6875
+
+        ICTCP_RGB_MAT = np.array([[0.412109375, 0.16674804687, 0.02416992187], ])
 
         def st2084_eotf(x):
             y = float(0.0)
@@ -959,33 +962,54 @@ def DynamicTonemap(clip, show=False, src_fmt=True):
 
             return y
 
-        luma_arr = f.get_read_array(0)
-        luma_max = np.percentile(luma_arr, float(99.99))
-        nits_max = st2084_eotf(luma_max / 65535) * ST2084_PEAK_LUMINANCE
+        if use_placebo:
+            (r, g, b) = (f.get_read_array(0), f.get_read_array(1), f.get_read_array(2))
 
-        # Don't go below 100 nits
-        nits = max(math.ceil(nits_max), 100)
+            r_max = np.percentile(r, float(99.99))
+            g_max = np.percentile(g, float(99.99))
+            b_max = np.percentile(b, float(99.99))
 
-        # Tonemap
-        clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
-                       primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
-                       dither_type="none", nominal_luminance=nits)
+            luma_max = np.amax([r_max, g_max, b_max])
+            nits_max = (st2084_eotf(luma_max / 65535) * ST2084_PEAK_LUMINANCE) / 100
+
+            clip = core.placebo.Tonemap(clip, dynamic_peak_detection=False, src_peak=nits_max, srcp=5, dstp=3, srct=8, dstt=1, dst_peak=1.0, dst_scale=8)
+        else:
+            luma_arr = f.get_read_array(0)
+            luma_max = np.percentile(luma_arr, float(99.99))
+            nits_max = st2084_eotf(luma_max / 65535) * ST2084_PEAK_LUMINANCE
+
+            # Don't go below 100 nits
+            nits = max(math.ceil(nits_max), 100)
+
+            # Tonemap
+            clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
+                        primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
+                        dither_type="none", nominal_luminance=nits)
 
         if show:
-            clip = core.sub.Subtitle(clip, "Peak nits: {}, Target: {} nits".format(nits_max, nits))
+            clip = core.sub.Subtitle(clip, "Max luma: {}. Max nits: {}".format(luma_max, nits_max))
 
         return clip
 
-    clip_orig = clip
+    clip_orig_format = clip.format
 
-    clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
-                   range_s="full", dither_type="none")
+    # Make sure libplacebo is properly loaded
+    use_placebo = libplacebo and ("com.vs.placebo" in core.get_plugins())
 
-    luma_props = core.std.PlaneStats(clip, plane=0)
-    tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
+    if use_placebo:
+        clip = resizer(clip, format=vs.RGB48, range_in_s="limited", range_s="full", dither_type="none")
+
+        props = core.std.PlaneStats(clip, plane=0)
+        tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, use_placebo=use_placebo, show=show), prop_src=[props])
+    else:
+        clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
+                    range_s="full", dither_type="none")
+
+        luma_props = core.std.PlaneStats(clip, plane=0)
+        tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, use_placebo=use_placebo, show=show), prop_src=[luma_props])
 
     if src_fmt:
-        return tonemapped_clip.resize.Point(format=clip_orig.format, dither_type="error_diffusion")
+        return tonemapped_clip.resize.Point(format=clip_orig_format, matrix_s="709", dither_type="error_diffusion")
     else:
         return fvf.Depth(tonemapped_clip, 8)
 
