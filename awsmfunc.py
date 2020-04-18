@@ -50,6 +50,7 @@ def FixRowBrightness(clip, row, input_low=16, input_high=235, output_low=16, out
 
 GetPlane = plane
 
+
 def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     """
     ReplaceFramesSimple wrapper that attempts to use the plugin version with a fallback to fvsfunc.
@@ -65,7 +66,9 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     except AttributeError:
         return fvf.rfs(clipa, clipb, mappings, filename)
 
+
 rfs = ReplaceFrames
+
 
 def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, u=True, v=True, scale_thresh=False,
           cpass2=False, cTop=None, cBottom=None, cLeft=None, cRight=None):
@@ -997,7 +1000,7 @@ def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
         y, u, v = split(clip)
 
         if clip.format.subsampling_w == 1:
-            left, right= math.ceil(left / 2), math.ceil(right / 2)
+            left, right = math.ceil(left / 2), math.ceil(right / 2)
         if clip.format.subsampling_h == 1:
             top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
 
@@ -1012,7 +1015,9 @@ def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
     else:
         return clip.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
 
+
 fb = FillBorders
+
 
 #####################
 # Utility functions #
