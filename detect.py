@@ -58,7 +58,7 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
     return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
 
 
-def merge_detections(input, output, cycle=1, min_zone_len=0, delim=" "):
+def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" "):
     import numpy as np
 
     def consecutive(data, cycle=cycle):
@@ -152,7 +152,7 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
     return None
 
 
-def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, cycle=1):
+def detect_dirty_lines(clip, output, left, top, right, bottom, thr=.1, merged_output=None, cycle=1):
     import os
     import sys
     import time
@@ -165,15 +165,13 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
             if num + 1 < luma.height:
                 clip_b = luma.std.Crop(top=num + 1, bottom=luma.height - num - 2)
             else:
-                clip_b = luma.std.Crop(top=num - 1, right=1)
+                clip_b = luma.std.Crop(top=num - 1, bottom=1)
         elif ori == "column" or ori == "col":
             clip_a = luma.std.Crop(left=num, right=luma.width - num - 1)
             if num + 1 < luma.width:
                 clip_b = luma.std.Crop(left=num + 1, right=luma.width - num - 2)
             else:
                 clip_b = luma.std.Crop(left=num - 1, right=1)
-        else:
-            raise ValueError("blckdtct: ori must be either row, column, or None for both!")
         return core.std.PlaneStats(clip_a, clip_b)
 
     def detect(n, f, clip, thr, detections):
@@ -191,22 +189,26 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
 
     detected_frames = []
 
-    if isinstance(num, int):
-        num = [num]
+    column_list = []
+    if left:
+        column_list.append(left)
+    if right:
+        column_list.append(right)
+    row_list = []
+    if top:
+        row_list.append(top)
+    if bottom:
+        row_list.append(bottom)
 
     with open(os.devnull, 'wb') as f:
-        for i in num:
-            if ori is None:
-                clip_diff = get_rows(luma, "row", i)
+        for _ in column_list:
+            for i in _:
+                clip_diff = get_rows(luma, "col", i)
                 processed = core.std.FrameEval(clip, partial(detect, clip=clip, thr=thr, detections=detected_frames),
                                                prop_src=clip_diff)
-
-                clip_diff = get_rows(luma, "col", i)
-                processed = core.std.FrameEval(processed,
-                                               partial(detect, clip=processed, thr=thr, detections=detected_frames),
-                                               prop_src=clip_diff)
-            else:
-                clip_diff = get_rows(luma, ori, i)
+        for _ in row_list:
+            for i in _:
+                clip_diff = get_rows(luma, "row", i)
                 processed = core.std.FrameEval(clip, partial(detect, clip=clip, thr=thr, detections=detected_frames),
                                                prop_src=clip_diff)
         start = time.time()
@@ -227,7 +229,23 @@ def detect_dirty_lines(clip, output, num, ori=None, thr=.1, merged_output=None, 
     return None
 
 
-def dirtdtct(clip, output="dirty-frames.txt", num=[0], ori=None, thr=.1, trim=False, cycle=24, merge=True):
+def dirtdtct(clip, output="dirty-frames.txt", left=None, top=None, right=None, bottom=None, thr=.1, trim=False,
+             cycle=1, merge=True):
+    if isinstance(left, int):
+        left = [left]
+    if isinstance(top, int):
+        top = [top]
+    if isinstance(right, int):
+        right = [clip.width - right - 1]
+    elif isinstance(right, list):
+        for _ in range(len(right)):
+            right[_] = clip.width - right[_] - 1
+    if isinstance(bottom, int):
+        bottom = [clip.height - bottom - 1]
+    elif isinstance(bottom, list):
+        for _ in range(len(bottom)):
+            bottom[_] = clip.height - bottom[_] - 1
+
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
     else:
@@ -236,7 +254,7 @@ def dirtdtct(clip, output="dirty-frames.txt", num=[0], ori=None, thr=.1, trim=Fa
     if merge:
         merge = "merged-{}".format(output)
 
-    dtc = detect_dirty_lines(clip, output, num, ori, thr, merge, cycle)
+    dtc = detect_dirty_lines(clip, output, left, top, right, bottom, thr, merge, cycle)
     quit("Finished detecting dirty lines, output file: {}".format(output))
 
     return dtc
