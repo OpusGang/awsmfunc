@@ -13,7 +13,8 @@ def __vs_out_updated(c, t):
         print("Frame: {}/{}".format(c, t), end="\r")
 
 
-def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, plane=0, grain_darks=True, dark_thr=5632):
+def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, plane=0, darkthr=None, brightthr=None,
+             blankthr=None):
     """
     A mask that finds areas lacking in grain by simply binarizing the gradient.
     :param clip: Clip to be processed
@@ -25,29 +26,41 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
     :param dec: Amount of minimize calls.
     :param exp: Amount of maximize calls, defaults to dec + pix.
     :param plane: Plane to be processed.
+    :param darkthr: If set, values under darkthr will be ignored and set black.
+    :param brightthr: If set, values above brightthr will be ignored and set to black.
+                      If either darkthr or brightthr is set and the other isn't, the other will default to TV range.
+    :param blankthr: If set, values with less change than this will be ignored and set black.
     :return: Grayscale mask of areas with gradient smaller than thr.
     """
     if len([plane]) != 1:
         raise ValueError("bandmask: Only one plane can be processed at once!")
-    if clip.format.bits_per_sample < 16:
+    depth = clip.format.bits_per_sample
+    hi = 65535
+    if depth < 16:
         clip = fvf.Depth(clip, 16)
+    elif depth == 32:
+        hi = 1
+        if thr >= 1:
+            thr = thr / 65535
     if exp is None:
         exp = dec + pix
-
-    if grain_darks:
-        grain = core.std.BlankClip(clip, format=clip.format, color=[32768, 32768, 32768], length=1)
-        grain = core.grain.Add(grain, var=100.0, constant=True)
-
-        msk = clip.std.Expr(["x {} < 65535 0 ?".format(dark_thr), ""]).std.Maximum()
-        clip = core.std.Expr([msk, grain, clip], "x 65535 = y z ?")
-
     pln = fplane(clip, plane)
+    if not darkthr and brightthr:
+        darkthr = 4096
+    if darkthr and not brightthr:
+        if plane == 0:
+            brightthr = 60160
+        else:
+            brightthr = 61440
 
     def comp(c, mat):
         orig = c
         for _ in range(1, pix):
             c = c.std.Convolution(mat)
-        diff = core.std.Expr([orig, c], "x y - abs").std.Binarize(thr, 65535, 0)
+        if not blankthr:
+            diff = core.std.Expr([orig, c], "x y - abs").std.Binarize(thr, hi, 0)
+        else:
+            diff = core.std.Expr([orig, c], "x y - abs").std.Expr("x {} > x {} < thr {} 0 ?".format(blankthr, thr, hi))
         decreased = iterate(diff, core.std.Minimum, dec)
         return iterate(decreased, core.std.Maximum, exp)
 
@@ -55,7 +68,11 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
     v2 = comp(pln, [left, mid, right] + 6 * [0])
     h1 = comp(pln, [left] + 2 * [0] + [mid] + 2 * [0] + [right] + 2 * [0])
     h2 = comp(pln, 2 * [0] + [left] + 2 * [0] + [mid] + 2 * [0] + [right])
-    return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
+
+    if darkthr:
+        return core.std.Expr([v1, v2, h1, h2, pln], "b {} > b {} < and x y + z + a + 0 ?".format(darkthr, brightthr))
+    else:
+        return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
 
 
 def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" "):
@@ -91,7 +108,7 @@ def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" "):
 
 
 def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
-             min_zone_len=1, check_next=True, diff=0.10, grain_darks=True):
+             min_zone_len=1, check_next=True, diff=0.10, darkthr=4096, brightthr=60160, blankthr=None):
     import os
     import sys
     import time
@@ -108,7 +125,8 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
 
         return clip
 
-    clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0, grain_darks=grain_darks)
+    clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0, darkthr=darkthr,
+                    brightthr=brightthr, blankthr=blankthr)
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
