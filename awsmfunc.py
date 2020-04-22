@@ -50,6 +50,7 @@ def FixRowBrightness(clip, row, input_low=16, input_high=235, output_low=16, out
 
 GetPlane = plane
 
+
 def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     """
     ReplaceFramesSimple wrapper that attempts to use the plugin version with a fallback to fvsfunc.
@@ -65,7 +66,9 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     except AttributeError:
         return fvf.rfs(clipa, clipb, mappings, filename)
 
+
 rfs = ReplaceFrames
+
 
 def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, u=True, v=True, scale_thresh=False,
           cpass2=False, cTop=None, cBottom=None, cLeft=None, cRight=None):
@@ -843,7 +846,7 @@ def LumaMaskMerge(clipa, clipb, threshold=None, invert=False, scale_inputs=False
     elif threshold is None:
         threshold = (p + 1) / 2
 
-    if invert:
+    if not invert:
         mask = core.std.Binarize(clip=clipa.std.ShufflePlanes(0, vs.GRAY), threshold=threshold, v0=p, v1=0)
     else:
         mask = core.std.Binarize(clip=clipa.std.ShufflePlanes(0, vs.GRAY), threshold=threshold, v0=0, v1=p)
@@ -926,12 +929,13 @@ def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1, de
                              "PNG", filename, overwrite=True).get_frame(num)
 
 
-def DynamicTonemap(clip, show=False, src_fmt=True):
+def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
     """
     quietvoid's dynamic tonemapping function.
     :param clip: HDR clip.
     :param show: Whether to show nits values.
     :param src_fmt: Whether to output source bit depth instead of 8-bit 4:4:4.
+    :param libplacebo: Whether to use vs-placebo as tonemapper
     :return: SDR clip.
     """
     if src_fmt:
@@ -968,24 +972,34 @@ def DynamicTonemap(clip, show=False, src_fmt=True):
 
         # Tonemap
         clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
-                       primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
-                       dither_type="none", nominal_luminance=nits)
+                    primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
+                    dither_type="none", nominal_luminance=nits)
 
         if show:
             clip = core.sub.Subtitle(clip, "Peak nits: {}, Target: {} nits".format(nits_max, nits))
 
         return clip
 
-    clip_orig = clip
+    clip_orig_format = clip.format
 
-    clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
-                   range_s="full", dither_type="none")
+    # Make sure libplacebo is properly loaded
+    use_placebo = libplacebo and ("com.vs.placebo" in core.get_plugins())
 
-    luma_props = core.std.PlaneStats(clip, plane=0)
-    tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
+    if use_placebo:
+        clip = resizer(clip, format=vs.RGB48)
+
+        # Tonemap
+        tonemapped_clip = core.placebo.Tonemap(clip, dynamic_peak_detection=True, smoothing_period=1, scene_threshold_low=-1, scene_threshold_high=-1, srcp=5, dstp=3, srct=8, dstt=1)
+        tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format, matrix_s="709")
+    else:
+        clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
+                    range_s="full", dither_type="none")
+
+        luma_props = core.std.PlaneStats(clip, plane=0)
+        tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
 
     if src_fmt:
-        return tonemapped_clip.resize.Point(format=clip_orig.format, dither_type="error_diffusion")
+        return resizer(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
     else:
         return fvf.Depth(tonemapped_clip, 8)
 
@@ -996,24 +1010,31 @@ def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
     Chroma planes are processed according to the affected rows in 4:4:4. This means that if the input clip is 4:2:0 and
     two rows are grayed out, but one doesn't want to process luma, one still has to use top/bottom=2 instead of 1.
     """
-    if isinstance(planes, int):
-        planes = [planes]
+    if clip.format.num_planes == 3:
+        if isinstance(planes, int):
+            planes = [planes]
 
-    y, u, v = split(clip)
+        y, u, v = split(clip)
 
-    if clip.format.subsampling_w == 1:
-        left, right= math.ceil(left / 2), math.ceil(right / 2)
-    if clip.format.subsampling_h == 1:
-        top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
+        if clip.format.subsampling_w == 1:
+            left, right = math.ceil(left / 2), math.ceil(right / 2)
+        if clip.format.subsampling_h == 1:
+            top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
 
-    if 0 in planes:
-        y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
-    if 1 in planes:
-        u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
-    if 2 in planes:
-        v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        if 0 in planes:
+            y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        if 1 in planes:
+            u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        if 2 in planes:
+            v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
 
-    return join([y, u, v])
+        return join([y, u, v])
+    else:
+        return clip.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+
+
+fb = FillBorders
+
 
 #####################
 # Utility functions #
