@@ -50,6 +50,7 @@ def FixRowBrightness(clip, row, input_low=16, input_high=235, output_low=16, out
 
 GetPlane = plane
 
+
 def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     """
     ReplaceFramesSimple wrapper that attempts to use the plugin version with a fallback to fvsfunc.
@@ -65,7 +66,9 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     except AttributeError:
         return fvf.rfs(clipa, clipb, mappings, filename)
 
+
 rfs = ReplaceFrames
+
 
 def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, u=True, v=True, scale_thresh=False,
           cpass2=False, cTop=None, cBottom=None, cLeft=None, cRight=None):
@@ -843,7 +846,7 @@ def LumaMaskMerge(clipa, clipb, threshold=None, invert=False, scale_inputs=False
     elif threshold is None:
         threshold = (p + 1) / 2
 
-    if invert:
+    if not invert:
         mask = core.std.Binarize(clip=clipa.std.ShufflePlanes(0, vs.GRAY), threshold=threshold, v0=p, v1=0)
     else:
         mask = core.std.Binarize(clip=clipa.std.ShufflePlanes(0, vs.GRAY), threshold=threshold, v0=0, v1=p)
@@ -1007,24 +1010,31 @@ def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
     Chroma planes are processed according to the affected rows in 4:4:4. This means that if the input clip is 4:2:0 and
     two rows are grayed out, but one doesn't want to process luma, one still has to use top/bottom=2 instead of 1.
     """
-    if isinstance(planes, int):
-        planes = [planes]
+    if clip.format.num_planes == 3:
+        if isinstance(planes, int):
+            planes = [planes]
 
-    y, u, v = split(clip)
+        y, u, v = split(clip)
 
-    if clip.format.subsampling_w == 1:
-        left, right= math.ceil(left / 2), math.ceil(right / 2)
-    if clip.format.subsampling_h == 1:
-        top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
+        if clip.format.subsampling_w == 1:
+            left, right = math.ceil(left / 2), math.ceil(right / 2)
+        if clip.format.subsampling_h == 1:
+            top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
 
-    if 0 in planes:
-        y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
-    if 1 in planes:
-        u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
-    if 2 in planes:
-        v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        if 0 in planes:
+            y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        if 1 in planes:
+            u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        if 2 in planes:
+            v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
 
-    return join([y, u, v])
+        return join([y, u, v])
+    else:
+        return clip.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+
+
+fb = FillBorders
+
 
 #####################
 # Utility functions #
