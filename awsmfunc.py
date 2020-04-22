@@ -801,7 +801,7 @@ def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=N
     return resized
 
 
-def DebandReader(clip, csvfile, grain=64, range=30, delimiter=' '):
+def DebandReader(clip, csvfile, grain=64, range=30, delimiter=' ', mask=None):
     """
     DebandReader, read a csv file to apply a f3kdb filter for given strengths and frames. From sgvsfunc.
     > Usage: DebandReader(clip, csvfile, grain, range)
@@ -823,6 +823,9 @@ def DebandReader(clip, csvfile, grain=64, range=30, delimiter=' '):
                                    dynamic_grain=True, range=range, output_depth=depth)
 
             filtered = ReplaceFrames(filtered, db, mappings="[" + row[0] + " " + row[1] + "]")
+
+        if mask:
+            filtered = core.std.MaskedMerge(clip, filtered, mask)
 
     return filtered
 
@@ -891,7 +894,7 @@ def RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs=
     return clip
 
 
-def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1):
+def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1, delim=" "):
     """
     quietvoid's screenshot generator.
     Generates screenshots from a list of frame numbers
@@ -912,6 +915,9 @@ def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1):
         with open(frame_numbers) as f:
             screens = f.readlines()
 
+        # Keep value before first delim, so that we can parse default detect zones files
+        screens = [v.split(delim)[0] for v in screens]
+
         if not os.path.isdir(folder_path):
             os.mkdir(folder_path)
 
@@ -923,12 +929,13 @@ def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1):
                              "PNG", filename, overwrite=True).get_frame(num)
 
 
-def DynamicTonemap(clip, show=False, src_fmt=True):
+def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
     """
     quietvoid's dynamic tonemapping function.
     :param clip: HDR clip.
     :param show: Whether to show nits values.
     :param src_fmt: Whether to output source bit depth instead of 8-bit 4:4:4.
+    :param libplacebo: Whether to use vs-placebo as tonemapper
     :return: SDR clip.
     """
     if src_fmt:
@@ -960,29 +967,39 @@ def DynamicTonemap(clip, show=False, src_fmt=True):
         luma_max = np.percentile(luma_arr, float(99.99))
         nits_max = st2084_eotf(luma_max / 65535) * ST2084_PEAK_LUMINANCE
 
-        # Don't go below 120 nits
+        # Don't go below 100 nits
         nits = max(math.ceil(nits_max), 100)
 
         # Tonemap
         clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
-                       primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
-                       dither_type="none", nominal_luminance=nits)
+                    primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
+                    dither_type="none", nominal_luminance=nits)
 
         if show:
             clip = core.sub.Subtitle(clip, "Peak nits: {}, Target: {} nits".format(nits_max, nits))
 
         return clip
 
-    clip_orig = clip
+    clip_orig_format = clip.format
 
-    clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
-                   range_s="full", dither_type="none")
+    # Make sure libplacebo is properly loaded
+    use_placebo = libplacebo and ("com.vs.placebo" in core.get_plugins())
 
-    luma_props = core.std.PlaneStats(clip, plane=0)
-    tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
+    if use_placebo:
+        clip = resizer(clip, format=vs.RGB48)
+
+        # Tonemap
+        tonemapped_clip = core.placebo.Tonemap(clip, dynamic_peak_detection=True, smoothing_period=1, scene_threshold_low=-1, scene_threshold_high=-1, srcp=5, dstp=3, srct=8, dstt=1)
+        tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format, matrix_s="709")
+    else:
+        clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
+                    range_s="full", dither_type="none")
+
+        luma_props = core.std.PlaneStats(clip, plane=0)
+        tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
 
     if src_fmt:
-        return tonemapped_clip.resize.Point(format=clip_orig.format, dither_type="error_diffusion")
+        return resizer(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
     else:
         return fvf.Depth(tonemapped_clip, 8)
 
