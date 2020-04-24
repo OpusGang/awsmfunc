@@ -18,7 +18,7 @@ setup(
         'mvsfunc': 'dependencies/mvsfunc',
         'nnedi3_resample': 'dependencies/nnedi3_resample',
         'nnedi3_rpow2': 'dependencies/nnedi3_rpow2',
-        'rekt': 'dependencies/rekt',
+        'rekt': 'dependencies/rekt/rekt',
         'vsTAAmbk': 'dependencies/vsTAAmbk',
         'vsutil': 'dependencies/vsutil',
     },
