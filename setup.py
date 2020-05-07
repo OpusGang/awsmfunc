@@ -1,3 +1,5 @@
+# Run install.py to install
+
 from setuptools import setup
 
 setup(
@@ -13,12 +15,11 @@ setup(
         'fvsfunc': 'dependencies/fvsfunc',
         'havsfunc': 'dependencies/havsfunc',
         'kagefunc': 'dependencies/kagefunc',
-        'lvsfunc': 'dependencies/lvsfunc',
         'muvsfunc': 'dependencies/muvsfunc',
         'mvsfunc': 'dependencies/mvsfunc',
         'nnedi3_resample': 'dependencies/nnedi3_resample',
         'nnedi3_rpow2': 'dependencies/nnedi3_rpow2',
-        'rekt': 'dependencies/rekt',
+        'rekt': 'dependencies/rekt/rekt',
         'vsTAAmbk': 'dependencies/vsTAAmbk',
         'vsutil': 'dependencies/vsutil',
     },
@@ -30,7 +31,6 @@ setup(
         'fvsfunc',
         'havsfunc',
         'kagefunc',
-        'lvsfunc',
         'muvsfunc',
         'mvsfunc',
         'nnedi3_resample',
