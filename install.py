@@ -6,6 +6,7 @@ from pathlib import Path
 
 deps = Path("./dependencies")
 
+created = []
 skipped = []
 # Create a shitty __init__ file because vs people suck at python
 for d in deps.iterdir():
@@ -16,6 +17,7 @@ for d in deps.iterdir():
     if func_module.is_dir() or init.is_file():
         skipped.append(d.name)
     elif func_target_file.is_file():
+        created.append(init)
         with open(init, "w") as f:
             f.write(f"from .{d.name} import *")
 
@@ -29,5 +31,9 @@ opts = {"stdin": None,
 proc = sp.Popen(cmd, **opts)
 
 out, err = proc.communicate()
-if err:
+if proc.returncode and err:
     raise Exception(f"something is wrong with {cmd}, got: \"{err}\"")
+elif created:
+    # Remove created inits
+    for d in created:
+        d.unlink()

@@ -19,9 +19,6 @@
 [submodule "dependencies/mvsfunc"]
 	path = dependencies/mvsfunc
 	url = https://github.com/HomeOfVapourSynthEvolution/mvsfunc.git
-[submodule "dependencies/lvsfunc"]
-	path = dependencies/lvsfunc
-	url = https://github.com/Irrational-Encoding-Wizardry/lvsfunc.git
 [submodule "dependencies/kagefunc"]
 	path = dependencies/kagefunc
 	url = https://github.com/Irrational-Encoding-Wizardry/kagefunc.git
