@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Initialize dependencies with `git submodule update --init --recursive`
+# Run this
+
 import sys
 import subprocess as sp
 from pathlib import Path
