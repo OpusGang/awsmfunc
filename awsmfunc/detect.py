@@ -75,11 +75,11 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
         return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
 
 
-def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" "):
+def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" ", tolerance=0):
     import numpy as np
 
     def consecutive(data, cycle=cycle):
-        return np.split(data, np.where(np.diff(data) != cycle)[0] + 1)
+        return np.split(data, np.where(np.diff(data) > cycle + tolerance)[0] + 1)
 
     with open(input, 'r') as in_f:
         a = np.array(in_f.read().splitlines(), dtype=np.int)
@@ -108,7 +108,7 @@ def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" "):
 
 
 def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
-             min_zone_len=1, check_next=True, diff=0.10, darkthr=4096, brightthr=60160, blankthr=None):
+             min_zone_len=1, tolerance=0, check_next=True, diff=0.10, darkthr=4096, brightthr=60160, blankthr=None):
     import os
     import sys
     import time
@@ -163,14 +163,14 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
 
         if merge:
             merged_output = "merged-{}".format(output)
-            merge_detections(output, merged_output, cycle=cycle, min_zone_len=min_zone_len)
+            merge_detections(output, merged_output, cycle=cycle, min_zone_len=min_zone_len, tolerance=tolerance)
 
         quit("Finished detecting banding, output file: {}".format(output))
 
     return None
 
 
-def detect_dirty_lines(clip, output, left, top, right, bottom, thr=.1, merged_output=None, cycle=1):
+def detect_dirty_lines(clip, output, left, top, right, bottom, thr=.1, merged_output=None, cycle=1, tolerance=0):
     import os
     import sys
     import time
@@ -242,13 +242,13 @@ def detect_dirty_lines(clip, output, left, top, right, bottom, thr=.1, merged_ou
                 out_file.write("{}\n".format(f))
 
         if merged_output:
-            merge_detections(output, merged_output, cycle=cycle)
+            merge_detections(output, merged_output, cycle=cycle, tolerance=tolerance)
 
     return None
 
 
 def dirtdtct(clip, output="dirty-frames.txt", left=None, top=None, right=None, bottom=None, thr=.1, trim=False,
-             cycle=1, merge=True):
+             cycle=1, merge=True, tolerance=0):
     if isinstance(left, int):
         left = [left]
     if isinstance(top, int):
@@ -272,7 +272,7 @@ def dirtdtct(clip, output="dirty-frames.txt", left=None, top=None, right=None, b
     if merge:
         merge = "merged-{}".format(output)
 
-    dtc = detect_dirty_lines(clip, output, left, top, right, bottom, thr, merge, cycle)
+    dtc = detect_dirty_lines(clip, output, left, top, right, bottom, thr, merge, cycle, tolerance=tolerance)
     quit("Finished detecting dirty lines, output file: {}".format(output))
 
     return dtc
