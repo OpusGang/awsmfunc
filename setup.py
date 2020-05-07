@@ -1,3 +1,4 @@
+# Initialize dependencies with `git submodule update --init --recursive`
 # Run install.py to install
 
 from setuptools import setup
