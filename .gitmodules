@@ -1,0 +1,39 @@
+[submodule "dependencies/adjust"]
+	path = dependencies/adjust
+	url = https://github.com/dubhater/vapoursynth-adjust.git
+[submodule "dependencies/vsutil"]
+	path = dependencies/vsutil
+	url = https://github.com/Irrational-Encoding-Wizardry/vsutil.git
+[submodule "dependencies/rekt"]
+	path = dependencies/rekt
+	url = https://gitlab.com/Ututu/rekt.git
+[submodule "dependencies/nnedi3_resample"]
+	path = dependencies/nnedi3_resample
+	url = https://github.com/mawen1250/VapourSynth-script.git
+[submodule "dependencies/adptvgrnMod"]
+	path = dependencies/adptvgrnMod
+	url = https://gitlab.com/Ututu/adptvgrnmod.git
+[submodule "vsTAAmbk"]
+	path = dependencies/vsTAAmbk
+	url = https://github.com/HomeOfVapourSynthEvolution/vsTAAmbk.git
+[submodule "dependencies/mvsfunc"]
+	path = dependencies/mvsfunc
+	url = https://github.com/HomeOfVapourSynthEvolution/mvsfunc.git
+[submodule "dependencies/kagefunc"]
+	path = dependencies/kagefunc
+	url = https://github.com/Irrational-Encoding-Wizardry/kagefunc.git
+[submodule "dependencies/edi_rpow2"]
+	path = dependencies/edi_rpow2
+	url = https://gist.github.com/YamashitaRen/020c497524e794779d9c.git
+[submodule "dependencies/nnedi3_rpow2"]
+	path = dependencies/nnedi3_rpow2
+	url = https://gist.github.com/4re/342624c9e1a144a696c6.git
+[submodule "dependencies/muvsfunc"]
+	path = dependencies/muvsfunc
+	url = https://github.com/WolframRhodium/muvsfunc.git
+[submodule "dependencies/havsfunc"]
+	path = dependencies/havsfunc
+	url = https://github.com/HomeOfVapourSynthEvolution/havsfunc.git
+[submodule "dependencies/fvsfunc"]
+	path = dependencies/fvsfunc
+	url = https://github.com/Irrational-Encoding-Wizardry/fvsfunc.git
