@@ -4,7 +4,6 @@
 from setuptools import setup
 from distutils.command import build as build_module
 
-import argparse
 import sys
 import subprocess as sp
 from pathlib import Path
@@ -15,7 +14,6 @@ def setup_deps():
     global created
 
     deps = Path("./dependencies")
-    skipped = []
 
     # Create a shitty __init__ file because vs people suck at python
     for d in deps.iterdir():
@@ -23,14 +21,10 @@ def setup_deps():
         func_module = Path.joinpath(d, d.name)
         func_target_file = Path.joinpath(d, f"{d.name}.py")
 
-        if func_module.is_dir() or init.is_file():
-            skipped.append(d.name)
-        elif func_target_file.is_file():
+        if func_target_file.is_file():
             created.append(init)
             with open(init, "w") as f:
                 f.write(f"from .{d.name} import *")
-
-    print(f"Skipped custom packaging: {skipped}")
 
 def cleanup_inits(created):
     if created:
