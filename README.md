@@ -11,9 +11,9 @@ Optional plugins:
 
 ### Setting up
 
-	1. git clone https://github.com/OpusGang/awsmfunc.git && cd awsmfunc
-	2. git submodule update --init --recursive`
-	3. python3 install.py`
+	git clone https://github.com/OpusGang/awsmfunc.git && cd awsmfunc
+	git submodule update --init --recursive
+	python3 install.py
 
 Done!
 
