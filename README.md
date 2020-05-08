@@ -29,7 +29,7 @@ To install the optional python modules as well:
 * [rekt](https://gitlab.com/Ututu/rekt)
 * [vsutil](https://github.com/Irrational-Encoding-Wizardry/vsutil)
 
-### Optional VS Community Python modules
+#### Optional VS Community Python modules
 * [adptvgrnMod](https://gitlab.com/Ututu/adptvgrnmod)
 * [edi_rpow2](https://gist.github.com/YamashitaRen/020c497524e794779d9c)
 * [kagefunc](https://github.com/Irrational-Encoding-Wizardry/kagefunc)
