@@ -108,7 +108,7 @@ def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" ", toleranc
 
 
 def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
-             min_zone_len=1, tolerance=0, check_next=True, diff=0.10, darkthr=4096, brightthr=60160, blankthr=None):
+             min_zone_len=1, tolerance=0, check_next=True, diff=0.10, darkthr=5632, brightthr=60160, blankthr=None):
     import os
     import sys
     import time
