@@ -1,6 +1,3 @@
-# Initialize dependencies with `git submodule update --init --recursive`
-# Run install.py to install
-
 from setuptools import setup
 from distutils.command import build as build_module
 
