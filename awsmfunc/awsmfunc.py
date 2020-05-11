@@ -457,38 +457,38 @@ def AddBordersMod(clip, left=0, top=0, right=0, bottom=0, lsat=.88, tsat=.2, rsa
         tcl = tcl.std.CropAbs(clip.width, top - 2)
         tcm = clip.std.CropAbs(clip.width, 2)
         tcm = Tweak(tcm, sat=tsat)
-        tcm = rektlvls(tcm, [0, 1], [16 - 235] * 2, prot_val=0)
+        tcm = rektlvls(tcm, [0, 1], [16 - 235] * 2, prot_val=None)
         clip = core.std.StackVertical([tcl, tcm, clip])
     elif top == 2:
         tcl = clip.std.CropAbs(clip.width, 2)
         tcl = Tweak(tcl, sat=tsat)
-        tcl = rektlvls(tcl, [0, 1], [16 - 235] * 2, prot_val=0)
+        tcl = rektlvls(tcl, [0, 1], [16 - 235] * 2, prot_val=None)
         clip = core.std.StackVertical([tcl, clip])
 
     if right > 2:
         rcm = clip.std.Crop(left=clip.width - 2)
         rcm = Tweak(rcm, sat=rsat)
-        rcm = rektlvls(rcm, colnum=[0, 1], colval=[16 - 235] * 2, prot_val=0)
+        rcm = rektlvls(rcm, colnum=[0, 1], colval=[16 - 235] * 2, prot_val=None)
         rcr = clip.std.AddBorders(right=right, color=color)
         rcr = rcr.std.Crop(left=clip.width + 2)
         clip = core.std.StackHorizontal([clip, rcm, rcr])
     elif right == 2:
         rcr = clip.std.Crop(left=clip.width - 2)
         rcr = Tweak(rcr, sat=rsat)
-        rcr = rektlvls(rcr, colnum=[0, 1], colval=[16 - 235] * 2, prot_val=0)
+        rcr = rektlvls(rcr, colnum=[0, 1], colval=[16 - 235] * 2, prot_val=None)
         clip = core.std.StackHorizontal([clip, rcr])
 
     if bottom > 2:
         bcm = clip.std.Crop(top=clip.height - 2)
         bcm = Tweak(bcm, sat=bsat)
-        bcm = rektlvls(bcm, [0, 1], [16 - 235] * 2, prot_val=0)
+        bcm = rektlvls(bcm, [0, 1], [16 - 235] * 2, prot_val=None)
         bcr = clip.std.AddBorders(bottom=bottom)
         bcr = bcr.std.Crop(top=clip.height + 2)
         clip = core.std.StackVertical([clip, bcm, bcr])
     elif bottom == 2:
         bcr = clip.std.Crop(top=clip.height - 2)
         bcr = Tweak(bcr, sat=bsat)
-        bcr = rektlvls(bcr, [0, 1], [16 - 235] * 2, prot_val=0)
+        bcr = rektlvls(bcr, [0, 1], [16 - 235] * 2, prot_val=None)
         clip = core.std.StackVertical([clip, bcr])
 
     return clip
