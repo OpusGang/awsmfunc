@@ -894,13 +894,13 @@ def RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs=
     return clip
 
 
-def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1, delim=" "):
+def ScreenGen(clip, folder, suffix, frame_numbers="screens.txt", start=1, delim=" "):
     """
     Narkyy's screenshot generator.
     Generates screenshots from a list of frame numbers
     folder is the folder name that is created
-    video_type is the final name appended
-    frame_numbers is the file path to the list, defaults to screens.txt
+    suffix is the final name appended
+    frame_numbers is the list of frames, defaults to a file named screens.txt. Either a list or a file
     start is the number at which the filenames start
 
     > Usage: ScreenGen(src, "Screenshots", "a")
@@ -911,22 +911,28 @@ def ScreenGen(clip, folder, video_type, frame_numbers="screens.txt", start=1, de
     frame_num_path = "./{name}".format(name=frame_numbers)
     folder_path = "./{name}".format(name=folder)
 
-    if os.path.isfile(frame_num_path):
+    if isinstance(frame_numbers, str) and os.path.isfile(frame_num_path):
         with open(frame_numbers) as f:
             screens = f.readlines()
 
         # Keep value before first delim, so that we can parse default detect zones files
         screens = [v.split(delim)[0] for v in screens]
+        
+        # str to int
+        screens = [int(x.strip()) for x in screens]
+    elif isinstance(frame_numbers, list):
+        screens = frame_numbers
+    else:
+        raise TypeError('frame_numbers must be a file path or a list of frame numbers')
 
+    if screens:
         if not os.path.isdir(folder_path):
             os.mkdir(folder_path)
 
-        screens = [int(x.strip()) for x in screens]
-
         for i, num in enumerate(screens, start=start):
-            filename = "{path}/{:02d}{type}.png".format(i, path=folder_path, type=video_type)
+            filename = "{path}/{:02d}{suffix}.png".format(i, path=folder_path, suffix=suffix)
             core.imwri.Write(clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion"),
-                             "PNG", filename, overwrite=True).get_frame(num)
+                            "PNG", filename, overwrite=True).get_frame(num)
 
 
 def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
