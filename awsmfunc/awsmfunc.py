@@ -498,12 +498,14 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0, lsat=.88, rsat=None, ts
     return AddBordersMod(clip, left, top, right, bottom, lsat, tsat, rsat, bsat, color)
 
 
-def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=None, cfill=None,
+def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=None, cfill=None,
                resizer='spline36', filter_param_a=None, filter_param_b=None) -> vs.VideoNode:
     """
-    Originally from sgvsfunc.  Added chroma filling option.
+    Originally from sgvsfunc.  Added chroma filling option and preset parameter.
     This function is a wrapper around cropping and resizing with the option to fill and remove columns/rows.
     :param clip: Clip to be processed.
+    :param preset: Desired output height as if output clip was 16 / 9, calculates width and height.
+                   E.g. 1920x872 source with preset=720p will output 1280x582.
     :param width: Width of output clip.  If height is specified without width, width is auto-calculated.
     :param height: Height of output clip.  If width is specified without height, height is auto-calculated.
     :param left: Left offset of resized clip.
@@ -518,6 +520,11 @@ def CropResize(clip, width=None, height=None, left=0, right=0, top=0, bottom=0, 
     :param filter_param_a, filter_param_b: Filter parameters for internal resizers, b & c for bicubic, taps for lanczos.
     :return: Resized clip.
     """
+    if preset:
+        if clip.width / clip.height > 16 / 9:
+            return CropResize(clip, width=16 / 9 * preset)
+        else:
+            return CropResize(clip, height=preset)
     if fill is None:
         fill = [0, 0, 0, 0]
     if len(fill) == 4:
