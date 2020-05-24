@@ -498,8 +498,9 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0, lsat=.88, rsat=None, ts
     return AddBordersMod(clip, left, top, right, bottom, lsat, tsat, rsat, bsat, color)
 
 
-def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=None, cfill=None,
-               resizer='spline36', filter_param_a=None, filter_param_b=None) -> vs.VideoNode:
+def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=None,
+               cfill=None, resizer='spline36', filter_param_a=None, filter_param_b=None,
+               aspect_ratio=16 / 9) -> vs.VideoNode:
     """
     Originally from sgvsfunc.  Added chroma filling option and preset parameter.
     This function is a wrapper around cropping and resizing with the option to fill and remove columns/rows.
@@ -521,10 +522,14 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
     :return: Resized clip.
     """
     if preset:
-        if clip.width / clip.height > 16 / 9:
-            return CropResize(clip, width=16 / 9 * preset)
+        if clip.width / clip.height > aspect_ratio:
+            return CropResize(clip, width=16 / 9 * preset, left=left, right=right, top=top, bottom=bottom, bb=bb,
+                              fill=fill, cfill=cfill, resizer=resizer, filter_param_a=filter_param_a,
+                              filter_param_b=filter_param_b)
         else:
-            return CropResize(clip, height=preset)
+            return CropResize(clip, height=preset, left=left, right=right, top=top, bottom=bottom, bb=bb, fill=fill,
+                              cfill=cfill, resizer=resizer, filter_param_a=filter_param_a,
+                              filter_param_b=filter_param_b)
     if fill is None:
         fill = [0, 0, 0, 0]
     if len(fill) == 4:
@@ -924,7 +929,7 @@ def ScreenGen(clip, folder, suffix, frame_numbers="screens.txt", start=1, delim=
 
         # Keep value before first delim, so that we can parse default detect zones files
         screens = [v.split(delim)[0] for v in screens]
-        
+
         # str to int
         screens = [int(x.strip()) for x in screens]
     elif isinstance(frame_numbers, list):
@@ -939,7 +944,7 @@ def ScreenGen(clip, folder, suffix, frame_numbers="screens.txt", start=1, delim=
         for i, num in enumerate(screens, start=start):
             filename = "{path}/{:02d}{suffix}.png".format(i, path=folder_path, suffix=suffix)
             core.imwri.Write(clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion"),
-                            "PNG", filename, overwrite=True).get_frame(num)
+                             "PNG", filename, overwrite=True).get_frame(num)
 
 
 def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
@@ -985,8 +990,8 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
 
         # Tonemap
         clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
-                    primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
-                    dither_type="none", nominal_luminance=nits)
+                       primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
+                       dither_type="none", nominal_luminance=nits)
 
         if show:
             clip = core.sub.Subtitle(clip, "Peak nits: {}, Target: {} nits".format(nits_max, nits))
@@ -1002,11 +1007,13 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
         clip = resizer(clip, format=vs.RGB48)
 
         # Tonemap
-        tonemapped_clip = core.placebo.Tonemap(clip, dynamic_peak_detection=True, smoothing_period=1, scene_threshold_low=-1, scene_threshold_high=-1, srcp=5, dstp=3, srct=8, dstt=1)
+        tonemapped_clip = core.placebo.Tonemap(clip, dynamic_peak_detection=True, smoothing_period=1,
+                                               scene_threshold_low=-1, scene_threshold_high=-1, srcp=5, dstp=3, srct=8,
+                                               dstt=1)
         tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format, matrix_s="709")
     else:
         clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
-                    range_s="full", dither_type="none")
+                       range_s="full", dither_type="none")
 
         luma_props = core.std.PlaneStats(clip, plane=0)
         tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
