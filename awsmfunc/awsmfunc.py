@@ -500,7 +500,7 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0, lsat=.88, rsat=None, ts
 
 def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=None,
                cfill=None, resizer='spline36', filter_param_a=None, filter_param_b=None,
-               aspect_ratio=16 / 9) -> vs.VideoNode:
+               aspect_ratio=16 / 9):
     """
     Originally from sgvsfunc.  Added chroma filling option and preset parameter.
     This function is a wrapper around cropping and resizing with the option to fill and remove columns/rows.
@@ -523,7 +523,7 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
     """
     if preset:
         if clip.width / clip.height > aspect_ratio:
-            return CropResize(clip, width=16 / 9 * preset, left=left, right=right, top=top, bottom=bottom, bb=bb,
+            return CropResize(clip, width=aspect_ratio * preset, left=left, right=right, top=top, bottom=bottom, bb=bb,
                               fill=fill, cfill=cfill, resizer=resizer, filter_param_a=filter_param_a,
                               filter_param_b=filter_param_b)
         else:
