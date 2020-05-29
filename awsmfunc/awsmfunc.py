@@ -1287,62 +1287,6 @@ def autogma(clip, adj=1.3, thr=0.40):
         return prc
 
 
-def UpscaleCheck(clip, res=720, title="Upscaled", bits=None) -> vs.VideoNode:
-    """
-    Quick port of https://gist.github.com/pcroland/c1f1e46cd3e36021927eb033e5161298
-    Dumb detail check (but not as dumb as greyscale) 
-    Resizes luma to specified resolution and scales back with Spline36
-    Handles conversion automatically so you can input a raw RGB image, 
-    Without needing to convert to YUV4XXPX manually like the AviSynth counterpart
-    TODO: -
-
-    :param res: Target resolution (720, 576, 480, ...)
-    :param txt: Custom text output ("540p upscale")
-    :param bits: Bit depth of output
-    :return: Clip resampled to target resolution and back
-    """
-    src = clip
-    # Generic error handling, YCOCG & COMPAT input not tested as such blocked by default
-    if src.format.color_family not in [vs.YUV, vs.GRAY, vs.RGB]:
-        raise TypeError("UpscaleCheck: Only supports YUV, GRAY or RGB input!")
-    elif src.format.color_family in [vs.GRAY, vs.RGB]:
-            clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s='709')
-
-    if src.format.color_family is vs.RGB and src.format.bits_per_sample == 8:
-        bits = 8
-    elif bits is None:
-        bits = src.format.bits_per_sample
-
-    b16 = fvf.Depth(clip, 16)
-    lma = core.std.ShufflePlanes(b16, 0, vs.GRAY)
-    dwn = CropResize(lma, preset=res, resizer='Spline36')
-    ups = core.resize.Spline36(dwn, clip.width, clip.height)
-    mrg = core.std.ShufflePlanes([ups, b16], [0,1,2], vs.YUV)
-    txt = FrameInfo(mrg, f"{title}")
-    cmp = core.std.Interleave([b16, txt])
-    return fvf.Depth(cmp, bits)
-    
-
-def Import(file):
-    """
-    Allows for easy import of your .vpy
-    This will load a script even without set_output being present, however;
-    if you would like to manipulate the clip you will need to specifiy an output:
-    --
-    script = Import(r'1080p.vpy')
-    script = FrameInfo(script, "Filtered")
-    script.set_output()
-    --
-    TODO: Find a way of keeping this more in-line with expected VS behavior (no output unless specified)
-    """
-    from importlib.machinery import SourceFileLoader
-
-    if file.endswith('.vpy'):
-        return SourceFileLoader('script', file).load_module().vs.get_output()
-    else:
-        raise TypeError("Import: Only .vpy is supported!")
-
-
 def greyscale(clip):
     """
     From https://gitlab.com/snippets/1895242.
