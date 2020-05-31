@@ -947,13 +947,14 @@ def ScreenGen(clip, folder, suffix, frame_numbers="screens.txt", start=1, delim=
                              "PNG", filename, overwrite=True).get_frame(num)
 
 
-def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
+def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo=3):
     """
     Narkyy's dynamic tonemapping function.
     :param clip: HDR clip.
     :param show: Whether to show nits values.
     :param src_fmt: Whether to output source bit depth instead of 8-bit 4:4:4.
     :param libplacebo: Whether to use vs-placebo as tonemapper
+    :param placebo_algo: The tonemapping algo to use
     :return: SDR clip.
     """
     if src_fmt:
@@ -1009,8 +1010,9 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
         # Tonemap
         tonemapped_clip = core.placebo.Tonemap(clip, dynamic_peak_detection=True, smoothing_period=1,
                                                scene_threshold_low=-1, scene_threshold_high=-1, srcp=5, dstp=3, srct=8,
-                                               dstt=1)
-        tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format, matrix_s="709")
+                                               dstt=1, tone_mapping_algo=placebo_algo)
+        tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format,
+                                  matrix_s="709" if clip.orig_format.color_family == vs.YUV else None)
     else:
         clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
                        range_s="full", dither_type="none")
@@ -1306,7 +1308,7 @@ def UpscaleCheck(clip, res=720, title="Upscaled", bits=None) -> vs.VideoNode:
     if src.format.color_family not in [vs.YUV, vs.GRAY, vs.RGB]:
         raise TypeError("UpscaleCheck: Only supports YUV, GRAY or RGB input!")
     elif src.format.color_family in [vs.GRAY, vs.RGB]:
-            clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s='709')
+        clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s='709')
 
     if src.format.color_family is vs.RGB and src.format.bits_per_sample == 8:
         bits = 8
@@ -1317,11 +1319,11 @@ def UpscaleCheck(clip, res=720, title="Upscaled", bits=None) -> vs.VideoNode:
     lma = core.std.ShufflePlanes(b16, 0, vs.GRAY)
     dwn = CropResize(lma, preset=res, resizer='Spline36')
     ups = core.resize.Spline36(dwn, clip.width, clip.height)
-    mrg = core.std.ShufflePlanes([ups, b16], [0,1,2], vs.YUV)
+    mrg = core.std.ShufflePlanes([ups, b16], [0, 1, 2], vs.YUV)
     txt = FrameInfo(mrg, f"{title}")
     cmp = core.std.Interleave([b16, txt])
     return fvf.Depth(cmp, bits)
-    
+
 
 def Import(file):
     """
