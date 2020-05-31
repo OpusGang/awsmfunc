@@ -947,13 +947,14 @@ def ScreenGen(clip, folder, suffix, frame_numbers="screens.txt", start=1, delim=
                              "PNG", filename, overwrite=True).get_frame(num)
 
 
-def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
+def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo=3):
     """
     quietvoid's dynamic tonemapping function.
     :param clip: HDR clip.
     :param show: Whether to show nits values.
     :param src_fmt: Whether to output source bit depth instead of 8-bit 4:4:4.
     :param libplacebo: Whether to use vs-placebo as tonemapper
+    :param placebo_algo: The tonemapping algo to use
     :return: SDR clip.
     """
     if src_fmt:
@@ -1009,7 +1010,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
         # Tonemap
         tonemapped_clip = core.placebo.Tonemap(clip, dynamic_peak_detection=True, smoothing_period=1,
                                                scene_threshold_low=-1, scene_threshold_high=-1, srcp=5, dstp=3, srct=8,
-                                               dstt=1, tone_mapping_algo=3)
+                                               dstt=1, tone_mapping_algo=placebo_algo)
         tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format,
                                   matrix_s="709" if clip.orig_format.color_family == vs.YUV else None)
     else:
