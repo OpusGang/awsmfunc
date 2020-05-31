@@ -1011,7 +1011,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True):
                                                scene_threshold_low=-1, scene_threshold_high=-1, srcp=5, dstp=3, srct=8,
                                                dstt=1, tone_mapping_algo=3)
         tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format,
-                                  matrix_s="709" if clip.orig_format == vs.YUV else None)
+                                  matrix_s="709" if clip.orig_format.color_family == vs.YUV else None)
     else:
         clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
                        range_s="full", dither_type="none")
