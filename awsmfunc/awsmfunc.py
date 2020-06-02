@@ -1,5 +1,6 @@
 import vapoursynth as vs
 from vapoursynth import core
+
 from functools import partial
 import math
 from vsutil import plane, get_subsampling, get_depth, split, join
@@ -47,10 +48,6 @@ def FixRowBrightness(clip, row, input_low=16, input_high=235, output_low=16, out
         prc = core.std.ShufflePlanes([prc, hbd], [0, 1, 2], vs.YUV)
     return Depth(prc, clip.format.bits_per_sample)
 
-
-GetPlane = plane
-
-
 def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     """
     ReplaceFramesSimple wrapper that attempts to use the plugin version with a fallback to fvsfunc.
@@ -68,9 +65,6 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
         import warnings
         warnings.warn("RemapFrames plugin failed, using fvsfunc instead.")
         return fvf.rfs(clipa, clipb, mappings, filename)
-
-
-rfs = ReplaceFrames
 
 
 def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, u=True, v=True, scale_thresh=False,
@@ -603,11 +597,6 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
                    filter_param_b=filter_param_b)
 
 
-cr = CropResize
-CR = CropResize
-cropresize = CropResize
-
-
 def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=None, column=None, adj_column=None,
                      fill_max=2, bb=None, FixUncrop=None, resizer='spline36'):
     """
@@ -1011,9 +1000,6 @@ def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
         return clip.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
 
 
-fb = FillBorders
-
-
 #####################
 # Utility functions #
 #####################
@@ -1245,7 +1231,7 @@ def autogma(clip, adj=1.3, thr=0.40):
         return prc
 
 
-def UpscaleCheck(clip, res=720, title="Upscaled", bits=None) -> vs.VideoNode:
+def UpscaleCheck(clip, res=720, title="Upscaled", bits=None):
     """
     Quick port of https://gist.github.com/pcroland/c1f1e46cd3e36021927eb033e5161298
     Dumb detail check (but not as dumb as greyscale) 
@@ -1311,8 +1297,19 @@ def greyscale(clip):
     grey = core.std.BlankClip(clip)
     return core.std.ShufflePlanes([clip, grey], [0, 1, 2], vs.YUV)
 
+#####################
+#      Aliases      #
+#####################
 
+GetPlane = plane
+rfs = ReplaceFrames
+fb = FillBorders
+
+cr = CropResize
+CR = CropResize
+cropresize = CropResize
+
+gs = greyscale
 grayscale = greyscale
 GreyScale = greyscale
 GrayScale = greyscale
-gs = greyscale
