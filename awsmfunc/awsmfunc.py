@@ -50,7 +50,7 @@ def FixRowBrightness(clip, row, input_low=16, input_high=235, output_low=16, out
 
 def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     """
-    ReplaceFramesSimple wrapper that attempts to use the plugin version with a fallback to fvsfunc.
+    ReplaceFramesSimple wrapper that uses the RemapFrames plugin and works for different length clips.
     https://github.com/Irrational-Encoding-Wizardry/Vapoursynth-RemapFrames
     :param clipa: Main clip.
     :param clipb: Filtered clip to splice into main clip.
@@ -61,10 +61,41 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     try:
         return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
     except vs.Error:
-        import fvsfunc as fvf
-        import warnings
-        warnings.warn("RemapFrames plugin failed, using fvsfunc instead.")
-        return fvf.rfs(clipa, clipb, mappings, filename)
+
+        # copy-pasted from fvsfunc, sadly
+        def __fvsfunc_remap(clipa, clipb, mappings, filename):
+            import re
+            if filename:
+                with open(filename, 'r') as mf:
+                    mappings += '\n{}'.format(mf.read())
+            # Some people used this as separators and wondered why it wasn't working
+            mappings = mappings.replace(',', ' ').replace(':', ' ')
+
+            frames = re.findall(r'\d+(?!\d*\s*\d*\s*\d*\])', mappings)
+            ranges = re.findall(r'\[\s*\d+\s+\d+\s*\]', mappings)
+            maps = []
+
+            for range_ in ranges:
+                maps.append([int(x) for x in range_.strip('[ ]').split()])
+            for frame in frames:
+                maps.append([int(frame), int(frame)])
+            maps = [x for y in maps for x in y]
+            start, end = min(maps), max(maps)
+
+            if (end - start) > len(clipb):
+                raise ValueError("ReplaceFrames: mappings exceed clip length!")
+
+            if len(clipb) < len(clipa):
+                clipb = clipb.std.BlankClip(length=start) + clipb + clipb.std.BlankClip(
+                    length=len(clipa) - len(clipb) + start - end)
+            elif len(clipb) > len(clipa):
+                clipb = clipb.std.Trim(0, len(clipa) - 1)
+
+            return clipa, clipb, mappings, filename
+
+        clipa, clipb, mappings, filename = __fvsfunc_remap(clipa, clipb, mappings, filename)
+
+        return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
 
 
 def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, u=True, v=True, scale_thresh=False,
