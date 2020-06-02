@@ -20,5 +20,5 @@ Optional plugins:
 * [rekt](https://gitlab.com/Ututu/rekt)
 * [vsutil](https://github.com/Irrational-Encoding-Wizardry/vsutil)
 
-#### Recommended VS Community Pyton Modules 
+#### Recommended VS Community Python Modules 
 * [See Wiki](https://git.concertos.live/AHD/awsmfunc/wiki/Recommended-VS-Community-Pyton-Modules)
