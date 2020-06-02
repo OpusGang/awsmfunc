@@ -1,6 +1,7 @@
 from .awsmfunc import (
-    FixBrightnessProtect2,
+    FixColumnBrightnessProtect2,
     FixRowBrightnessProtect2,
+    FixBrightnessProtect2,
     FixColumnBrightness,
     FixRowBrightness,
     ReplaceFrames,
