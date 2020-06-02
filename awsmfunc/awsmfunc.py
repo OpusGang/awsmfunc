@@ -53,7 +53,7 @@ GetPlane = plane
 
 def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     """
-    ReplaceFramesSimple wrapper that attempts to use the plugin version with a fallback to fvsfunc.
+    ReplaceFramesSimple wrapper that uses the RemapFrames plugin and works for different length clips.
     https://github.com/Irrational-Encoding-Wizardry/Vapoursynth-RemapFrames
     :param clipa: Main clip.
     :param clipb: Filtered clip to splice into main clip.
@@ -61,13 +61,34 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     :param filename: File with frames to be replaced.
     :return: clipa with clipb spliced in according to specified frames.
     """
-    try:
-        return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
-    except vs.Error:
-        import fvsfunc as fvf
-        import warnings
-        warnings.warn("RemapFrames plugin failed, using fvsfunc instead.")
-        return fvf.rfs(clipa, clipb, mappings, filename)
+    # copy-pasted from fvsfunc, sadly
+    import re
+    if filename:
+        with open(filename, 'r') as mf:
+            mappings += '\n{}'.format(mf.read())
+    # Some people used this as separators and wondered why it wasn't working
+    mappings = mappings.replace(',', ' ').replace(':', ' ')
+
+    frames = re.findall('\d+(?!\d*\s*\d*\s*\d*\])', mappings)
+    ranges = re.findall('\[\s*\d+\s+\d+\s*\]', mappings)
+    maps = []
+    for range_ in ranges:
+        maps.append([int(x) for x in range_.strip('[ ]').split()])
+    for frame in frames:
+        maps.append([int(frame), int(frame)])
+    maps = [x for y in maps for x in y]
+    start, end = min(maps), max(maps)
+
+    if (end - start) > len(clipb):
+        raise ValueError("ReplaceFrames: mappings exceed clip length!")
+
+    if len(clipb) < len(clipa):
+        clipb = clipb.std.BlankClip(length=start) + clipb + clipb.std.BlankClip(
+            length=len(clipa) - len(clipb) + start - end)
+    elif len(clipb) > len(clipa):
+        clipb = clipb.std.Trim(0, len(clipa) - 1)
+        
+    return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
 
 
 rfs = ReplaceFrames
