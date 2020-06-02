@@ -3,7 +3,7 @@ from vapoursynth import core
 from functools import partial
 import math
 from vsutil import plane, get_subsampling, get_depth, split, join
-import fvsfunc as fvf
+from vsutil import depth as Depth
 from rekt import rektlvl, rektlvls, rekt_fast
 
 """
@@ -27,25 +27,25 @@ def FixBrightnessProtect2(clip, row=None, adj_row=None, column=None, adj_column=
 
 
 def FixColumnBrightness(clip, column, input_low=16, input_high=235, output_low=16, output_high=235):
-    hbd = fvf.Depth(clip, 16)
+    hbd = Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
     adj = lambda x: core.std.Levels(x, min_in=input_low << 8, max_in=input_high << 8, min_out=output_low << 8,
                                     max_out=output_high << 8, planes=0)
     prc = rekt_fast(lma, adj, left=column, right=clip.width - column - 1)
     if clip.format.color_family is vs.YUV:
         prc = core.std.ShufflePlanes([prc, hbd], [0, 1, 2], vs.YUV)
-    return fvf.Depth(prc, clip.format.bits_per_sample)
+    return Depth(prc, clip.format.bits_per_sample)
 
 
 def FixRowBrightness(clip, row, input_low=16, input_high=235, output_low=16, output_high=235):
-    hbd = fvf.Depth(clip, 16)
+    hbd = Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
     adj = lambda x: core.std.Levels(x, min_in=input_low << 8, max_in=input_high << 8, min_out=output_low << 8,
                                     max_out=output_high << 8, planes=0)
     prc = rekt_fast(lma, adj, top=row, bottom=clip.height - row - 1)
     if clip.format.color_family is vs.YUV:
         prc = core.std.ShufflePlanes([prc, hbd], [0, 1, 2], vs.YUV)
-    return fvf.Depth(prc, clip.format.bits_per_sample)
+    return Depth(prc, clip.format.bits_per_sample)
 
 
 GetPlane = plane
@@ -63,7 +63,10 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
     """
     try:
         return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
-    except AttributeError:
+    except vs.Error:
+        import fvsfunc as fvf
+        import warnings
+        warnings.warn("RemapFrames plugin failed, using fvsfunc instead.")
         return fvf.rfs(clipa, clipb, mappings, filename)
 
 
@@ -517,7 +520,7 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
     :param fill: Parameters to be parsed to fb.FillBorders: left, right, top, bottom.
     :param cfill: If a list is specified, same as fill for chroma planes exclusively.  Else, a lambda function can be
                   specified, e.g. cfill=lambda c: c.edgefixer.ContinuityFixer(left=0, top=0, right=[2, 4, 4], bottom=0).
-    :param resizer: Resize kernel to be used.  For internal resizers, use strings, else lambda functions can be used.
+    :param resizer: Resize kernel to be used.
     :param filter_param_a, filter_param_b: Filter parameters for internal resizers, b & c for bicubic, taps for lanczos.
     :return: Resized clip.
     """
@@ -564,7 +567,7 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
     w = round(((clip.width - left - right) * rw) / 2) * 2
     h = round(((clip.height - top - bottom) * rh) / 2) * 2
 
-    if bb != None:
+    if bb:
         if len(bb) == 4:
             bb.append(None)
             bb.append(999)
@@ -576,75 +579,28 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
     cropeven = core.fb.FillBorders(cropeven, left=lr + int(fill[0]), right=rr + int(fill[1]), top=tr + int(fill[2]),
                                    bottom=br + int(fill[3]), mode="fillmargins")
 
-    if cfill is not None:
+    if cfill:
+        y, u, v = split(cropeven)
         if isinstance(cfill, list):
-            cfb = core.fb.FillBorders(cropeven, cfill[0], cfill[1], cfill[2], cfill[3])
-            cropeven = core.std.Merge(cfb, cropeven, [1, 0])
+            u = core.fb.FillBorders(u, cfill[0], cfill[1], cfill[2], cfill[3])
+            v = core.fb.FillBorders(v, cfill[0], cfill[1], cfill[2], cfill[3])
         else:
-            cropeven = cfill(cropeven)
+            u = cfill(u)
+            v = cfill(v)
+        cropeven = core.std.ShufflePlanes([y, u, v], [0, 0, 0], vs.YUV)
 
-    if bb != None:
+    if bb:
         bb = [int(bb[0]) + lr + int(fill[0]), int(bb[1]) + rr + int(fill[1]), int(bb[2]) + tr + int(fill[2]),
               int(bb[3]) + br + int(fill[3]), int(bb[4]), int(bb[5])]
         cropeven = bbmod(cropeven, cTop=int(bb[2]) + tr, cBottom=int(bb[3]) + br, cLeft=int(bb[0]) + lr,
-                         cRight=int(bb[1]) + rr, thresh=int(bb[4]), blur=int(bb[5]))
+                         cRight=int(bb[1]) + rr, thresh=int(bb[4]), blur=int(bb[5]), scale_thresh=True)
 
-    if resizer.lower() == 'bilinear':
-        if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
-            resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
-                                         sh=cropeven.height - tr - br, kernel='bilinear')
-        else:
-            resized = core.resize.Bilinear(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
-                                           dither_type="error_diffusion")
-    elif resizer.lower() == 'bicubic':
-        if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
-            resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
-                                         sh=cropeven.height - tr - br, kernel='bicubic', a1=filter_param_a,
-                                         a2=filter_param_b)
-        else:
-            resized = core.resize.Bicubic(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                          src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
-                                          filter_param_a=filter_param_a, filter_param_b=filter_param_b,
-                                          dither_type="error_diffusion")
-    elif resizer.lower() == 'point':
-        if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
-            resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
-                                         sh=cropeven.height - tr - br, kernel='point')
-        else:
-            resized = core.resize.Point(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                        src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
-                                        dither_type="error_diffusion")
-    elif resizer.lower() == 'lanczos':
-        if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
-            resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
-                                         sh=cropeven.height - tr - br, kernel='lanczos', taps=filter_param_a)
-        else:
-            resized = core.resize.Lanczos(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                          src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
-                                          filter_param_a=filter_param_a, dither_type="error_diffusion")
-    elif resizer.lower() == 'spline16':
-        if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
-            resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
-                                         sh=cropeven.height - tr - br, kernel='spline16')
-        else:
-            resized = core.resize.Spline16(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
-                                           dither_type="error_diffusion")
-    elif resizer.lower() == 'spline36':
-        if lr or tr or rr or br != 0 and cropeven.format.bits_per_sample == 16:
-            resized = core.fmtc.resample(cropeven, w, h, sx=lr, sy=tr, sw=cropeven.width - lr - rr,
-                                         sh=cropeven.height - tr - br, kernel='spline36')
-        else:
-            resized = core.resize.Spline36(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr,
-                                           src_width=cropeven.width - lr - rr, src_height=cropeven.height - tr - br,
-                                           dither_type="error_diffusion")
-    elif isinstance(resizer, str):
-        raise TypeError('CropResize: Resizer "{}" unknown'.format(resizer))
-    else:
-        resized = resizer(cropeven)
-
-    return resized
+    resizer = {'bilinear': core.resize.Bilinear, 'bicubic': core.resize.Bicubic, 'point': core.resize.Point,
+               'lanczos': core.resize.Lanczos, 'spline16': core.resize.Spline16, 'spline36': core.resize.Spline36,
+               'spline64': core.resize.Spline64}[resizer.lower()]
+    return resizer(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr, src_width=cropeven.width - lr - rr,
+                   src_height=cropeven.height - tr - br, dither_type="error_diffusion", filter_param_a=filter_param_a,
+                   filter_param_b=filter_param_b)
 
 
 cr = CropResize
@@ -823,7 +779,7 @@ def DebandReader(clip, csvfile, grain=64, range=30, delimiter=' ', mask=None):
     """
     import csv
 
-    filtered = clip if get_depth(clip) <= 16 else fvf.Depth(clip, 16)
+    filtered = clip if get_depth(clip) <= 16 else Depth(clip, 16)
     depth = get_depth(clip)
 
     with open(csvfile) as debandcsv:
@@ -1023,7 +979,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
     if src_fmt:
         return resizer(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
     else:
-        return fvf.Depth(tonemapped_clip, 8)
+        return Depth(tonemapped_clip, 8)
 
 
 def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
@@ -1213,7 +1169,7 @@ def fixlvls(clip, gamma=None, min_in=4096, max_in=60160, min_out=4096, max_out=6
     overflow explained: https://guide.encode.moe/encoding/video-artifacts.html#underflow--overflow
     :return: Clip with gamma adjusted or levels fixed.
     """
-    clip_ = fvf.Depth(clip, 16)
+    clip_ = Depth(clip, 16)
     if gamma is None and preset is not None:
         gamma = 0.88
     elif gamma is None and preset is None:
@@ -1228,7 +1184,7 @@ def fixlvls(clip, gamma=None, min_in=4096, max_in=60160, min_out=4096, max_out=6
     elif preset == 3:
         adj = core.std.Levels(clip_, min_in=0, max_in=65535, min_out=4096, max_out=60160, planes=0)
         adj = core.std.Levels(adj, min_in=0, max_in=65535, min_out=4096, max_out=61440, planes=[1, 2])
-    return fvf.Depth(adj, clip.format.bits_per_sample)
+    return Depth(adj, clip.format.bits_per_sample)
 
 
 def mt_lut(clip, expr, planes=[0]):
@@ -1315,14 +1271,14 @@ def UpscaleCheck(clip, res=720, title="Upscaled", bits=None) -> vs.VideoNode:
     elif bits is None:
         bits = src.format.bits_per_sample
 
-    b16 = fvf.Depth(clip, 16)
+    b16 = Depth(clip, 16)
     lma = core.std.ShufflePlanes(b16, 0, vs.GRAY)
     dwn = CropResize(lma, preset=res, resizer='Spline36')
     ups = core.resize.Spline36(dwn, clip.width, clip.height)
     mrg = core.std.ShufflePlanes([ups, b16], [0, 1, 2], vs.YUV)
     txt = FrameInfo(mrg, f"{title}")
     cmp = core.std.Interleave([b16, txt])
-    return fvf.Depth(cmp, bits)
+    return Depth(cmp, bits)
 
 
 def Import(file):
