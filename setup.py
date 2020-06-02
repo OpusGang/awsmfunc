@@ -3,7 +3,20 @@ from distutils.command import build as build_module
 
 import sys
 import subprocess as sp
+import shutil
 from pathlib import Path
+
+packages = {
+    'awsmfunc': 'awsmfunc',
+    'adjust': 'dependencies/adjust',
+    'rekt': 'dependencies/rekt/rekt',
+    'vsutil': 'dependencies/vsutil',
+}
+
+inits = {
+    'adjust': 'dependencies/inits/adjust.py',
+    'vsutil': 'dependencies/inits/vsutil.py',
+}
 
 created = []
 
@@ -14,14 +27,18 @@ def setup_deps():
 
     # Create a shitty __init__ file because vs people suck at python
     for d in deps.iterdir():
-        init = Path.joinpath(d, "__init__.py")
-        func_module = Path.joinpath(d, d.name)
+        if d.name == "inits":
+            continue 
+
+        final_path = Path.joinpath(d, "__init__.py")
         func_target_file = Path.joinpath(d, f"{d.name}.py")
 
         if func_target_file.is_file():
-            created.append(init)
-            with open(init, "w") as f:
-                f.write(f"from .{d.name} import *")
+            created.append(final_path)
+            init_path = Path(inits[d.name]).resolve()
+
+            # Copy init file to dependency
+            shutil.copyfile(init_path, final_path)
 
 def cleanup_inits(created):
     if created:
@@ -29,38 +46,13 @@ def cleanup_inits(created):
         for d in created:
             d.unlink()
 
-packages = {
-    'awsmfunc': 'awsmfunc',
-    'adjust': 'dependencies/adjust',
-    'fvsfunc': 'dependencies/fvsfunc',
-    'havsfunc': 'dependencies/havsfunc',
-    'muvsfunc': 'dependencies/muvsfunc',
-    'mvsfunc': 'dependencies/mvsfunc',
-    'nnedi3_resample': 'dependencies/nnedi3_resample',
-    'nnedi3_rpow2': 'dependencies/nnedi3_rpow2',
-    'rekt': 'dependencies/rekt/rekt',
-    'vsutil': 'dependencies/vsutil',
-}
-
-optional = {
-    'adptvgrnMod': 'dependencies/adptvgrnMod',
-    'edi_rpow2': 'dependencies/edi_rpow2',
-    'kagefunc': 'dependencies/kagefunc',
-    'vsTAAmbk': 'dependencies/vsTAAmbk',
-}
-
-# If full is specified, add optional packages
-if '--full' in sys.argv:
-    packages.update(optional)
-    sys.argv.remove('--full')
-
 class CustomBuild(build_module.build):
     def run(self):
         setup_deps()
 
 setup(
     name='awsmfunc',
-    version='0.1.0',
+    version='0.2.0',
     url='https://github.com/OpusGang/awsmfunc',
     author='OpusGang',
     package_dir=packages,
