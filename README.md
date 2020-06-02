@@ -21,4 +21,4 @@ Optional plugins:
 * [vsutil](https://github.com/Irrational-Encoding-Wizardry/vsutil)
 
 #### Recommended VS Community Python Modules 
-* [See Wiki](https://github.com/OpusGang/awsmfunc/wiki/Recommended-VS-Community-Pyton-Modules)
+* [See Wiki](https://github.com/OpusGang/awsmfunc/wiki/Recommended-VS-Community-Python-Modules)
