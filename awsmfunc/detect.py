@@ -1,9 +1,10 @@
 import vapoursynth as vs
 from vapoursynth import core
-import fvsfunc as fvf
+
 from functools import partial
 from vsutil import iterate, get_y
 from vsutil import plane as fplane
+from vsutil import depth as Depth
 
 
 def __vs_out_updated(c, t):
@@ -37,7 +38,7 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
     depth = clip.format.bits_per_sample
     hi = 65535
     if depth < 16:
-        clip = fvf.Depth(clip, 16)
+        clip = Depth(clip, 16)
     elif depth == 32:
         hi = 1
         if thr >= 1:
@@ -272,7 +273,7 @@ def dirtdtct(clip, output="dirty-frames.txt", left=None, top=None, right=None, b
     if merge:
         merge = "merged-{}".format(output)
 
-    dtc = detect_dirty_lines(clip, output, left, top, right, bottom, thr, merge, cycle, tolerance=tolerance)
+    detect_dirty_lines(clip, output, left, top, right, bottom, thr, merge, cycle, tolerance=tolerance)
     quit("Finished detecting dirty lines, output file: {}".format(output))
 
-    return dtc
+    return None
