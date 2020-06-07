@@ -462,7 +462,6 @@ def AddBordersMod(clip, left=0, top=0, right=0, bottom=0, lsat=.88, tsat=.2, rsa
     if clip.format.subsampling_w != 1 and clip.format.subsampling_h != 1:
         raise TypeError("AddBordersMod: input must be 4:2:0")
 
-    from adjust import Tweak
     if rsat is None:
         if right > 2:
             rsat = .4
@@ -474,7 +473,7 @@ def AddBordersMod(clip, left=0, top=0, right=0, bottom=0, lsat=.88, tsat=.2, rsa
             lcl = clip.std.AddBorders(left=left, color=color)
             lcl = lcl.std.CropAbs(left, clip.height)
             lcm = clip.std.CropAbs(2, clip.height)
-            lcm = Tweak(lcm, sat=lsat)
+            lcm = saturation(lcm, sat=lsat)
             lcr = clip.std.Crop(left=2)
             clip = core.std.StackHorizontal([lcl, lcm, lcr])
         else:
@@ -484,38 +483,38 @@ def AddBordersMod(clip, left=0, top=0, right=0, bottom=0, lsat=.88, tsat=.2, rsa
         tcl = clip.std.AddBorders(top=top, color=color)
         tcl = tcl.std.CropAbs(clip.width, top - 2)
         tcm = clip.std.CropAbs(clip.width, 2)
-        tcm = Tweak(tcm, sat=tsat)
+        tcm = saturation(tcm, sat=tsat)
         tcm = rektlvls(tcm, [0, 1], [16 - 235] * 2, prot_val=None)
         clip = core.std.StackVertical([tcl, tcm, clip])
     elif top == 2:
         tcl = clip.std.CropAbs(clip.width, 2)
-        tcl = Tweak(tcl, sat=tsat)
+        tcl = saturation(tcl, sat=tsat)
         tcl = rektlvls(tcl, [0, 1], [16 - 235] * 2, prot_val=None)
         clip = core.std.StackVertical([tcl, clip])
 
     if right > 2:
         rcm = clip.std.Crop(left=clip.width - 2)
-        rcm = Tweak(rcm, sat=rsat)
+        rcm = saturation(rcm, sat=rsat)
         rcm = rektlvls(rcm, colnum=[0, 1], colval=[16 - 235] * 2, prot_val=None)
         rcr = clip.std.AddBorders(right=right, color=color)
         rcr = rcr.std.Crop(left=clip.width + 2)
         clip = core.std.StackHorizontal([clip, rcm, rcr])
     elif right == 2:
         rcr = clip.std.Crop(left=clip.width - 2)
-        rcr = Tweak(rcr, sat=rsat)
+        rcr = saturation(rcr, sat=rsat)
         rcr = rektlvls(rcr, colnum=[0, 1], colval=[16 - 235] * 2, prot_val=None)
         clip = core.std.StackHorizontal([clip, rcr])
 
     if bottom > 2:
         bcm = clip.std.Crop(top=clip.height - 2)
-        bcm = Tweak(bcm, sat=bsat)
+        bcm = saturation(bcm, sat=bsat)
         bcm = rektlvls(bcm, [0, 1], [16 - 235] * 2, prot_val=None)
         bcr = clip.std.AddBorders(bottom=bottom)
         bcr = bcr.std.Crop(top=clip.height + 2)
         clip = core.std.StackVertical([clip, bcm, bcr])
     elif bottom == 2:
         bcr = clip.std.Crop(top=clip.height - 2)
-        bcr = Tweak(bcr, sat=bsat)
+        bcr = saturation(bcr, sat=bsat)
         bcr = rektlvls(bcr, [0, 1], [16 - 235] * 2, prot_val=None)
         clip = core.std.StackVertical([clip, bcr])
 
@@ -1327,6 +1326,18 @@ def greyscale(clip):
         raise TypeError("GreyScale: YUV input is required!")
     grey = core.std.BlankClip(clip)
     return core.std.ShufflePlanes([clip, grey], [0, 1, 2], vs.YUV)
+
+
+def saturation(clip, sat):
+    if clip.format.color_family != vs.YUV:
+        raise TypeError("saturation: YUV input is required!")
+    sfmt = clip.format
+
+    clip = Depth(clip, 32)
+    expr = f"x {sat} * -0.5 max 0.5 min"
+
+    return core.resize.Point(clip.std.Expr(["", expr]), format=sfmt, dither_type="error_diffusion")
+
 
 #####################
 #      Aliases      #
