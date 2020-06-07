@@ -1,9 +1,0 @@
-[submodule "dependencies/adjust"]
-	path = dependencies/adjust
-	url = https://github.com/dubhater/vapoursynth-adjust.git
-[submodule "dependencies/vsutil"]
-	path = dependencies/vsutil
-	url = https://github.com/Irrational-Encoding-Wizardry/vsutil.git
-[submodule "dependencies/rekt"]
-	path = dependencies/rekt
-	url = https://gitlab.com/Ututu/rekt.git
