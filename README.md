@@ -12,11 +12,9 @@ Optional plugins:
 ### Setting up
 
 	git clone https://git.concertos.live/AHD/awsmfunc.git && cd awsmfunc
-	git submodule update --init --recursive
 	pip install .
 
 #### Dependencies
-* [adjust](https://github.com/dubhater/vapoursynth-adjust)
 * [rekt](https://gitlab.com/Ututu/rekt)
 * [vsutil](https://github.com/Irrational-Encoding-Wizardry/vsutil)
 
