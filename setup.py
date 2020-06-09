@@ -9,5 +9,6 @@ setup(
     url='https://github.com/OpusGang/awsmfunc',
     author='OpusGang',
     packages=["awsmfunc"],
-    instal_requires=install_requires,
+    install_requires=install_requires,
+    zip_safe=False,
 )
