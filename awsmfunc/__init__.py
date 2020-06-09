@@ -29,6 +29,7 @@ from .awsmfunc import (
     UpscaleCheck,
     Import,
     greyscale,
+    saturation,
 )
 
 from .detect import (
