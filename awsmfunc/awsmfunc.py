@@ -1327,7 +1327,6 @@ def greyscale(clip):
     grey = core.std.BlankClip(clip)
     return core.std.ShufflePlanes([clip, grey], [0, 1, 2], vs.YUV)
 
-
 def saturation(clip, sat):
     if clip.format.color_family != vs.YUV:
         raise TypeError("saturation: YUV input is required!")
