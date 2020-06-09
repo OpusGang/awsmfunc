@@ -9,5 +9,6 @@ setup(
     url='https://git.concertos.live/AHD/awsmfunc',
     author='AHD',
     packages=["awsmfunc"],
-    instal_requires=install_requires,
+    install_requires=install_requires,
+    zip_safe=False,
 )
