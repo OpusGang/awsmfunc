@@ -327,9 +327,8 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
 
             last = core.resize.Bicubic(original, blurWidth[0] * 2, cTop * 2, filter_param_a=1, filter_param_b=0)
 
-            originalBlur = core.resize.Bicubic(last, blurWidth[0] * 2, cTop * 2, filter_param_a=1,
-                                               filter_param_b=0).resize.Bicubic(cWidth * 2, cTop * 2, filter_param_a=1,
-                                                                                filter_param_b=0)
+            originalBlur = last.resize.Bicubic(cWidth * 2, cTop * 2, filter_param_a=1, filter_param_b=0)
+
             if cpass2:
                 originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth[0] * 2, cTop * 2, filter_param_a=1,
                                                                               filter_param_b=0)
@@ -365,9 +364,7 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
 
                 last = core.resize.Bicubic(original, blurWidth[0] * 2, cTop * 2, filter_param_a=1, filter_param_b=0)
 
-                originalBlur = core.resize.Bicubic(last, blurWidth[0] * 2, cTop * 2, filter_param_a=1,
-                                                   filter_param_b=0).resize.Bicubic(cWidth * 2, cTop * 2,
-                                                                                    filter_param_a=1, filter_param_b=0)
+                originalBlur = last.resize.Bicubic(cWidth * 2, cTop * 2, filter_param_a=1, filter_param_b=0)
                 balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=[yexpr])
 
                 difference = core.std.MakeDiff(balancedLuma, original, planes=[0])
@@ -396,9 +393,7 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
 
                 last = core.resize.Bicubic(original, blurWidth, cTop, filter_param_a=1, filter_param_b=0)
 
-                originalBlur = core.resize.Bicubic(last, blurWidth, cTop, filter_param_a=1,
-                                                   filter_param_b=0).resize.Bicubic(cWidth, cTop, filter_param_a=1,
-                                                                                    filter_param_b=0)
+                originalBlur = last.resize.Bicubic(cWidth, cTop, filter_param_a=1, filter_param_b=0)
 
                 if cpass2:
                     originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth, cTop, filter_param_a=1,
