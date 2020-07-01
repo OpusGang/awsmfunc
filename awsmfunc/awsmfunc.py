@@ -278,27 +278,27 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         cTop = min(cTop, cHeight - 1)
         blurWidth = [max(8, math.floor(cWidth / blur[0])), max(8, math.floor(cWidth / blur[1])),
                      max(8, math.floor(cWidth / blur[2]))]
-        scale128 = str(scale(128, c.format.bits_per_sample))
+        scale128 = str(scale_to(128, c.format.bits_per_sample))
         exprchroma = "x {} - abs 2 *".format(scale128)
         expruv = "z y / 8 min 0.4 max x " + scale128 + " - * " + scale128 + " +"
-        scale16 = str(scale(16, c.format.bits_per_sample))
+        scale16 = str(scale_to(16, c.format.bits_per_sample))
         yexpr = "z " + scale16 + " - y " + scale16 + " - / 8 min 0.4 max x " + scale16 + " - * " + scale16 + " +"
         uvexpr = "z y - x +"
         depth = c.format.bits_per_sample
         if scale_thresh:
-            Tpy = scale(128 + thresh[0], depth)
-            Tmy = scale(128 - thresh[0], depth)
-            Tpu = scale(128 + thresh[1], depth)
-            Tmu = scale(128 - thresh[1], depth)
-            Tpv = scale(128 + thresh[2], depth)
-            Tmv = scale(128 - thresh[2], depth)
+            Tpy = scale_to(128 + thresh[0], depth)
+            Tmy = scale_to(128 - thresh[0], depth)
+            Tpu = scale_to(128 + thresh[1], depth)
+            Tmu = scale_to(128 - thresh[1], depth)
+            Tpv = scale_to(128 + thresh[2], depth)
+            Tmv = scale_to(128 - thresh[2], depth)
         else:
-            Tpy = scale(128, depth) + thresh[0]
-            Tmy = scale(128, depth) - thresh[0]
-            Tpu = scale(128, depth) + thresh[1]
-            Tmu = scale(128, depth) - thresh[1]
-            Tpv = scale(128, depth) + thresh[2]
-            Tmv = scale(128, depth) - thresh[2]
+            Tpy = scale_to(128, depth) + thresh[0]
+            Tmy = scale_to(128, depth) - thresh[0]
+            Tpu = scale_to(128, depth) + thresh[1]
+            Tmu = scale_to(128, depth) - thresh[1]
+            Tpv = scale_to(128, depth) + thresh[2]
+            Tmv = scale_to(128, depth) - thresh[2]
         Tpy = 'x {0} > {0} x ?'.format(Tpy)
         Tmy = 'x {0} < {0} x ?'.format(Tmy)
         Tpu = 'x {0} > {0} x ?'.format(Tpu)
@@ -820,7 +820,7 @@ def LumaMaskMerge(clipa, clipb, threshold=None, invert=False, scale_inputs=False
     p = (1 << clipa.format.bits_per_sample) - 1
 
     if scale_inputs and threshold is not None:
-        threshold = scale(threshold, clipa.format.bits_per_sample)
+        threshold = scale_to(threshold, clipa.format.bits_per_sample)
     elif threshold is None:
         threshold = (p + 1) / 2
 
@@ -842,12 +842,12 @@ def RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs=
     p = (1 << clipa.format.bits_per_sample) - 1
 
     if scale_inputs:
-        Rmin = scale(Rmin, clipa.format.bits_per_sample)
-        Rmax = scale(Rmax, clipa.format.bits_per_sample)
-        Gmin = scale(Gmin, clipa.format.bits_per_sample)
-        Gmax = scale(Gmax, clipa.format.bits_per_sample)
-        Bmin = scale(Bmin, clipa.format.bits_per_sample)
-        Bmax = scale(Bmax, clipa.format.bits_per_sample)
+        Rmin = scale_to(Rmin, clipa.format.bits_per_sample)
+        Rmax = scale_to(Rmax, clipa.format.bits_per_sample)
+        Gmin = scale_to(Gmin, clipa.format.bits_per_sample)
+        Gmax = scale_to(Gmax, clipa.format.bits_per_sample)
+        Bmin = scale_to(Bmin, clipa.format.bits_per_sample)
+        Bmax = scale_to(Bmax, clipa.format.bits_per_sample)
 
     if clipa.format.bits_per_sample == 8:
         rgb = core.resize.Point(clipa, format=vs.RGB24, matrix_in_s="709")
@@ -1208,8 +1208,19 @@ def mt_lut(clip, expr, planes=[0]):
 
     return core.std.Lut(clip=clip, function=clampexpr, planes=planes)
 
+def cround(x):
+    """
+    Copied from havsfunc
+    """
+    return math.floor(x + 0.5) if x > 0 else math.ceil(x - 0.5)
 
-def scale(val, bits, bits_in=8):
+def scale(value, peak):
+    """
+    Copied from havsfunc
+    """
+    return cround(value * peak / 255) if peak != 1 else value / 255
+
+def scale_to(val, bits, bits_in=8):
     """
     Scale function from havsfunc with additional val bit depth specification option.
     :param val: Value to be scaled.
