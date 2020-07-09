@@ -589,10 +589,13 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
         elif len(bb) != 6:
             raise TypeError('CropResize: bbmod arguments not valid.')
 
-    cropeven = core.std.Crop(clip, left=left - lr, right=right - rr, top=top - tr, bottom=bottom - br)
-
-    cropeven = core.fb.FillBorders(cropeven, left=lr + int(fill[0]), right=rr + int(fill[1]), top=tr + int(fill[2]),
-                                   bottom=br + int(fill[3]), mode="fillmargins")
+    if left or right or top or bottom:
+        cropeven = core.std.Crop(clip, left=left - lr, right=right - rr, top=top - tr, bottom=bottom - br)
+        if fill or lr or rr or tr or br:
+            cropeven = core.fb.FillBorders(cropeven, left=lr + int(fill[0]), right=rr + int(fill[1]),
+                                           top=tr + int(fill[2]), bottom=br + int(fill[3]), mode="fillmargins")
+    else:
+        cropeven = clip
 
     if cfill:
         y, u, v = split(cropeven)

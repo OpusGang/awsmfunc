@@ -5,14 +5,14 @@
 * [vapoursynth](http://www.vapoursynth.com/)
 * [numpy](https://numpy.org/)
 * [RemapFrames](https://github.com/Irrational-Encoding-Wizardry/Vapoursynth-RemapFrames)
+* [FillBorders](https://github.com/dubhater/vapoursynth-fillborders)
 
 Optional plugins:
 * [vs-placebo](https://github.com/Lypheo/vs-placebo)
 
 ### Setting up
 
-	git clone https://git.concertos.live/AHD/awsmfunc.git && cd awsmfunc
-	pip install .
+	pip install git+https://git.concertos.live/AHD/awsmfunc.git
 
 #### Dependencies
 * [rekt](https://gitlab.com/Ututu/rekt)
