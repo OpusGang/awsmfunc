@@ -1053,17 +1053,17 @@ def FrameInfo(clip, title,
       * Print the frame number, the picture type and a title on each frame
     """
 
-    def FrameProps(n, clip):
-        if "_PictType" in clip.get_frame(n).props:
+    def FrameProps(n, f, clip):
+        if "_PictType" in f.props:
             clip = core.sub.Subtitle(clip, "Frame " + str(n) + " of " + str(
-                clip.num_frames) + "\nPicture type: " + clip.get_frame(n).props._PictType.decode(), style=style)
+                clip.num_frames) + "\nPicture type: " + f.props['_PictType'].decode(), style=style)
         else:
             clip = core.sub.Subtitle(clip, "Frame " + str(n) + " of " + str(clip.num_frames) + "\nPicture type: N/A",
                                      style=style)
 
         return clip
 
-    clip = core.std.FrameEval(clip, partial(FrameProps, clip=clip))
+    clip = core.std.FrameEval(clip, partial(FrameProps, clip=clip), prop_src=clip)
     clip = core.sub.Subtitle(clip, text=['\n \n \n' + title], style=style)
 
     return clip
