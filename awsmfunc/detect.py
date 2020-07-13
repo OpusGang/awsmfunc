@@ -109,7 +109,8 @@ def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" ", toleranc
 
 
 def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
-             min_zone_len=1, tolerance=0, check_next=True, diff=0.10, darkthr=5632, brightthr=60160, blankthr=None):
+             min_zone_len=1, tolerance=0, check_next=True, diff=0.10, darkthr=5632, brightthr=60160, blankthr=None,
+             debug=False):
     import os
     import sys
     import time
@@ -126,8 +127,22 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
 
         return clip
 
+
+    def debug_detect(n, f, clip, hi, lo):
+        if f.props.PlaneStatsAverage >= lo and f.props.PlaneStatsAverage <= hi:
+            return clip.sub.Subtitle(f"{f.props.PlaneStatsAverage}\nBanding detected!", style="sans-serif,20,&H000000FF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1")
+        else:
+            return clip.sub.Subtitle(f.props.PlaneStatsAverage, style="sans-serif,20,&H0000FF00,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1")
+
+
+    original_format = clip.format
+
     clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0, darkthr=darkthr,
                     brightthr=brightthr, blankthr=blankthr)
+
+    if debug:
+        clip = clip.resize.Point(format=original_format)
+        return clip.std.FrameEval(partial(debug_detect, clip=clip, hi=hi, lo=lo), clip.std.PlaneStats())
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
@@ -193,16 +208,19 @@ def detect_dirty_lines(clip, output, left, top, right, bottom, thr=.1, merged_ou
                 clip_b = luma.std.Crop(left=num - 1, right=1)
         return core.std.PlaneStats(clip_a, clip_b)
 
+
     def detect(n, f, clip, thr, detections):
         if f.props.PlaneStatsDiff > thr:
             detections.append(n * cycle)
         return clip
+    
 
     def updated(c, t):
         if c == t:
             print("Frame: {}/{}".format(c, t), end="\n")
         else:
             print("Frame: {}/{}".format(c, t), end="\r")
+
 
     total_frames = clip.num_frames
 
