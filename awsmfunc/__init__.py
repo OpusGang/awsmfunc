@@ -24,7 +24,7 @@ from .awsmfunc import (
     ExtractFramesReader,
     fixlvls,
     mt_lut,
-    scale,
+    scale_value as scale,
     autogma,
     UpscaleCheck,
     Import,

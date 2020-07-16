@@ -5,7 +5,7 @@ with open("requirements.txt") as fh:
 
 setup(
     name='awsmfunc',
-    version='0.2.1',
+    version='0.2.2',
     url='https://github.com/OpusGang/awsmfunc',
     author='OpusGang',
     packages=["awsmfunc"],
