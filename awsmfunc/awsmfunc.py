@@ -1211,14 +1211,6 @@ def mt_lut(clip, expr, planes=[0]):
 
     return core.std.Lut(clip=clip, function=clampexpr, planes=planes)
 
-
-def cround(x):
-    """
-    Copied from havsfunc
-    """
-    return math.floor(x + 0.5) if x > 0 else math.ceil(x - 0.5)
-
-
 def autogma(clip, adj=1.3, thr=0.40):
     """
     From https://gitlab.com/snippets/1895974.
