@@ -1190,10 +1190,11 @@ def fixlvls(clip, gamma=None, min_in=4096, max_in=60160, min_out=4096, max_out=6
     elif preset == 1:
         adj = core.std.Levels(clip_, gamma=gamma, min_in=4096, max_in=60160, min_out=4096, max_out=60160, planes=0)
     elif preset == 2:
-        adj = core.std.Levels(clip_, min_out=0, max_out=65535, min_in=4096, max_in=60160, planes=0)
+        y, u, v = split(clip)
+        y = y.resize.Point(range_in_s="full", range_s="limited", format=y.format, dither_type="error_diffusion")
+        return join([y, u, v])
     elif preset == 3:
-        adj = core.std.Levels(clip_, min_in=0, max_in=65535, min_out=4096, max_out=60160, planes=0)
-        adj = core.std.Levels(adj, min_in=0, max_in=65535, min_out=4096, max_out=61440, planes=[1, 2])
+        return clip.resize.Point(range_in_s="full", range_s="limited", format=clip.format, dither_type="error_diffusion")
     return Depth(adj, clip.format.bits_per_sample)
 
 
