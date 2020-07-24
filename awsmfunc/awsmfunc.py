@@ -1088,7 +1088,7 @@ def DelFrameProp(clip, primaries=True, matrix=True, transfer=True):
     return clip
 
 
-def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=False):
+def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=False, tonemap=False):
     """
     InterleaveDir, load all mkv files located in a directory and interleave them. From sgvsfunc.
     > Usage: InterleaveDir(folder, PrintInfo, DelProp, first, repeat)
@@ -1097,6 +1097,7 @@ def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=Fal
       * DelProp = True means deleting primaries, matrix and transfer characteristics
       * first is an optional clip to append in first position of the interleaving list
       * repeat = True means that the appended clip is repeated between each loaded clip from the folder
+      * tonemap = True tonemaps each clip before applying FrameInfo
     """
     import os
 
@@ -1120,6 +1121,9 @@ def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=Fal
             if first != None:
                 sources[j] = core.std.AssumeFPS(clip=sources[j], src=first)
 
+            if tonemap:
+                sources[j] = DynamicTonemap(sources[j])
+
             if PrintInfo == True:
                 sources[j] = FrameInfo(clip=sources[j], title=files[i])
             elif PrintInfo != False:
@@ -1137,9 +1141,7 @@ def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=Fal
             elif first != None and repeat != False:
                 raise TypeError('InterleaveDir: repeat must be a boolean.')
 
-    comparison = core.std.Interleave(sources)
-
-    return comparison
+    return core.std.Interleave(sources)
 
 
 def ExtractFramesReader(clip, csvfile):
