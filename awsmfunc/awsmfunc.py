@@ -98,8 +98,8 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
         return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
 
 
-def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, u=True, v=True, scale_thresh=False,
-          cpass2=False, cTop=None, cBottom=None, cLeft=None, cRight=None):
+def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=None, y=False, u=False,
+          v=False, scale_thresh=None, cpass2=False, cTop=None, cBottom=None, cLeft=None, cRight=None):
     """
     Narkyy's bbmod helper for a significant speedup from cropping unnecessary pixels before processing.
     :param clip: Clip to be processed.
@@ -111,10 +111,12 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, 
                    Specify a list for [luma, chroma] or [y, u, v].
     :param blur: Processing strength, lower values are more aggressive. Default is 20, not 999 like the old bbmod.
                  Specify a list for [luma, chroma] or [y, u, v].
-    :param y: Boolean whether luma plane is processed. Default is True.
-    :param u: Boolean whether first chroma plane is processed. Default is True.
-    :param u: Boolean whether second chroma plane is processed. Default is True.
-    :param scale_thresh: Boolean whether thresh value is scaled from 8-bit to source bit depth. Default is False.
+    :param planes: Planes to process. Overwrites y, u, v. Defaults to all planes.
+    :param y: Boolean whether luma plane is processed. Default is False.
+    :param u: Boolean whether first chroma plane is processed. Default is False.
+    :param v: Boolean whether second chroma plane is processed. Default is False.
+    :param scale_thresh: Boolean whether thresh value is scaled from 8-bit to source bit depth.
+                         If thresh <= 128, this defaults to True, else False.
     :param cpass2: Second, significantly stronger, chroma pass. If enabled, default for chroma blur is blur * 2 and
                    chroma thresh is thresh / 10.
     :param cTop: Legacy top.
@@ -123,6 +125,9 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, 
     :param cRight: Legacy right.
     :return: Clip with color offsets fixed.
     """
+
+    if clip.format.color_family != vs.YUV and clip.format.color_family != vs.GRAY:
+        raise ValueError("bbmod: only YUV and GRAY clips are supported")
 
     if cTop is not None:
         top = cTop
@@ -136,9 +141,37 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, y=True, 
     if cRight is not None:
         right = cRight
 
+    if planes is None:
+        if y or u or v:
+            planes = []
+
+        elif clip.format.color_family == vs.YUV:
+            planes = [0, 1, 2]
+
+        elif clip.format.color_family == vs.GRAY:
+            planes = [0]
+
+    if isinstance(planes, int):
+        planes = [planes]
+
+    if 0 in planes:
+        y = True
+
+    if 1 in planes:
+        u = True
+
+    if 2 in planes:
+        v = True
+
     depth = clip.format.bits_per_sample
     if thresh is None:
         thresh = int(math.pow(2, depth - 1))
+
+    if scale_thresh is None:
+        if thresh < 129:
+            scale_thresh = True
+        else:
+            scale_thresh = False
 
     filtered = clip
 
@@ -278,27 +311,27 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         cTop = min(cTop, cHeight - 1)
         blurWidth = [max(8, math.floor(cWidth / blur[0])), max(8, math.floor(cWidth / blur[1])),
                      max(8, math.floor(cWidth / blur[2]))]
-        scale128 = str(scale_value(128, c.format.bits_per_sample, 8))
+        scale128 = str(scale_value(128, 8, c.format.bits_per_sample))
         exprchroma = "x {} - abs 2 *".format(scale128)
         expruv = "z y / 8 min 0.4 max x " + scale128 + " - * " + scale128 + " +"
-        scale16 = str(scale_value(16, c.format.bits_per_sample, 8))
+        scale16 = str(scale_value(16, 8, c.format.bits_per_sample))
         yexpr = "z " + scale16 + " - y " + scale16 + " - / 8 min 0.4 max x " + scale16 + " - * " + scale16 + " +"
         uvexpr = "z y - x +"
         depth = c.format.bits_per_sample
         if scale_thresh:
-            Tpy = scale_value(128 + thresh[0], depth, 8)
-            Tmy = scale_value(128 - thresh[0], depth, 8)
-            Tpu = scale_value(128 + thresh[1], depth, 8)
-            Tmu = scale_value(128 - thresh[1], depth, 8)
-            Tpv = scale_value(128 + thresh[2], depth, 8)
-            Tmv = scale_value(128 - thresh[2], depth, 8)
+            Tpy = scale_value(128 + thresh[0], 8, depth)
+            Tmy = scale_value(128 - thresh[0], 8, depth)
+            Tpu = scale_value(128 + thresh[1], 8, depth)
+            Tmu = scale_value(128 - thresh[1], 8, depth)
+            Tpv = scale_value(128 + thresh[2], 8, depth)
+            Tmv = scale_value(128 - thresh[2], 8, depth)
         else:
-            Tpy = scale_value(128, depth, 8) + thresh[0]
-            Tmy = scale_value(128, depth, 8) - thresh[0]
-            Tpu = scale_value(128, depth, 8) + thresh[1]
-            Tmu = scale_value(128, depth, 8) - thresh[1]
-            Tpv = scale_value(128, depth, 8) + thresh[2]
-            Tmv = scale_value(128, depth, 8) - thresh[2]
+            Tpy = scale_value(128, 8, depth) + thresh[0]
+            Tmy = scale_value(128, 8, depth) - thresh[0]
+            Tpu = scale_value(128, 8, depth) + thresh[1]
+            Tmu = scale_value(128, 8, depth) - thresh[1]
+            Tpv = scale_value(128, 8, depth) + thresh[2]
+            Tmv = scale_value(128, 8, depth) - thresh[2]
         Tpy = 'x {0} > {0} x ?'.format(Tpy)
         Tmy = 'x {0} < {0} x ?'.format(Tmy)
         Tpu = 'x {0} > {0} x ?'.format(Tpu)
@@ -352,7 +385,12 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                 [last, core.std.CropAbs(c2, cWidth * 2, (cHeight - cTop) * 2, 0, cTop * 2)]).resize.Point(
                 cWidth, cHeight)
         else:
-            yplane, uplane, vplane = split(c)
+            if c.format.color_family == vs.YUV:
+                yplane, uplane, vplane = split(c)
+            elif c.format.color_family == vs.GRAY:
+                yplane = c
+            else:
+                raise ValueError("bbmod: only YUV and GRAY clips are supported")
             if y:
                 c2 = core.resize.Point(yplane, cWidth * 2, cHeight * 2)
                 last = core.std.CropAbs(c2, cWidth * 2, 2, 0, cTop * 2)
@@ -377,6 +415,8 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                 yplane = core.std.StackVertical(
                     clips=[last, core.std.CropAbs(c2, cWidth * 2, (cHeight - cTop) * 2, 0, cTop * 2)]).resize.Point(
                     cWidth, cHeight)
+                if c.format.color_family == vs.GRAY:
+                    return yplane
 
             def btbc(c2, blurWidth, Tp, Tm):
                 c2 = core.resize.Point(c2, cWidth, cHeight)
@@ -823,7 +863,7 @@ def LumaMaskMerge(clipa, clipb, threshold=None, invert=False, scale_inputs=False
     p = (1 << clipa.format.bits_per_sample) - 1
 
     if scale_inputs and threshold is not None:
-        threshold = scale_value(threshold, clipa.format.bits_per_sample, 8)
+        threshold = scale_value(threshold, 8, clipa.format.bits_per_sample)
     elif threshold is None:
         threshold = (p + 1) / 2
 
@@ -845,12 +885,12 @@ def RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs=
     p = (1 << clipa.format.bits_per_sample) - 1
 
     if scale_inputs:
-        Rmin = scale_value(Rmin, clipa.format.bits_per_sample, 8)
-        Rmax = scale_value(Rmax, clipa.format.bits_per_sample, 8)
-        Gmin = scale_value(Gmin, clipa.format.bits_per_sample, 8)
-        Gmax = scale_value(Gmax, clipa.format.bits_per_sample, 8)
-        Bmin = scale_value(Bmin, clipa.format.bits_per_sample, 8)
-        Bmax = scale_value(Bmax, clipa.format.bits_per_sample, 8)
+        Rmin = scale_value(Rmin, 8, clipa.format.bits_per_sample)
+        Rmax = scale_value(Rmax, 8, clipa.format.bits_per_sample)
+        Gmin = scale_value(Gmin, 8, clipa.format.bits_per_sample)
+        Gmax = scale_value(Gmax, 8, clipa.format.bits_per_sample)
+        Bmin = scale_value(Bmin, 8, clipa.format.bits_per_sample)
+        Bmax = scale_value(Bmax, 8, clipa.format.bits_per_sample)
 
     if clipa.format.bits_per_sample == 8:
         rgb = core.resize.Point(clipa, format=vs.RGB24, matrix_in_s="709")
