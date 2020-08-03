@@ -557,7 +557,7 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0, lsat=.88, rsat=None, ts
 
 
 def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=None,
-               cfill=None, resizer='spline36', filter_param_a=None, filter_param_b=None,
+               fillplanes=None, cfill=None, resizer='spline36', filter_param_a=None, filter_param_b=None,
                aspect_ratio=16 / 9):
     """
     Originally from sgvsfunc.  Added chroma filling option and preset parameter.
@@ -573,6 +573,7 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
     :param bottom: Bottom offset of resized clip.
     :param bb: Parameters to be parsed to bbmod: cTop, cBottom, cLeft, cRight[, thresh=128, blur=999].
     :param fill: Parameters to be parsed to fb.FillBorders: left, right, top, bottom.
+    :param fillplanes: Planes for fill to be applied to.
     :param cfill: If a list is specified, same as fill for chroma planes exclusively.  Else, a lambda function can be
                   specified, e.g. cfill=lambda c: c.edgefixer.ContinuityFixer(left=0, top=0, right=[2, 4, 4], bottom=0).
     :param resizer: Resize kernel to be used.
@@ -582,25 +583,28 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
     if preset:
         if clip.width / clip.height > aspect_ratio:
             return CropResize(clip, width=aspect_ratio * preset, left=left, right=right, top=top, bottom=bottom, bb=bb,
-                              fill=fill, cfill=cfill, resizer=resizer, filter_param_a=filter_param_a,
+                              fill=fill, fillplanes=fillplanes, cfill=cfill, resizer=resizer, filter_param_a=filter_param_a,
                               filter_param_b=filter_param_b)
         else:
             return CropResize(clip, height=preset, left=left, right=right, top=top, bottom=bottom, bb=bb, fill=fill,
-                              cfill=cfill, resizer=resizer, filter_param_a=filter_param_a,
+                              fillplanes=fillplanes, cfill=cfill, resizer=resizer, filter_param_a=filter_param_a,
                               filter_param_b=filter_param_b)
     if fill is None:
         fill = [0, 0, 0, 0]
-    if len(fill) == 4:
-        if left - int(fill[0]) >= 0 and right - int(fill[1]) >= 0 and top - int(fill[2]) >= 0 and bottom - int(
-                fill[3]) >= 0:
-            left = left - int(fill[0])
-            right = right - int(fill[1])
-            top = top - int(fill[2])
-            bottom = bottom - int(fill[3])
+    if fillplanes is None:
+        fillplanes = [0, 1, 2]
+    if isinstance(fill, list):
+        if len(fill) == 4:
+            if left - int(fill[0]) >= 0 and right - int(fill[1]) >= 0 and top - int(fill[2]) >= 0 and bottom - int(
+                    fill[3]) >= 0:
+                left = left - int(fill[0])
+                right = right - int(fill[1])
+                top = top - int(fill[2])
+                bottom = bottom - int(fill[3])
+            else:
+                raise ValueError('CropResize: filling exceeds cropping.')
         else:
-            raise ValueError('CropResize: filling exceeds cropping.')
-    else:
-        raise TypeError('CropResize: fill arguments not valid.')
+            raise TypeError('CropResize: fill arguments not valid.')
 
     lr = left % 2
     rr = right % 2
@@ -631,17 +635,17 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
 
     if left or right or top or bottom:
         cropeven = core.std.Crop(clip, left=left - lr, right=right - rr, top=top - tr, bottom=bottom - br)
-        if fill or lr or rr or tr or br:
-            cropeven = core.fb.FillBorders(cropeven, left=lr + int(fill[0]), right=rr + int(fill[1]),
-                                           top=tr + int(fill[2]), bottom=br + int(fill[3]), mode="fillmargins")
+        if fill is not False and (lr or rr or tr or br):
+            cropeven = fb(cropeven, left=lr + int(fill[0]), right=rr + int(fill[1]), top=tr + int(fill[2]),
+                          bottom=br + int(fill[3]), planes=fillplanes)
     else:
         cropeven = clip
 
     if cfill:
         y, u, v = split(cropeven)
         if isinstance(cfill, list):
-            u = core.fb.FillBorders(u, cfill[0], cfill[1], cfill[2], cfill[3])
-            v = core.fb.FillBorders(v, cfill[0], cfill[1], cfill[2], cfill[3])
+            u = core.fb.FillBorders(u, cfill[0], cfill[1], cfill[2], cfill[3], mode="fillmargins")
+            v = core.fb.FillBorders(v, cfill[0], cfill[1], cfill[2], cfill[3], mode="fillmargins")
         else:
             u = cfill(u)
             v = cfill(v)
