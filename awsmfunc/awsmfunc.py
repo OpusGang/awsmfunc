@@ -1003,7 +1003,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
         nits = max(math.ceil(nits_max), 100)
 
         # Tonemap
-        clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
+        clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="2020ncl", matrix_s="709",
                        primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
                        dither_type="none", nominal_luminance=nits)
 
@@ -1027,7 +1027,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
         tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format,
                                   matrix_s="709" if clip_orig_format.color_family == vs.YUV else None)
     else:
-        clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
+        clip = resizer(clip, format=vs.YUV444P16, range_in_s="limited",
                        range_s="full", dither_type="none")
 
         luma_props = core.std.PlaneStats(clip, plane=0)
