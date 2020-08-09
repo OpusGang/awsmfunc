@@ -98,8 +98,8 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
         return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
 
 
-def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=None, y=False, u=False,
-          v=False, scale_thresh=None, cpass2=False, cTop=None, cBottom=None, cLeft=None, cRight=None):
+def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=None, y=True, u=True,
+          v=True, scale_thresh=None, cpass2=False, cTop=None, cBottom=None, cLeft=None, cRight=None):
     """
     Narkyy's bbmod helper for a significant speedup from cropping unnecessary pixels before processing.
     :param clip: Clip to be processed.
@@ -112,9 +112,9 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
     :param blur: Processing strength, lower values are more aggressive. Default is 20, not 999 like the old bbmod.
                  Specify a list for [luma, chroma] or [y, u, v].
     :param planes: Planes to process. Overwrites y, u, v. Defaults to all planes.
-    :param y: Boolean whether luma plane is processed. Default is False.
-    :param u: Boolean whether first chroma plane is processed. Default is False.
-    :param v: Boolean whether second chroma plane is processed. Default is False.
+    :param y: Boolean whether luma plane is processed. Default is True.
+    :param u: Boolean whether first chroma plane is processed. Default is True.
+    :param v: Boolean whether second chroma plane is processed. Default is True.
     :param scale_thresh: Boolean whether thresh value is scaled from 8-bit to source bit depth.
                          If thresh <= 128, this defaults to True, else False.
     :param cpass2: Second, significantly stronger, chroma pass. If enabled, default for chroma blur is blur * 2 and
@@ -141,27 +141,24 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
     if cRight is not None:
         right = cRight
 
-    if planes is None:
-        if y or u or v:
-            planes = []
-
-        elif clip.format.color_family == vs.YUV:
-            planes = [0, 1, 2]
-
-        elif clip.format.color_family == vs.GRAY:
-            planes = [0]
-
-    if isinstance(planes, int):
-        planes = [planes]
-
-    if 0 in planes:
-        y = True
-
-    if 1 in planes:
-        u = True
-
-    if 2 in planes:
-        v = True
+    if planes is not None:
+        if isinstance(planes, int):
+            planes = [planes]
+    
+        if 0 in planes:
+            y = True
+        else:
+            y = False
+    
+        if 1 in planes:
+            u = True
+        else:
+            u = False
+    
+        if 2 in planes:
+            v = True
+        else:
+            v = False
 
     depth = clip.format.bits_per_sample
     if thresh is None:
