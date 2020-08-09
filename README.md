@@ -9,6 +9,7 @@
 
 Optional plugins:
 * [vs-placebo](https://github.com/Lypheo/vs-placebo)
+* [vapoursynth-descale](https://github.com/Irrational-Encoding-Wizardry/vapoursynth-descale)
 
 ### Setting up
 
