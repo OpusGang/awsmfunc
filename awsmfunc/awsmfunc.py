@@ -1366,12 +1366,18 @@ def UpscaleCheck(clip, res=720, title="Upscaled", bits=None):
 
 def RescaleCheck(clip, res=720, kernel="bicubic", b=None, c=None, taps=None, bits=None):
     """
+    Requires vapoursynth-descale: https://github.com/Irrational-Encoding-Wizardry/vapoursynth-descale
     :param res: Target resolution (720, 576, 480, ...)
     :param kernel: Rescale kernel, default bicubic
     :param b, c, taps: kernel params, default mitchell
     :param bits: Bit depth of output
     :return: Clip resampled to target resolution and back
     """
+    has_descale = "tegaf.asi.xe" in core.get_plugins()
+
+    if not has_descale:
+        raise ModuleNotFoundError("RescaleCheck: Requires 'descale' plugin to be installed")
+
     src = clip
     # Generic error handling, YCOCG & COMPAT input not tested as such blocked by default
     if src.format.color_family not in [vs.YUV, vs.GRAY, vs.RGB]:
@@ -1482,6 +1488,9 @@ RESIZEDICT = {'bilinear': core.resize.Bilinear, 'bicubic': core.resize.Bicubic, 
               'lanczos': core.resize.Lanczos, 'spline16': core.resize.Spline16, 'spline36': core.resize.Spline36,
               'spline64': core.resize.Spline64}
 
-DESCALEDICT = {'bilinear': core.descale.Debilinear, 'bicubic': core.descale.Debicubic, 'point': core.resize.Point,
-              'lanczos': core.descale.Delanczos, 'spline16': core.descale.Despline16, 'spline36': core.descale.Despline36,
-              'spline64': core.descale.Despline64}
+
+has_descale = "tegaf.asi.xe" in core.get_plugins()
+if has_descale:
+    DESCALEDICT = {'bilinear': core.descale.Debilinear, 'bicubic': core.descale.Debicubic, 'point': core.resize.Point,
+                'lanczos': core.descale.Delanczos, 'spline16': core.descale.Despline16, 'spline36': core.descale.Despline36,
+                'spline64': core.descale.Despline64}
