@@ -27,6 +27,7 @@ from .awsmfunc import (
     scale_value as scale,
     autogma,
     UpscaleCheck,
+    RescaleCheck,
     Import,
     greyscale,
     saturation,

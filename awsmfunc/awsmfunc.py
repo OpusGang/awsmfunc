@@ -654,9 +654,7 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
         cropeven = bbmod(cropeven, cTop=int(bb[2]) + tr, cBottom=int(bb[3]) + br, cLeft=int(bb[0]) + lr,
                          cRight=int(bb[1]) + rr, thresh=int(bb[4]), blur=int(bb[5]), scale_thresh=True)
 
-    resizer = {'bilinear': core.resize.Bilinear, 'bicubic': core.resize.Bicubic, 'point': core.resize.Point,
-               'lanczos': core.resize.Lanczos, 'spline16': core.resize.Spline16, 'spline36': core.resize.Spline36,
-               'spline64': core.resize.Spline64}[resizer.lower()]
+    resizer = RESIZEDICT[resizer.lower()]
     return resizer(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr, src_width=cropeven.width - lr - rr,
                    src_height=cropeven.height - tr - br, dither_type="error_diffusion", filter_param_a=filter_param_a,
                    filter_param_b=filter_param_b)
@@ -1000,7 +998,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
         nits = max(math.ceil(nits_max), 100)
 
         # Tonemap
-        clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="ictcp", matrix_s="709",
+        clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="2020ncl", matrix_s="709",
                        primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
                        dither_type="none", nominal_luminance=nits)
 
@@ -1024,7 +1022,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
         tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format,
                                   matrix_s="709" if clip_orig_format.color_family == vs.YUV else None)
     else:
-        clip = resizer(clip, format=vs.YUV444P16, matrix_in_s="2020ncl", matrix_s="ictcp", range_in_s="limited",
+        clip = resizer(clip, format=vs.YUV444P16, range_in_s="limited",
                        range_s="full", dither_type="none")
 
         luma_props = core.std.PlaneStats(clip, plane=0)
@@ -1209,7 +1207,7 @@ def ExtractFramesReader(clip, csvfile):
     return selec
 
 
-def fixlvls(clip, gamma=None, min_in=4096, max_in=60160, min_out=4096, max_out=60160, planes=0, preset=None):
+def fixlvls(clip, gamma=None, min_in=[16, 16], max_in=[235, 240], min_out=None, max_out=None, planes=0, preset=None, range=0):
     """
     A wrapper around std.Levels to fix what's commonly known as the gamma bug.
     :param clip: Processed clip.
@@ -1220,24 +1218,64 @@ def fixlvls(clip, gamma=None, min_in=4096, max_in=60160, min_out=4096, max_out=6
     :param max_out: Output maximum.
     :param preset: 1: standard gamma bug, 2: luma-only overflow, 3: overflow
     overflow explained: https://guide.encode.moe/encoding/video-artifacts.html#underflow--overflow
+    :param range: Pixel value range.
     :return: Clip with gamma adjusted or levels fixed.
     """
-    clip_ = Depth(clip, 16)
+    depth = 32
+    clip_ = Depth(clip, depth)
+
     if gamma is None and preset is not None:
         gamma = 0.88
     elif gamma is None and preset is None:
         gamma = 1
+
+    if isinstance(min_in, int):
+        min_in = [scale_value(min_in, 8, depth, range, scale_offsets=True), scale_value(min_in, 8, depth, range, scale_offsets=True, chroma=True)]
+    else:
+        min_in = [scale_value(min_in[0], 8, depth, range, scale_offsets=True), scale_value(min_in[1], 8, depth, range, scale_offsets=True, chroma=True)]
+
+    if isinstance(max_in, int):
+        max_in = [scale_value(max_in, 8, depth, range, scale_offsets=True), scale_value(max_in, 8, depth, range, scale_offsets=True, chroma=True)]
+    else:
+       max_in = [scale_value(max_in[0], 8, depth, range, scale_offsets=True), scale_value(max_in[1], 8, depth, range, scale_offsets=True, chroma=True)]
+ 
+    if min_out is None:
+        min_out = min_in
+    elif isinstance(min_out, int):
+        min_out = [scale_value(min_out, 8, depth, range, scale_offsets=True), scale_value(min_out, 8, depth, range, scale_offsets=True, chroma=True)]
+    else:
+        min_out = [scale_value(min_out[0], 8, depth, range, scale_offsets=True), scale_value(min_out[1], 8, depth, range, scale_offsets=True, chroma=True)]
+
+    if max_out is None:
+        max_out = max_in
+    elif isinstance(max_out, int):
+        max_out = [scale_value(max_out, 8, depth, range, scale_offsets=True), scale_value(max_out, 8, depth, range, scale_offsets=True, chroma=True)]
+    else:
+        max_out = [scale_value(max_out[0], 8, depth, range, scale_offsets=True), scale_value(max_out[1], 8, depth, range, scale_offsets=True, chroma=True)]
+
     if preset is None:
-        adj = core.std.Levels(clip_, gamma=gamma, min_in=min_in, max_in=max_in, min_out=min_out, max_out=max_out,
-                              planes=planes)
+        if isinstance(planes, int):
+            p = 0 if planes == 0 else 1
+            adj = core.std.Levels(clip_, gamma=gamma, min_in=min_in[p], max_in=max_in[p], min_out=min_out[p], max_out=max_out[p],
+                                  planes=planes)
+        else:
+            adj = clip_
+            for _ in planes:
+                p = 0 if _ == 0 else 1
+                adj = core.std.Levels(adj, gamma=gamma, min_in=min_in[p], max_in=max_in[p], min_out=min_out[p], max_out=max_out[p],
+                                      planes=_)
+            
     elif preset == 1:
-        adj = core.std.Levels(clip_, gamma=gamma, min_in=4096, max_in=60160, min_out=4096, max_out=60160, planes=0)
+        adj = core.std.Levels(clip_, gamma=gamma, planes=0)
+
     elif preset == 2:
         y, u, v = split(clip)
         y = y.resize.Point(range_in_s="full", range_s="limited", format=y.format, dither_type="error_diffusion")
         return join([y, u, v])
+
     elif preset == 3:
         return clip.resize.Point(range_in_s="full", range_s="limited", format=clip.format, dither_type="error_diffusion")
+
     return Depth(adj, clip.format.bits_per_sample)
 
 
@@ -1297,7 +1335,7 @@ def UpscaleCheck(clip, res=720, title="Upscaled", bits=None):
     TODO: -
 
     :param res: Target resolution (720, 576, 480, ...)
-    :param txt: Custom text output ("540p upscale")
+    :param title: Custom text output ("540p upscale")
     :param bits: Bit depth of output
     :return: Clip resampled to target resolution and back
     """
@@ -1321,6 +1359,64 @@ def UpscaleCheck(clip, res=720, title="Upscaled", bits=None):
     txt = FrameInfo(mrg, f"{title}")
     cmp = core.std.Interleave([b16, txt])
     return Depth(cmp, bits)
+
+
+def RescaleCheck(clip, res=720, kernel="bicubic", b=None, c=None, taps=None, bits=None):
+    """
+    Requires vapoursynth-descale: https://github.com/Irrational-Encoding-Wizardry/vapoursynth-descale
+    :param res: Target resolution (720, 576, 480, ...)
+    :param kernel: Rescale kernel, default bicubic
+    :param b, c, taps: kernel params, default mitchell
+    :param bits: Bit depth of output
+    :return: Clip resampled to target resolution and back
+    """
+    has_descale = "tegaf.asi.xe" in core.get_plugins()
+
+    if not has_descale:
+        raise ModuleNotFoundError("RescaleCheck: Requires 'descale' plugin to be installed")
+
+    src = clip
+    # Generic error handling, YCOCG & COMPAT input not tested as such blocked by default
+    if src.format.color_family not in [vs.YUV, vs.GRAY, vs.RGB]:
+        raise TypeError("UpscaleCheck: Only supports YUV, GRAY or RGB input!")
+    elif src.format.color_family in [vs.GRAY, vs.RGB]:
+        clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s='709')
+
+    if src.format.color_family is vs.RGB and src.format.bits_per_sample == 8:
+        bits = 8
+    elif bits is None:
+        bits = src.format.bits_per_sample
+
+    txt = kernel
+    if taps:
+        txt.append(f", taps={taps}")
+    elif b or c:
+        txt.append(f", b={b}, c={c}")
+    
+    if taps:
+        b = taps
+    elif not b:
+        b = 1/3
+    if not c:
+        c = (1 - b) / 2
+
+    b32 = Depth(clip, 32)
+    lma = core.std.ShufflePlanes(b32, 0, vs.GRAY)
+    dwn = CropResize(b32, preset=res, resizer='Spline36') # lol
+    w, h = dwn.width, dwn.height
+    if kernel.lower() == "bicubic":
+        rsz = DESCALEDICT[kernel.lower()]
+        dwn = rsz(lma, w, h, b=b, c=c)
+    elif kernel.lower() == "lanczos":
+        rsz = DESCALEDICT[kernel.lower()]
+        dwn = rsz(lma, w, h, taps=taps)
+    else:
+        rsz = DESCALEDICT[kernel.lower()]
+        dwn = rsz(lma, w, h)
+    ups = RESIZEDICT[kernel.lower()](dwn, lma.width, lma.height, filter_param_a=b, filter_param_b=c)
+    mrg = core.std.ShufflePlanes([ups, b32], [0, 1, 2], vs.YUV)
+    txt = FrameInfo(mrg, txt)
+    return Depth(txt, bits)
 
 
 def Import(file):
@@ -1380,3 +1476,18 @@ gs = greyscale
 grayscale = greyscale
 GreyScale = greyscale
 GrayScale = greyscale
+
+########
+# Dict #
+########
+
+RESIZEDICT = {'bilinear': core.resize.Bilinear, 'bicubic': core.resize.Bicubic, 'point': core.resize.Point,
+              'lanczos': core.resize.Lanczos, 'spline16': core.resize.Spline16, 'spline36': core.resize.Spline36,
+              'spline64': core.resize.Spline64}
+
+
+has_descale = "tegaf.asi.xe" in core.get_plugins()
+if has_descale:
+    DESCALEDICT = {'bilinear': core.descale.Debilinear, 'bicubic': core.descale.Debicubic, 'point': core.resize.Point,
+                'lanczos': core.descale.Delanczos, 'spline16': core.descale.Despline16, 'spline36': core.descale.Despline36,
+                'spline64': core.descale.Despline64}
