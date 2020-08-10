@@ -1207,7 +1207,7 @@ def ExtractFramesReader(clip, csvfile):
     return selec
 
 
-def fixlvls(clip, gamma=None, min_in=[16, 16], max_in=[235, 240], min_out=None, max_out=None, planes=0, preset=None, range=0):
+def fixlvls(clip, gamma=None, min_in=[16, 16], max_in=[235, 240], min_out=None, max_out=None, planes=0, preset=None, range=0, input_depth=8):
     """
     A wrapper around std.Levels to fix what's commonly known as the gamma bug.
     :param clip: Processed clip.
@@ -1222,7 +1222,7 @@ def fixlvls(clip, gamma=None, min_in=[16, 16], max_in=[235, 240], min_out=None, 
     :return: Clip with gamma adjusted or levels fixed.
     """
     depth = 32
-    clip_ = Depth(clip, depth)
+    clip_ = Depth(clip, depth, range=range, range_in=range)
 
     if gamma is None and preset is not None:
         gamma = 0.88
@@ -1230,28 +1230,28 @@ def fixlvls(clip, gamma=None, min_in=[16, 16], max_in=[235, 240], min_out=None, 
         gamma = 1
 
     if isinstance(min_in, int):
-        min_in = [scale_value(min_in, 8, depth, range, scale_offsets=True), scale_value(min_in, 8, depth, range, scale_offsets=True, chroma=True)]
+        min_in = [scale_value(min_in, input_depth, depth, range, scale_offsets=True), scale_value(min_in, input_depth, depth, range, scale_offsets=True, chroma=True)]
     else:
-        min_in = [scale_value(min_in[0], 8, depth, range, scale_offsets=True), scale_value(min_in[1], 8, depth, range, scale_offsets=True, chroma=True)]
+        min_in = [scale_value(min_in[0], input_depth, depth, range, scale_offsets=True), scale_value(min_in[1], input_depth, depth, range, scale_offsets=True, chroma=True)]
 
     if isinstance(max_in, int):
-        max_in = [scale_value(max_in, 8, depth, range, scale_offsets=True), scale_value(max_in, 8, depth, range, scale_offsets=True, chroma=True)]
+        max_in = [scale_value(max_in, input_depth, depth, range, scale_offsets=True), scale_value(max_in, input_depth, depth, range, scale_offsets=True, chroma=True)]
     else:
-       max_in = [scale_value(max_in[0], 8, depth, range, scale_offsets=True), scale_value(max_in[1], 8, depth, range, scale_offsets=True, chroma=True)]
+       max_in = [scale_value(max_in[0], input_depth, depth, range, scale_offsets=True), scale_value(max_in[1], input_depth, depth, range, scale_offsets=True, chroma=True)]
  
     if min_out is None:
         min_out = min_in
     elif isinstance(min_out, int):
-        min_out = [scale_value(min_out, 8, depth, range, scale_offsets=True), scale_value(min_out, 8, depth, range, scale_offsets=True, chroma=True)]
+        min_out = [scale_value(min_out, input_depth, depth, range, scale_offsets=True), scale_value(min_out, input_depth, depth, range, scale_offsets=True, chroma=True)]
     else:
-        min_out = [scale_value(min_out[0], 8, depth, range, scale_offsets=True), scale_value(min_out[1], 8, depth, range, scale_offsets=True, chroma=True)]
+        min_out = [scale_value(min_out[0], input_depth, depth, range, scale_offsets=True), scale_value(min_out[1], input_depth, depth, range, scale_offsets=True, chroma=True)]
 
     if max_out is None:
         max_out = max_in
     elif isinstance(max_out, int):
-        max_out = [scale_value(max_out, 8, depth, range, scale_offsets=True), scale_value(max_out, 8, depth, range, scale_offsets=True, chroma=True)]
+        max_out = [scale_value(max_out, input_depth, depth, range, scale_offsets=True), scale_value(max_out, input_depth, depth, range, scale_offsets=True, chroma=True)]
     else:
-        max_out = [scale_value(max_out[0], 8, depth, range, scale_offsets=True), scale_value(max_out[1], 8, depth, range, scale_offsets=True, chroma=True)]
+        max_out = [scale_value(max_out[0], input_depth, depth, range, scale_offsets=True), scale_value(max_out[1], input_depth, depth, range, scale_offsets=True, chroma=True)]
 
     if preset is None:
         if isinstance(planes, int):
@@ -1276,7 +1276,7 @@ def fixlvls(clip, gamma=None, min_in=[16, 16], max_in=[235, 240], min_out=None, 
     elif preset == 3:
         return clip.resize.Point(range_in_s="full", range_s="limited", format=clip.format, dither_type="error_diffusion")
 
-    return Depth(adj, clip.format.bits_per_sample)
+    return Depth(adj, clip.format.bits_per_sample, range=range, range_in=range)
 
 
 def mt_lut(clip, expr, planes=[0]):
