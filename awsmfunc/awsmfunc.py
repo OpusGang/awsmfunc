@@ -553,6 +553,38 @@ def BlackBorders(clip, left=0, right=0, top=0, bottom=0, lsat=.88, rsat=None, ts
     return AddBordersMod(clip, left, top, right, bottom, lsat, tsat, rsat, bsat, color)
 
 
+def zresize(clip, preset=None, width=None, height=None, left=0, right=0, top=0, bottom=0, kernel="spline36", ar=16 / 9,
+            **kwargs):
+    if preset:
+        if clip.width / clip.height > ar:
+            return zresize(clip, width=ar * preset, left=left, right=right, top=top, bottom=bottom, kernel=kernel, **kwargs)
+        else:
+            return zresize(clip, height=preset, left=left, right=right, top=top, bottom=bottom, kernel=kernel, **kwargs)
+
+    if (width is None) and (height is None):
+        width = clip.width
+        height = clip.height
+        rh = rw = 1
+    elif width is None:
+        rh = rw = height / (clip.height - top - bottom) 
+    elif height is None:
+        rh = rw = width / (clip.width - left - right)
+    else:
+        rh = height / clip.height
+        rw = width / clip.width
+
+    w = round(((clip.width - left - right) * rw) / 2) * 2
+    h = round(((clip.height - top - bottom) * rh) / 2) * 2
+
+    RESIZEDICT = {'bilinear': core.resize.Bilinear, 'bicubic': core.resize.Bicubic, 'point': core.resize.Point,
+                  'lanczos': core.resize.Lanczos, 'spline16': core.resize.Spline16, 'spline36': core.resize.Spline36,
+                  'spline64': core.resize.Spline64}
+
+    resizer = RESIZEDICT[kernel.lower()]
+    return resizer(clip=clip, width=w, height=h, src_left=left, src_top=top, src_width=clip.width - left - right,
+                   src_height=clip.height - top - bottom, dither_type="error_diffusion", **kwargs)
+
+
 def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=0, bottom=0, bb=None, fill=None,
                fillplanes=None, cfill=None, resizer='spline36', filter_param_a=None, filter_param_b=None,
                aspect_ratio=16 / 9):
@@ -608,21 +640,6 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
     tr = top % 2
     br = bottom % 2
 
-    if (width is None) and (height is None):
-        width = clip.width
-        height = clip.height
-        rh = rw = 1
-    elif width is None:
-        rh = rw = height / (clip.height - top - bottom)
-    elif height is None:
-        rh = rw = width / (clip.width - left - right)
-    else:
-        rh = height / clip.height
-        rw = width / clip.width
-
-    w = round(((clip.width - left - right) * rw) / 2) * 2
-    h = round(((clip.height - top - bottom) * rh) / 2) * 2
-
     if bb:
         if len(bb) == 4:
             bb.append(None)
@@ -653,12 +670,9 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
               int(bb[3]) + br + int(fill[3]), int(bb[4]), int(bb[5])]
         cropeven = bbmod(cropeven, cTop=int(bb[2]) + tr, cBottom=int(bb[3]) + br, cLeft=int(bb[0]) + lr,
                          cRight=int(bb[1]) + rr, thresh=int(bb[4]), blur=int(bb[5]), scale_thresh=True)
-
-    resizer = RESIZEDICT[resizer.lower()]
-    return resizer(clip=cropeven, width=w, height=h, src_left=lr, src_top=tr, src_width=cropeven.width - lr - rr,
-                   src_height=cropeven.height - tr - br, dither_type="error_diffusion", filter_param_a=filter_param_a,
+    return zresize(clip=cropeven, width=width, height=height, left=lr, top=tr, right=rr,
+                   bottom=br, filter_param_a=filter_param_a,
                    filter_param_b=filter_param_b)
-
 
 def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=None, column=None, adj_column=None,
                      fill_max=2, bb=None, FixUncrop=None, resizer='spline36'):
@@ -1375,6 +1389,10 @@ def RescaleCheck(clip, res=720, kernel="bicubic", b=None, c=None, taps=None, bit
     if not has_descale:
         raise ModuleNotFoundError("RescaleCheck: Requires 'descale' plugin to be installed")
 
+    DESCALEDICT = {'bilinear': core.descale.Debilinear, 'bicubic': core.descale.Debicubic, 'point': core.resize.Point,
+                'lanczos': core.descale.Delanczos, 'spline16': core.descale.Despline16, 'spline36': core.descale.Despline36,
+                'spline64': core.descale.Despline64}
+
     src = clip
     # Generic error handling, YCOCG & COMPAT input not tested as such blocked by default
     if src.format.color_family not in [vs.YUV, vs.GRAY, vs.RGB]:
@@ -1402,7 +1420,7 @@ def RescaleCheck(clip, res=720, kernel="bicubic", b=None, c=None, taps=None, bit
 
     b32 = Depth(clip, 32)
     lma = core.std.ShufflePlanes(b32, 0, vs.GRAY)
-    dwn = CropResize(b32, preset=res, resizer='Spline36') # lol
+    dwn = zresize(lma, preset=res, kernel='point') # lol
     w, h = dwn.width, dwn.height
     if kernel.lower() == "bicubic":
         rsz = DESCALEDICT[kernel.lower()]
@@ -1413,7 +1431,7 @@ def RescaleCheck(clip, res=720, kernel="bicubic", b=None, c=None, taps=None, bit
     else:
         rsz = DESCALEDICT[kernel.lower()]
         dwn = rsz(lma, w, h)
-    ups = RESIZEDICT[kernel.lower()](dwn, lma.width, lma.height, filter_param_a=b, filter_param_b=c)
+    ups = zresize(dwn, lma.width, lma.height, filter_param_a=b, filter_param_b=c, kernel=kernel)
     mrg = core.std.ShufflePlanes([ups, b32], [0, 1, 2], vs.YUV)
     txt = FrameInfo(mrg, txt)
     return Depth(txt, bits)
@@ -1481,13 +1499,3 @@ GrayScale = greyscale
 # Dict #
 ########
 
-RESIZEDICT = {'bilinear': core.resize.Bilinear, 'bicubic': core.resize.Bicubic, 'point': core.resize.Point,
-              'lanczos': core.resize.Lanczos, 'spline16': core.resize.Spline16, 'spline36': core.resize.Spline36,
-              'spline64': core.resize.Spline64}
-
-
-has_descale = "tegaf.asi.xe" in core.get_plugins()
-if has_descale:
-    DESCALEDICT = {'bilinear': core.descale.Debilinear, 'bicubic': core.descale.Debicubic, 'point': core.resize.Point,
-                'lanczos': core.descale.Delanczos, 'spline16': core.descale.Despline16, 'spline36': core.descale.Despline36,
-                'spline64': core.descale.Despline64}
