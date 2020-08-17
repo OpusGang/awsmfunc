@@ -9,6 +9,7 @@ from .awsmfunc import (
     bbmoda,
     AddBordersMod,
     BlackBorders,
+    zresize,
     CropResize,
     CropResizeReader,
     DebandReader,
