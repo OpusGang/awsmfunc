@@ -39,7 +39,8 @@ from .detect import (
     merge_detections,
     banddtct,
     detect_dirty_lines,
-    dirtdtct
+    dirtdtct,
+    brdrdtct
 )
 
 # Aliases
