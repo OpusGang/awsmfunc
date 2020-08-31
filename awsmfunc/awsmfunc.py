@@ -321,7 +321,9 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         expruv = "z y / 8 min 0.4 max x " + scale128 + " - * " + scale128 + " +"
         scale16 = str(scale_value(16, 8, c.format.bits_per_sample, scale_offsets=scale_offsets))
         yexpr = "z " + scale16 + " - y " + scale16 + " - / 8 min 0.4 max x " + scale16 + " - * " + scale16 + " +"
+        yexpr = yexpr + f" x - abs {thresh[0]} < " + yexpr + " x ?"
         uvexpr = "z y - x +"
+        uvexpr = uvexpr + " x - abs {} < " + uvexpr + " x ?"
 
         if y and u and v and blur[0] == blur[1] == blur[2] and thresh[0] == thresh[1] == thresh[2]:
             c2 = core.resize.Point(c, cWidth * csize, cHeight * csize)
@@ -357,12 +359,10 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                                              expr=[yexpr, uvexpr, uvexpr])
             else:
                 balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur],
-                                         expr=[yexpr, uvexpr, uvexpr])
-
-            last = core.std.Expr([balancedLuma, original], [f"x y - abs {thresh[_]} > x y ?" for _ in range(0, 3)])
+                                         expr=[yexpr, uvexpr.format(thresh[1]), uvexpr.format(thresh[2])])
 
             return core.std.StackVertical(
-                [last, core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]).resize.Point(
+                [balancedLuma, core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]).resize.Point(
                 cWidth, cHeight)
         else:
             if c.format.color_family == vs.YUV:
@@ -385,17 +385,15 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                 originalBlur = last.resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
                 balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=yexpr)
 
-                last = core.std.Expr([balancedLuma, original], f"x y - abs {thresh[0]} > x y ?")
-
                 yplane = core.std.StackVertical(
-                    clips=[last, core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]).resize.Point(
+                    clips=[balancedLuma, core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]).resize.Point(
                     cWidth, cHeight)
                 if c.format.color_family == vs.GRAY:
                     return yplane
 
             def btbc(c2, blurWidth, p):
                 c2 = core.resize.Point(c2, cWidth, cHeight)
-                last = core.std.CropAbs(c2, cWidth, csize / 2, 0, cTop)
+                last = core.std.CropAbs(c2, cWidth, round(csize / 2), 0, cTop)
                 last = core.resize.Point(last, cWidth, cTop)
                 if cpass2:
                     referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth, cTop, filter_param_a=1,
@@ -419,12 +417,10 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                                                    expr=expruv)
                     balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur], expr=uvexpr)
                 else:
-                    balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=uvexpr)
-
-                last = core.std.Expr([balancedLuma, original], f"x y - abs {thresh[p]} > x y ?")
+                    balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=uvexpr.format(thresh[p]))
 
                 return core.std.StackVertical(
-                    [last, c2.std.CropAbs(left=0, top=cTop, width=cWidth, height=cHeight - cTop)]).resize.Point(
+                    [balancedLuma, c2.std.CropAbs(left=0, top=cTop, width=cWidth, height=cHeight - cTop)]).resize.Point(
                     cWidth / 2, cHeight / 2)
 
             if u:
