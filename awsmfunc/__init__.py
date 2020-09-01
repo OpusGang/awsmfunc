@@ -48,6 +48,7 @@ from .awsmfunc import (
     GetPlane,
     rfs,
     fb,
+    zr,
     cr, CR, cropresize,
     gs, grayscale, GreyScale, GrayScale,
 )

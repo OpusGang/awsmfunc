@@ -1486,6 +1486,8 @@ GetPlane = plane
 rfs = ReplaceFrames
 fb = FillBorders
 
+zr = zresize
+
 cr = CropResize
 CR = CropResize
 cropresize = CropResize
