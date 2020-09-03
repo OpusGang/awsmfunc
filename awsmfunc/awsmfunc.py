@@ -1145,7 +1145,7 @@ def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=Fal
                 sources[j] = core.std.AssumeFPS(clip=sources[j], src=first)
 
             if tonemap:
-                sources[j] = DynamicTonemap(sources[j])
+                sources[j] = DynamicTonemap(sources[j], libplacebo=False)
 
             if PrintInfo == True:
                 sources[j] = FrameInfo(clip=sources[j], title=files[i])
@@ -1437,6 +1437,7 @@ def greyscale(clip):
     grey = core.std.BlankClip(clip)
     return core.std.ShufflePlanes([clip, grey], [0, 1, 2], vs.YUV)
 
+
 def saturation(clip, sat):
     if clip.format.color_family != vs.YUV:
         raise TypeError("saturation: YUV input is required!")
@@ -1447,6 +1448,81 @@ def saturation(clip, sat):
 
     return core.resize.Point(clip.std.Expr(["", expr]), format=sfmt, dither_type="error_diffusion")
 
+
+def BorderResize(clip, ref, left=0, right=0, top=0, bottom=0, bb=None, planes=[0, 1, 2], sat=None):
+    """
+    A wrapper to resize clips with borders.  This is meant for scenefiltering differing crops.
+    :param ref: Reference resized clip, used purely to determine dimensions.
+    :param left, right, top, bottom: Size of borders.  Uneven numbers will lead to filling.
+    :param bb: bbmod args: [left, right, top, bottom, thresh, blur, planes]
+    :param planes: Planes to be filled.
+    :param sat: Saturation adjustment in AddBordersMod.  If None, std.AddBorders is used.
+    """
+    # save original dimensions
+    ow, oh = clip.width, clip.height
+
+    # we'll need the mod 2 values later for filling
+    mod2 = [left % 2, right % 2, top % 2, bottom % 2]
+
+    # figure out border size
+    leftm = left - mod2[0]
+    rightm = right - mod2[1]
+    topm = top - mod2[2]
+    bottomm = bottom - mod2[3]
+
+    # use ref for output width and height
+    rw, rh = ref.width, ref.height
+
+    # crop off borders
+    clip = clip.std.Crop(left=leftm, right=rightm, top=topm, bottom=bottomm)
+    # fill it
+    clip = FillBorders(clip, left=mod2[0], right=mod2[1], top=mod2[2], bottom=mod2[3], planes=planes)
+
+    # optional bb call
+    if bb:
+        clip = bbmod(clip, left=bb[0], right=bb[1], top=bb[2], bottom=bb[3], thresh=bb[4] if len(bb) > 4 else None,
+                     blur=bb[5] if len(bb) > 4 else 999, planes=bb[6] if len(bb) == 7 else None)
+
+    # find new width and height
+    nw = rw / ow * (ow - left - right)
+    nh = rh / oh * (oh - top - bottom)
+    # rounded versions
+    rnw = round(nw / 2) * 2
+    rnh = round(nh / 2) * 2
+
+    # resize to that
+    clip = zresize(clip, width=rnw, height=rnh, left=mod2[0], right=mod2[1], top=mod2[2], bottom=mod2[3])
+
+    # now we figure out border size
+    b_hor = (rw - rnw) / 2
+    b_ver = (rh - rnh) / 2
+    # shift image to top/left since we have to choose a place to shift shit to
+    borders = []
+    if left and right:
+        borders += ([b_hor - b_hor % 2, b_hor + b_hor % 2])
+    elif left:
+        borders += ([b_hor * 2, 0])
+    elif right:
+        borders += ([0, b_hor * 2])
+    else:
+        borders += ([0, 0])
+
+    if top and bottom:
+        borders += ([b_ver - b_ver % 2, b_ver + b_ver % 2])
+    elif top:
+        borders += ([b_ver * 2, 0])
+    elif bottom:
+        borders += ([0, b_ver * 2])
+    else:
+        borders += ([0, 0])
+
+    # add borders back
+    if sat:
+        return AddBordersMod(clip, left=borders[0], right=borders[1], top=borders[2], bottom=borders[3],
+                             lsat = sat[0], rsat=sat[1], bsat=sat[2], tsat=sat[3])
+    else:
+        return clip.std.AddBorders(left=borders[0], right=borders[1], top=borders[2], bottom=borders[3])
+    
 
 #####################
 #      Aliases      #
@@ -1461,6 +1537,9 @@ zr = zresize
 cr = CropResize
 CR = CropResize
 cropresize = CropResize
+
+br = BorderResize
+borderresize = BorderResize
 
 gs = greyscale
 grayscale = greyscale
