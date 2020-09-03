@@ -99,7 +99,8 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
 
 
 def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=None, y=True, u=True,
-          v=True, scale_thresh=None, cpass2=False, cTop=None, cBottom=None, cLeft=None, cRight=None):
+          v=True, scale_thresh=None, cpass2=False, csize=2, scale_offsets=True, cTop=None, cBottom=None,
+          cLeft=None, cRight=None):
     """
     quietvoid's bbmod helper for a significant speedup from cropping unnecessary pixels before processing.
     :param clip: Clip to be processed.
@@ -119,6 +120,9 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
                          If thresh <= 128, this defaults to True, else False.
     :param cpass2: Second, significantly stronger, chroma pass. If enabled, default for chroma blur is blur * 2 and
                    chroma thresh is thresh / 10.
+    :param csize: Size to be cropped to. This might help maintain details at the cost of processing speed.
+    :param scale_offsets: Whether thresh scaling should take offsets into account in vsutil.scale_value.
+                          If you don't know what this means, don't change it.
     :param cTop: Legacy top.
     :param cBottom: Legacy bottom.
     :param cLeft: Legacy left.
@@ -165,7 +169,7 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
         thresh = int(math.pow(2, depth - 1))
 
     if scale_thresh is None:
-        if thresh < 129:
+        if isinstance(thresh, int) and thresh < 129:
             scale_thresh = True
         else:
             scale_thresh = False
@@ -185,9 +189,9 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
         r = filtered.std.Crop(left=f_width - c_right, right=0, top=0, bottom=0)
 
         l = bbmoda(l, cTop=0, cBottom=0, cLeft=left, cRight=0, thresh=thresh, blur=blur, y=y, u=u, v=v,
-                   scale_thresh=scale_thresh, cpass2=cpass2)
+                   scale_thresh=scale_thresh, cpass2=cpass2, csize=csize, scale_offsets=scale_offsets)
         r = bbmoda(r, cTop=0, cBottom=0, cLeft=0, cRight=right, thresh=thresh, blur=blur, y=y, u=u, v=v,
-                   scale_thresh=scale_thresh, cpass2=cpass2)
+                   scale_thresh=scale_thresh, cpass2=cpass2, csize=csize, scale_offsets=scale_offsets)
 
         filtered = core.std.StackHorizontal(clips=[l, m, r])
 
@@ -196,7 +200,7 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
         m = filtered.std.Crop(left=c_left, right=0, top=0, bottom=0)
 
         l = bbmoda(l, cTop=0, cBottom=0, cLeft=left, cRight=0, thresh=thresh, blur=blur, y=y, u=u, v=v,
-                   scale_thresh=scale_thresh, cpass2=cpass2)
+                   scale_thresh=scale_thresh, cpass2=cpass2, csize=csize, scale_offsets=scale_offsets)
 
         filtered = core.std.StackHorizontal(clips=[l, m])
 
@@ -205,7 +209,7 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
         m = filtered.std.Crop(left=0, right=c_right, top=0, bottom=0)
 
         r = bbmoda(r, cTop=0, cBottom=0, cLeft=0, cRight=right, thresh=thresh, blur=blur, y=y, u=u, v=v,
-                   scale_thresh=scale_thresh, cpass2=cpass2)
+                   scale_thresh=scale_thresh, cpass2=cpass2, csize=csize, scale_offsets=scale_offsets)
 
         filtered = core.std.StackHorizontal(clips=[m, r])
 
@@ -215,9 +219,9 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
         b = filtered.std.Crop(left=0, right=0, top=f_height - c_bottom, bottom=0)
 
         t = bbmoda(t, cTop=top, cBottom=0, cLeft=0, cRight=0, thresh=thresh, blur=blur, y=y, u=u, v=v,
-                   scale_thresh=scale_thresh, cpass2=cpass2)
+                   scale_thresh=scale_thresh, cpass2=cpass2, csize=csize, scale_offsets=scale_offsets)
         b = bbmoda(b, cTop=0, cBottom=bottom, cLeft=0, cRight=0, thresh=thresh, blur=blur, y=y, u=u, v=v,
-                   scale_thresh=scale_thresh, cpass2=cpass2)
+                   scale_thresh=scale_thresh, cpass2=cpass2, csize=csize, scale_offsets=scale_offsets)
 
         filtered = core.std.StackVertical(clips=[t, m, b])
 
@@ -226,7 +230,7 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
         m = filtered.std.Crop(left=0, right=0, top=c_top, bottom=0)
 
         t = bbmoda(t, cTop=top, cBottom=0, cLeft=0, cRight=0, thresh=thresh, blur=blur, y=y, u=u, v=v,
-                   scale_thresh=scale_thresh, cpass2=cpass2)
+                   scale_thresh=scale_thresh, cpass2=cpass2, csize=csize, scale_offsets=scale_offsets)
 
         filtered = core.std.StackVertical(clips=[t, m])
 
@@ -235,7 +239,7 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
         m = filtered.std.Crop(left=0, right=0, top=0, bottom=c_bottom)
 
         b = bbmoda(b, cTop=0, cBottom=bottom, cLeft=0, cRight=0, thresh=thresh, blur=blur, y=y, u=u, v=v,
-                   scale_thresh=scale_thresh, cpass2=cpass2)
+                   scale_thresh=scale_thresh, cpass2=cpass2, csize=csize, scale_offsets=scale_offsets)
 
         filtered = core.std.StackVertical(clips=[m, b])
 
@@ -243,7 +247,7 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
 
 
 def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True, u=True, v=True, scale_thresh=True,
-           cpass2=False):
+           cpass2=False, csize=2, scale_offsets=True):
     """
     From sgvsfunc. I'm not updating the doc strings, here, read bbmod instead.
     bbmod, port from Avisynth's function, a mod of BalanceBorders
@@ -273,11 +277,8 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
     if not isinstance(c, vs.VideoNode):
         raise TypeError(funcName + ': \"c\" must be a clip!')
 
-    if c.format.sample_type != vs.INTEGER:
-        raise TypeError(funcName + ': \"c\" must be integer format!')
-
-    # thresh needs to be lower for chroma now
     if isinstance(thresh, int):
+        # thresh needs to be lower for chroma for cpass2
         if cpass2:
             thresh = [thresh] + 2 * [round(thresh / 10)]
         else:
@@ -285,8 +286,15 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
     elif len(thresh) == 2:
         thresh.append(thresh[1])
 
-    # blur should also be higher
+    if scale_thresh:
+        thresh[0] = scale_value(thresh[0], 8, c.format.bits_per_sample, scale_offsets=scale_offsets)
+        i = 1
+        for t in thresh[1:]:
+            thresh[i] = scale_value(thresh[i], 8, c.format.bits_per_sample, scale_offsets=scale_offsets, chroma=True)
+            i += 1
+
     if isinstance(blur, int):
+        # blur should also be higher
         if cpass2:
             blur = [blur] + 2 * [blur * 2]
         else:
@@ -298,7 +306,7 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         if _ <= 0:
             raise ValueError(funcName + ': \'blur\' has an incorrect value! (0 ~ inf]')
     for _ in thresh:
-        if _ <= 0:
+        if _ <= 0 and c.format.sample_type == vs.INTEGER:
             raise ValueError(funcName + ': \'thresh\' has an incorrect value! (0 ~ inf]')
 
     def btb(c, cTop, thresh, blur):
@@ -308,78 +316,53 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         cTop = min(cTop, cHeight - 1)
         blurWidth = [max(8, math.floor(cWidth / blur[0])), max(8, math.floor(cWidth / blur[1])),
                      max(8, math.floor(cWidth / blur[2]))]
-        scale128 = str(scale_value(128, 8, c.format.bits_per_sample))
+        scale128 = str(scale_value(128, 8, c.format.bits_per_sample, scale_offsets=scale_offsets, chroma=True))
         exprchroma = "x {} - abs 2 *".format(scale128)
         expruv = "z y / 8 min 0.4 max x " + scale128 + " - * " + scale128 + " +"
-        scale16 = str(scale_value(16, 8, c.format.bits_per_sample))
+        scale16 = str(scale_value(16, 8, c.format.bits_per_sample, scale_offsets=scale_offsets))
         yexpr = "z " + scale16 + " - y " + scale16 + " - / 8 min 0.4 max x " + scale16 + " - * " + scale16 + " +"
+        yexpr = yexpr + f" x - abs {thresh[0]} > x " + yexpr + " ?"
         uvexpr = "z y - x +"
-        depth = c.format.bits_per_sample
-        if scale_thresh:
-            Tpy = scale_value(128 + thresh[0], 8, depth)
-            Tmy = scale_value(128 - thresh[0], 8, depth)
-            Tpu = scale_value(128 + thresh[1], 8, depth)
-            Tmu = scale_value(128 - thresh[1], 8, depth)
-            Tpv = scale_value(128 + thresh[2], 8, depth)
-            Tmv = scale_value(128 - thresh[2], 8, depth)
-        else:
-            Tpy = scale_value(128, 8, depth) + thresh[0]
-            Tmy = scale_value(128, 8, depth) - thresh[0]
-            Tpu = scale_value(128, 8, depth) + thresh[1]
-            Tmu = scale_value(128, 8, depth) - thresh[1]
-            Tpv = scale_value(128, 8, depth) + thresh[2]
-            Tmv = scale_value(128, 8, depth) - thresh[2]
-        Tpy = 'x {0} > {0} x ?'.format(Tpy)
-        Tmy = 'x {0} < {0} x ?'.format(Tmy)
-        Tpu = 'x {0} > {0} x ?'.format(Tpu)
-        Tmu = 'x {0} < {0} x ?'.format(Tmu)
-        Tpv = 'x {0} > {0} x ?'.format(Tpv)
-        Tmv = 'x {0} < {0} x ?'.format(Tmv)
+        uvexpr = uvexpr + " x - abs {} > x " + uvexpr + " ?"
 
-        if y and u and v and blur[0] == blur[1] == blur[2]:
-            c2 = core.resize.Point(c, cWidth * 2, cHeight * 2)
-            last = core.std.CropAbs(c2, cWidth * 2, 2, 0, cTop * 2)
-            last = core.resize.Point(last, cWidth * 2, cTop * 2)
+        if y and u and v and blur[0] == blur[1] == blur[2] and thresh[0] == thresh[1] == thresh[2]:
+            c2 = core.resize.Point(c, cWidth * csize, cHeight * csize)
+            last = core.std.CropAbs(c2, cWidth * csize, csize, 0, cTop * csize)
+            last = core.resize.Point(last, cWidth * csize, cTop * csize)
             exprchroma = ["", exprchroma]
             if cpass2:
-                referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth[0] * 2, cTop * 2,
+                referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth[0] * csize, cTop * csize,
                                                                                filter_param_a=1,
                                                                                filter_param_b=0).resize.Bicubic(
-                    cWidth * 2,
-                    cTop * 2,
+                    cWidth * csize,
+                    cTop * csize,
                     filter_param_a=1,
                     filter_param_b=0)
-            referenceBlur = core.resize.Bicubic(last, blurWidth[0] * 2, cTop * 2, filter_param_a=1,
-                                                filter_param_b=0).resize.Bicubic(cWidth * 2, cTop * 2, filter_param_a=1,
+            referenceBlur = core.resize.Bicubic(last, blurWidth[0] * csize, cTop * csize, filter_param_a=1,
+                                                filter_param_b=0).resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1,
                                                                                  filter_param_b=0)
 
-            original = core.std.CropAbs(c2, cWidth * 2, cTop * 2, 0, 0)
+            original = core.std.CropAbs(c2, cWidth * csize, cTop * csize, 0, 0)
 
-            last = core.resize.Bicubic(original, blurWidth[0] * 2, cTop * 2, filter_param_a=1, filter_param_b=0)
+            last = core.resize.Bicubic(original, blurWidth[0] * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
 
-            originalBlur = last.resize.Bicubic(cWidth * 2, cTop * 2, filter_param_a=1, filter_param_b=0)
+            originalBlur = last.resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
 
             if cpass2:
-                originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth[0] * 2, cTop * 2, filter_param_a=1,
+                originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth[0] * csize, cTop * csize, filter_param_a=1,
                                                                               filter_param_b=0)
-                originalBlurChroma = originalBlurChroma.resize.Bicubic(cWidth * 2, cTop * 2, filter_param_a=1,
+                originalBlurChroma = originalBlurChroma.resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1,
                                                                        filter_param_b=0)
                 balancedChroma = core.std.Expr(clips=[original, originalBlurChroma, referenceBlurChroma],
-                                               expr=["", expruv, expruv])
+                                               expr=["", expruv])
                 balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur],
                                              expr=[yexpr, uvexpr, uvexpr])
-            balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur],
-                                         expr=[yexpr, uvexpr, uvexpr])
-
-            difference = core.std.MakeDiff(balancedLuma, original, planes=[0, 1, 2])
-
-            difference = core.std.Expr(clips=difference, expr=[Tpy, Tpu, Tpv])
-            difference = core.std.Expr(clips=difference, expr=[Tmy, Tmu, Tmv])
-
-            last = core.std.MergeDiff(original, difference, planes=[0, 1, 2])
+            else:
+                balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur],
+                                         expr=[yexpr, uvexpr.format(thresh[1]), uvexpr.format(thresh[2])])
 
             return core.std.StackVertical(
-                [last, core.std.CropAbs(c2, cWidth * 2, (cHeight - cTop) * 2, 0, cTop * 2)]).resize.Point(
+                [balancedLuma, core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]).resize.Point(
                 cWidth, cHeight)
         else:
             if c.format.color_family == vs.YUV:
@@ -389,35 +372,28 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
             else:
                 raise ValueError("bbmod: only YUV and GRAY clips are supported")
             if y:
-                c2 = core.resize.Point(yplane, cWidth * 2, cHeight * 2)
-                last = core.std.CropAbs(c2, cWidth * 2, 2, 0, cTop * 2)
-                last = core.resize.Point(last, cWidth * 2, cTop * 2)
-                referenceBlur = core.resize.Bicubic(last, blurWidth[0] * 2, cTop * 2, filter_param_a=1,
-                                                    filter_param_b=0).resize.Bicubic(cWidth * 2, cTop * 2,
+                c2 = core.resize.Point(yplane, cWidth * csize, cHeight * csize)
+                last = core.std.CropAbs(c2, cWidth * csize, csize, 0, cTop * csize)
+                last = core.resize.Point(last, cWidth * csize, cTop * csize)
+                referenceBlur = core.resize.Bicubic(last, blurWidth[0] * csize, cTop * csize, filter_param_a=1,
+                                                    filter_param_b=0).resize.Bicubic(cWidth * csize, cTop * csize,
                                                                                      filter_param_a=1, filter_param_b=0)
-                original = core.std.CropAbs(c2, cWidth * 2, cTop * 2, 0, 0)
+                original = core.std.CropAbs(c2, cWidth * csize, cTop * csize, 0, 0)
 
-                last = core.resize.Bicubic(original, blurWidth[0] * 2, cTop * 2, filter_param_a=1, filter_param_b=0)
+                last = core.resize.Bicubic(original, blurWidth[0] * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
 
-                originalBlur = last.resize.Bicubic(cWidth * 2, cTop * 2, filter_param_a=1, filter_param_b=0)
-                balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=[yexpr])
-
-                difference = core.std.MakeDiff(balancedLuma, original, planes=[0])
-
-                difference = core.std.Expr(clips=difference, expr=Tpy)
-                difference = core.std.Expr(clips=difference, expr=Tmy)
-
-                last = core.std.MergeDiff(original, difference, planes=[0])
+                originalBlur = last.resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
+                balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=yexpr)
 
                 yplane = core.std.StackVertical(
-                    clips=[last, core.std.CropAbs(c2, cWidth * 2, (cHeight - cTop) * 2, 0, cTop * 2)]).resize.Point(
+                    clips=[balancedLuma, core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]).resize.Point(
                     cWidth, cHeight)
                 if c.format.color_family == vs.GRAY:
                     return yplane
 
-            def btbc(c2, blurWidth, Tp, Tm):
+            def btbc(c2, blurWidth, p):
                 c2 = core.resize.Point(c2, cWidth, cHeight)
-                last = core.std.CropAbs(c2, cWidth, 1, 0, cTop)
+                last = core.std.CropAbs(c2, cWidth, round(csize / 2), 0, cTop)
                 last = core.resize.Point(last, cWidth, cTop)
                 if cpass2:
                     referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth, cTop, filter_param_a=1,
@@ -440,23 +416,17 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                     balancedChroma = core.std.Expr(clips=[original, originalBlurChroma, referenceBlurChroma],
                                                    expr=expruv)
                     balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur], expr=uvexpr)
-                balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=uvexpr)
-
-                difference = core.std.MakeDiff(balancedLuma, original)
-
-                difference = core.std.Expr(difference, Tp)
-                difference = core.std.Expr(difference, Tm)
-
-                last = core.std.MergeDiff(original, difference)
+                else:
+                    balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=uvexpr.format(thresh[p]))
 
                 return core.std.StackVertical(
-                    [last, c2.std.CropAbs(left=0, top=cTop, width=cWidth, height=cHeight - cTop)]).resize.Point(
+                    [balancedLuma, c2.std.CropAbs(left=0, top=cTop, width=cWidth, height=cHeight - cTop)]).resize.Point(
                     cWidth / 2, cHeight / 2)
 
             if u:
-                uplane = btbc(uplane, blurWidth[1], Tpu, Tmu)
+                uplane = btbc(uplane, blurWidth[1], 1)
             if v:
-                vplane = btbc(vplane, blurWidth[2], Tpv, Tmv)
+                vplane = btbc(vplane, blurWidth[2], 2)
             return core.std.ShufflePlanes([yplane, uplane, vplane], [0, 0, 0], vs.YUV)
 
     c = btb(c, cTop, thresh, blur).std.Transpose().std.FlipHorizontal() if cTop > 0 else core.std.Transpose(
