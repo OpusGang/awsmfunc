@@ -277,7 +277,7 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
     if not isinstance(c, vs.VideoNode):
         raise TypeError(funcName + ': \"c\" must be a clip!')
 
-    if isinstance(thresh, int):
+    if isinstance(thresh, int) or isinstance(thresh, float):
         # thresh needs to be lower for chroma for cpass2
         if cpass2:
             thresh = [thresh] + 2 * [round(thresh / 10)]
@@ -290,7 +290,7 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         thresh[0] = scale_value(thresh[0], 8, c.format.bits_per_sample, scale_offsets=scale_offsets)
         i = 1
         for t in thresh[1:]:
-            thresh[i] = scale_value(thresh[i], 8, c.format.bits_per_sample, scale_offsets=scale_offsets, chroma=True)
+            thresh[i] = scale_value(thresh[i], 8, c.format.bits_per_sample, scale_offsets=scale_offsets, chroma=False)
             i += 1
 
     if isinstance(blur, int):
@@ -317,13 +317,17 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         blurWidth = [max(8, math.floor(cWidth / blur[0])), max(8, math.floor(cWidth / blur[1])),
                      max(8, math.floor(cWidth / blur[2]))]
         scale128 = str(scale_value(128, 8, c.format.bits_per_sample, scale_offsets=scale_offsets, chroma=True))
-        exprchroma = "x {} - abs 2 *".format(scale128)
-        expruv = "z y / 8 min 0.4 max x " + scale128 + " - * " + scale128 + " +"
+        uvexpr = "z y - x +"
+        uvexpr = uvexpr + " x - {0} > x {0} + dup -{0} < x {0} - " + uvexpr + " ? ?"
+        if c.format.sample_type == vs.INTEGER:
+            exprchroma = f"x {scale128} - abs 2 *"
+            expruv = f"z y / 8 min 0.4 max x {scale128} - * {scale128} + x - {scale128} +"
+        else:
+            exprchroma = f"x abs 2 *"
+            expruv = "z .5 - y .5 - / 8 min .4 max x .5 - * .5 + x - .5 +"
         scale16 = str(scale_value(16, 8, c.format.bits_per_sample, scale_offsets=scale_offsets))
         yexpr = "z " + scale16 + " - y " + scale16 + " - / 8 min 0.4 max x " + scale16 + " - * " + scale16 + " +"
-        yexpr = yexpr + f" x - abs {thresh[0]} > x " + yexpr + " ?"
-        uvexpr = "z y - x +"
-        uvexpr = uvexpr + " x - abs {} > x " + uvexpr + " ?"
+        yexpr = f"{yexpr} x - {thresh[0]} > x {thresh[0]} + dup -{thresh[0]} < x {thresh[0]} - {yexpr} ? ?"
 
         if y and u and v and blur[0] == blur[1] == blur[2] and thresh[0] == thresh[1] == thresh[2]:
             c2 = core.resize.Point(c, cWidth * csize, cHeight * csize)
