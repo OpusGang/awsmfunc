@@ -32,6 +32,7 @@ from .awsmfunc import (
     Import,
     greyscale,
     saturation,
+    BorderResize,
 )
 
 from .detect import (
@@ -51,4 +52,6 @@ from .awsmfunc import (
     zr,
     cr, CR, cropresize,
     gs, grayscale, GreyScale, GrayScale,
+    zr,
+    br, borderresize,
 )
