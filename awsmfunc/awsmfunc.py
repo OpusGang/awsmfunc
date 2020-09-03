@@ -121,8 +121,8 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
     :param cpass2: Second, significantly stronger, chroma pass. If enabled, default for chroma blur is blur * 2 and
                    chroma thresh is thresh / 10.
     :param csize: Size to be cropped to. This might help maintain details at the cost of processing speed.
-    :param scale_offsets: Whether thresh scaling should take offsets into account in vsutil.scale_value.
-                          If you don't know what this means, don't change it.
+    :param scale_offsets: Whether scaling should take offsets into account in vsutil.scale_value.
+                          If you don't know what this means, don't change it.  Thresh never uses scale_offsets.
     :param cTop: Legacy top.
     :param cBottom: Legacy bottom.
     :param cLeft: Legacy left.
@@ -287,10 +287,10 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         thresh.append(thresh[1])
 
     if scale_thresh:
-        thresh[0] = scale_value(thresh[0], 8, c.format.bits_per_sample, scale_offsets=scale_offsets)
+        thresh[0] = scale_value(thresh[0], 8, c.format.bits_per_sample, scale_offsets=False)
         i = 1
         for t in thresh[1:]:
-            thresh[i] = scale_value(thresh[i], 8, c.format.bits_per_sample, scale_offsets=scale_offsets, chroma=False)
+            thresh[i] = scale_value(thresh[i], 8, c.format.bits_per_sample, scale_offsets=False, chroma=False)
             i += 1
 
     if isinstance(blur, int):
