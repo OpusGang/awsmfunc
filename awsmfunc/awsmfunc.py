@@ -317,8 +317,10 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         blurWidth = [max(8, math.floor(cWidth / blur[0])), max(8, math.floor(cWidth / blur[1])),
                      max(8, math.floor(cWidth / blur[2]))]
         scale128 = str(scale_value(128, 8, c.format.bits_per_sample, scale_offsets=scale_offsets, chroma=True))
-        uvexpr = "z y - x +"
-        uvexpr = uvexpr + " x - {0} > x {0} + dup -{0} < x {0} - " + uvexpr + " ? ?"
+        uvexpr_ = "z y - x +"
+        uvexpr = []
+        for t in [1, 2]:
+            uvexpr.append(uvexpr_ + " x - " +str(thresh[1])+ " > x " +str(thresh[1])+ " + " + uvexpr_ + " x - -" +str(thresh[1])+ " < x " +str(thresh[1])+ " - " + uvexpr_ + " ? ?")
         if c.format.sample_type == vs.INTEGER:
             exprchroma = f"x {scale128} - abs 2 *"
             expruv = f"z y / 8 min 0.4 max x {scale128} - * {scale128} + x - {scale128} +"
@@ -360,10 +362,10 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                 balancedChroma = core.std.Expr(clips=[original, originalBlurChroma, referenceBlurChroma],
                                                expr=["", expruv])
                 balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur],
-                                             expr=[yexpr, uvexpr, uvexpr])
+                                             expr=[yexpr, uvexpr[0], uvexpr[1]])
             else:
                 balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur],
-                                         expr=[yexpr, uvexpr.format(thresh[1]), uvexpr.format(thresh[2])])
+                                         expr=[yexpr, uvexpr[0], uvexpr[1]])
 
             return core.std.StackVertical(
                 [balancedLuma, core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]).resize.Point(
@@ -419,9 +421,9 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                                                                            filter_param_b=0)
                     balancedChroma = core.std.Expr(clips=[original, originalBlurChroma, referenceBlurChroma],
                                                    expr=expruv)
-                    balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur], expr=uvexpr)
+                    balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur], expr=expruv)
                 else:
-                    balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=uvexpr.format(thresh[p]))
+                    balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=uvexpr[p - 1])
 
                 return core.std.StackVertical(
                     [balancedLuma, c2.std.CropAbs(left=0, top=cTop, width=cWidth, height=cHeight - cTop)]).resize.Point(
