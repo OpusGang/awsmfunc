@@ -98,8 +98,8 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
         return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
 
 
-def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=None, y=True, u=True,
-          v=True, scale_thresh=None, cpass2=False, csize=2, scale_offsets=True, cTop=None, cBottom=None,
+def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=None, y=None, u=None,
+          v=None, scale_thresh=None, cpass2=False, csize=2, scale_offsets=True, cTop=None, cBottom=None,
           cLeft=None, cRight=None):
     """
     Narkyy's bbmod helper for a significant speedup from cropping unnecessary pixels before processing.
@@ -163,6 +163,25 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
             v = True
         else:
             v = False
+    elif clip.format.color_family == vs.YUV:
+        if y is None:
+            y = True
+        if u is None:
+            u = True
+        if v is None:
+            v = True
+    else:
+        if y is None and not u and not v:
+            y = True
+            u = False
+            v = False
+        elif y == True:
+            u = False
+            v = False
+        else:
+            y = False
+            u = True
+            v = False
 
     depth = clip.format.bits_per_sample
     if thresh is None:
@@ -176,10 +195,10 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
 
     filtered = clip
 
-    c_left = max(left * 2, 4)
-    c_right = max(right * 2, 4)
-    c_top = max(top * 2, 4)
-    c_bottom = max(bottom * 2, 4)
+    c_left = max(left * csize, 4)
+    c_right = max(right * csize, 4)
+    c_top = max(top * csize, 4)
+    c_bottom = max(bottom * csize, 4)
 
     f_width, f_height = filtered.width, filtered.height
 
@@ -321,7 +340,7 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
         uvexpr_ = "z y - x +"
         uvexpr = []
         for t in [1, 2]:
-            uvexpr.append(uvexpr_ + " x - " +str(thresh[1])+ " > x " +str(thresh[1])+ " + " + uvexpr_ + " x - -" +str(thresh[1])+ " < x " +str(thresh[1])+ " - " + uvexpr_ + " ? ?")
+            uvexpr.append(uvexpr_ + " x - " +str(thresh[t])+ " > x " +str(thresh[t])+ " + " + uvexpr_ + " x - -" +str(thresh[t])+ " < x " +str(thresh[t])+ " - " + uvexpr_ + " ? ?")
         if c.format.sample_type == vs.INTEGER:
             exprchroma = f"x {scale128} - abs 2 *"
             expruv = f"z y / 8 min 0.4 max x {scale128} - * {scale128} + x - {scale128} +"
@@ -429,6 +448,9 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
                 return core.std.StackVertical(
                     [balancedLuma, c2.std.CropAbs(left=0, top=round(cTop * csize / sh), width=round(cWidth * csize / sw), height=round(cHeight * csize / sh) - round(cTop * csize / sh))]).resize.Point(
                     round(cWidth / sw), round(cHeight / sh))
+
+            if c.format.color_family == vs.GRAY:
+                return btbc(yplane, blurWidth[1], 1, csize)
 
             if u:
                 uplane = btbc(uplane, blurWidth[1], 1, csize * max(sw, sh))
