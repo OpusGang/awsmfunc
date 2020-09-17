@@ -346,7 +346,7 @@ def bbmoda(c, cTop=0, cBottom=0, cLeft=0, cRight=0, thresh=128, blur=999, y=True
             expruv = f"z y / 8 min 0.4 max x {scale128} - * {scale128} + x - {scale128} +"
         else:
             exprchroma = f"x abs 2 *"
-            expruv = "z .5 - y .5 - / 8 min .4 max x .5 - * .5 + x - .5 +"
+            expruv = "z .5 + y .5 + / 8 min .4 max x .5 + * x - .5 +"
         scale16 = str(scale_value(16, 8, c.format.bits_per_sample, scale_offsets=scale_offsets))
         yexpr = "z " + scale16 + " - y " + scale16 + " - / 8 min 0.4 max x " + scale16 + " - * " + scale16 + " +"
         yexpr = f"{yexpr} x - {thresh[0]} > x {thresh[0]} + {yexpr} x - -{thresh[0]} < x {thresh[0]} - {yexpr} ? ?"
