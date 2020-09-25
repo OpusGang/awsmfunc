@@ -1430,7 +1430,7 @@ def RescaleCheck(clip, res=720, kernel="bicubic", b=None, c=None, taps=None, bit
     else:
         rsz = DESCALEDICT[kernel.lower()]
         dwn = rsz(lma, w, h)
-    ups = zresize(dwn, lma.width, lma.height, filter_param_a=b, filter_param_b=c, kernel=kernel)
+    ups = zresize(dwn, width=lma.width, height=lma.height, filter_param_a=b, filter_param_b=c, kernel=kernel)
     mrg = core.std.ShufflePlanes([ups, b32], [0, 1, 2], vs.YUV)
     txt = FrameInfo(mrg, txt)
     return Depth(txt, bits)
