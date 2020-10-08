@@ -968,7 +968,7 @@ def ScreenGen(clip, folder, suffix, frame_numbers="screens.txt", start=1, delim=
                              "PNG", filename, overwrite=True).get_frame(num)
 
 
-def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo=3):
+def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo=3, max_chroma=True, adjust_gamma=False):
     """
     quietvoid's dynamic tonemapping function.
     :param clip: HDR clip.
@@ -976,6 +976,8 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
     :param src_fmt: Whether to output source bit depth instead of 8-bit 4:4:4.
     :param libplacebo: Whether to use vs-placebo as tonemapper
     :param placebo_algo: The tonemapping algo to use
+    :param max_chroma: Targets the maximum chroma value when higher than luma
+    :param adjust_gamma: Adjusts gamma dynamically on low brightness areas when target nits are high. Requires adaptivegrain
     :return: SDR clip.
     """
     if src_fmt:
@@ -983,7 +985,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
     else:
         resizer = core.resize.Spline36
 
-    def __dt(n, f, clip, show):
+    def __dt(n, f, clip, show, max_chroma, adjust_gamma):
         import numpy as np
 
         ST2084_PEAK_LUMINANCE = 10000
@@ -1003,9 +1005,18 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
 
             return y
 
-        luma_arr = f.get_read_array(0)
+        luma_arr = f[0].get_read_array(0)
         luma_max = np.percentile(luma_arr, float(99.99))
-        nits_max = st2084_eotf(luma_max / 65535) * ST2084_PEAK_LUMINANCE
+        nits_max = st2084_eotf(luma_max / 65535) * ST2084_PEAK_LUMINANCE * 1.15
+
+        y_max = nits_max
+        u_max = st2084_eotf(abs((f[1].props['PlaneStatsMax'] / 65535) - 0.5) + 0.5) * ST2084_PEAK_LUMINANCE * 1.10
+        v_max = st2084_eotf(abs((f[2].props['PlaneStatsMax'] / 65535) - 0.5) + 0.5) * ST2084_PEAK_LUMINANCE * 1.10
+
+        gamma_adjust = 1.00
+
+        if max_chroma and (nits_max < u_max or nits_max < v_max):
+            nits_max = max(u_max, v_max)
 
         # Don't go below 100 nits
         nits = max(math.ceil(nits_max), 100)
@@ -1015,8 +1026,34 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
                        primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
                        dither_type="none", nominal_luminance=nits)
 
+        do_adjust = (adjust_gamma and nits >= 256 and ("moe.kageru.adaptivegrain" in core.get_plugins()))
+
+        if do_adjust:
+            gamma_adjust = 1.00 + (0.50 * (nits / 1536))
+            gamma_adjust = min(gamma_adjust, 1.50)
+
+            if nits >= 1024:
+                luma_scaling = 1500 - (750 * (nits / 2048))
+                luma_scaling = max(luma_scaling, 1000)
+            else:
+                luma_scaling = 1250 - (500 * (nits / 1024))
+                luma_scaling = max(luma_scaling, 1000)
+
+            clip = clip.std.PlaneStats()
+            mask = core.adg.Mask(clip, luma_scaling=luma_scaling)
+            fix = clip.std.Levels(gamma=gamma_adjust, min_in=4096, max_in=60160, min_out=4096, max_out=60160, planes=0)
+            clip = core.std.MaskedMerge(clip, fix, mask)
+
+            saturated = saturation(clip, 1.0 + (abs(1.0 - gamma_adjust) * 0.5))
+            clip = core.std.MaskedMerge(clip, saturated, mask)
+
         if show:
-            clip = core.sub.Subtitle(clip, "Peak nits: {}, Target: {} nits".format(nits_max, nits))
+            string = "Peak nits: {:.04f}, U: {:.04f}, V: {:.04f}, Target: {} nits".format(y_max, u_max, v_max, nits)
+
+            if do_adjust:
+                string += "\ngamma_adjust: {:.04f}, luma_scaling: {:.04f}".format(gamma_adjust, luma_scaling)
+
+            clip = core.sub.Subtitle(clip, string)
 
         return clip
 
@@ -1039,7 +1076,10 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
                        range_s="full", dither_type="none")
 
         luma_props = core.std.PlaneStats(clip, plane=0)
-        tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show), prop_src=[luma_props])
+        u_props = core.std.PlaneStats(clip, plane=1)
+        v_props = core.std.PlaneStats(clip, plane=2)
+
+        tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show, max_chroma=max_chroma, adjust_gamma=adjust_gamma), prop_src=[luma_props, u_props, v_props])
 
     if src_fmt:
         return resizer(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
