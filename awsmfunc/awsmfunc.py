@@ -1156,7 +1156,7 @@ def FrameInfo(clip, title,
         return clip
 
     clip = core.std.FrameEval(clip, partial(FrameProps, clip=clip), prop_src=clip)
-    clip = core.sub.Subtitle(clip, text=['\n \n \n' + title], style=style)
+    clip = core.sub.Subtitle(clip, text=[' \n \n' + title], style=style)
 
     return clip
 
