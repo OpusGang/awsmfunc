@@ -1138,7 +1138,8 @@ def SelectRangeEvery(clip, every, length, offset=[0, 0]):
 
 
 def FrameInfo(clip, title,
-              style="sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1"):
+              style="sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1",
+              newlines=3):
     """
     FrameInfo. From sgvsfunc, with additional style option.
     > Usage: FrameInfo(clip, title)
@@ -1155,8 +1156,10 @@ def FrameInfo(clip, title,
 
         return clip
 
+    padding = " " + "".join(['\n'] * newlines)
+
     clip = core.std.FrameEval(clip, partial(FrameProps, clip=clip), prop_src=clip)
-    clip = core.sub.Subtitle(clip, text=[' \n \n' + title], style=style)
+    clip = core.sub.Subtitle(clip, text=[padding + title], style=style)
 
     return clip
 
