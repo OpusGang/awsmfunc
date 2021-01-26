@@ -108,7 +108,7 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
     :param bottom: Bottom rows to be processed.
     :param left: Left columns to be processed.
     :param right: Right columns to be processed.
-    :param thresh: Largest change allowed. Scale of 0-128, default is 16 (assuming 8-bit).
+    :param thresh: Largest change allowed. Scale of 0-128, default is 128 (assuming 8-bit).
                    Specify a list for [luma, chroma] or [y, u, v].
     :param blur: Processing strength, lower values are more aggressive. Default is 20, not 999 like the old bbmod.
                  Specify a list for [luma, chroma] or [y, u, v].
@@ -185,10 +185,12 @@ def bbmod(clip, top=0, bottom=0, left=0, right=0, thresh=None, blur=20, planes=N
 
     depth = clip.format.bits_per_sample
     if thresh is None:
-        thresh = int(math.pow(2, depth - 1))
+        thresh = scale_value(128, 8, depth, scale_offsets=scale_offsets)
 
     if scale_thresh is None:
-        if isinstance(thresh, int) and thresh < 129:
+        if thresh < 1:
+            scale_thresh = False
+        elif thresh < 129:
             scale_thresh = True
         else:
             scale_thresh = False
@@ -1349,6 +1351,7 @@ def mt_lut(clip, expr, planes=[0]):
 
     return core.std.Lut(clip=clip, function=clampexpr, planes=planes)
 
+
 def autogma(clip, adj=1.3, thr=0.40):
     """
     From https://gitlab.com/snippets/1895974.
@@ -1510,7 +1513,7 @@ def greyscale(clip):
     return core.std.ShufflePlanes([clip, grey], [0, 1, 2], vs.YUV)
 
 
-def saturation(clip, sat):
+def saturation(clip, sat, dither_type="error_diffusion"):
     if clip.format.color_family != vs.YUV:
         raise TypeError("saturation: YUV input is required!")
     sfmt = clip.format
@@ -1518,7 +1521,7 @@ def saturation(clip, sat):
     clip = Depth(clip, 32)
     expr = f"x {sat} * -0.5 max 0.5 min"
 
-    return core.resize.Point(clip.std.Expr(["", expr]), format=sfmt, dither_type="error_diffusion")
+    return core.resize.Point(clip.std.Expr(["", expr]), format=sfmt, dither_type=dither_type)
 
 
 def BorderResize(clip, ref, left=0, right=0, top=0, bottom=0, bb=None, planes=[0, 1, 2], sat=None):
