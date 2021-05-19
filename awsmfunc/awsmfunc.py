@@ -1089,7 +1089,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
         return Depth(tonemapped_clip, 8)
 
 
-def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
+def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2], mode="fillmargins"):
     """
     FillBorders wrapper that automatically sets fillmargins mode.
     Chroma planes are processed according to the affected rows in 4:4:4. This means that if the input clip is 4:2:0 and
@@ -1107,15 +1107,15 @@ def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2]):
             top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
 
         if 0 in planes:
-            y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+            y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
         if 1 in planes:
-            u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+            u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
         if 2 in planes:
-            v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+            v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
 
         return join([y, u, v])
     else:
-        return clip.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode="fillmargins")
+        return clip.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
 
 
 #####################
