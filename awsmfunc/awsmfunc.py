@@ -982,10 +982,6 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
     :param adjust_gamma: Adjusts gamma dynamically on low brightness areas when target nits are high. Requires adaptivegrain
     :return: SDR clip.
     """
-    if src_fmt:
-        resizer = core.resize.Point
-    else:
-        resizer = core.resize.Spline36
 
     def __dt(n, f, clip, show, max_chroma, adjust_gamma):
         import numpy as np
@@ -1024,7 +1020,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
         nits = max(math.ceil(nits_max), 100)
 
         # Tonemap
-        clip = resizer(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="2020ncl", matrix_s="709",
+        clip = core.resize.Spline36(clip, transfer_in_s="st2084", transfer_s="709", matrix_in_s="2020ncl", matrix_s="709",
                        primaries_in_s="2020", primaries_s="709", range_in_s="full", range_s="limited",
                        dither_type="none", nominal_luminance=nits)
 
@@ -1065,16 +1061,16 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
     use_placebo = libplacebo and ("com.vs.placebo" in core.get_plugins())
 
     if use_placebo:
-        clip = resizer(clip, format=vs.RGB48)
+        clip = core.resize.Spline36(clip, format=vs.RGB48)
 
         # Tonemap
         tonemapped_clip = core.placebo.Tonemap(clip, dynamic_peak_detection=True, smoothing_period=1,
                                                scene_threshold_low=-1, scene_threshold_high=-1, srcp=5, dstp=3, srct=8,
                                                dstt=1, tone_mapping_algo=placebo_algo)
-        tonemapped_clip = resizer(tonemapped_clip, format=clip_orig_format,
+        tonemapped_clip = core.resize.Spline36(tonemapped_clip, format=clip_orig_format,
                                   matrix_s="709" if clip_orig_format.color_family == vs.YUV else None)
     else:
-        clip = resizer(clip, format=vs.YUV444P16, range_in_s="limited",
+        clip = core.resize.Spline36(clip, format=vs.YUV444P16, range_in_s="limited",
                        range_s="full", dither_type="none")
 
         luma_props = core.std.PlaneStats(clip, plane=0)
@@ -1084,7 +1080,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
         tonemapped_clip = core.std.FrameEval(clip, partial(__dt, clip=clip, show=show, max_chroma=max_chroma, adjust_gamma=adjust_gamma), prop_src=[luma_props, u_props, v_props])
 
     if src_fmt:
-        return resizer(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
+        return core.resize.Spline36(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
     else:
         return Depth(tonemapped_clip, 8)
 
