@@ -4,7 +4,7 @@ from vapoursynth import core
 from functools import partial
 import math
 from vsutil import plane, get_subsampling, get_depth, split, join, scale_value
-from vsutil import depth as Depth
+from vsutil import depth as vsuDepth
 from rekt import rektlvl, rektlvls, rekt_fast
 
 """
@@ -14,6 +14,16 @@ To-do list:
  - CropResizeReader needs cfill
 """
 
+def Depth(clip, bits, **kwargs):
+    """
+    This is just a vsutil.depth wrapper that doesn't dither for high bit depth.
+    The reason for this is that repeated error diffusion can be destructive, so if we assume most filtering is done at
+    high bit depth (which it should), this should keep that from happening while still performing it before outputting.
+    """
+    if bits < 16:
+        return vsuDepth(clip, bits, dither_type="error_diffusion", *kwargs)
+    else:
+        return vsuDepth(clip, bits, dither_type="none", *kwargs)
 
 def FixColumnBrightnessProtect2(clip, column, adj_val=0, prot_val=20):
     return rektlvl(clip, column, adj_val, "column", prot_val)
