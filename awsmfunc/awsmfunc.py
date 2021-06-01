@@ -21,9 +21,9 @@ def Depth(clip, bits, **kwargs):
     high bit depth (which it should), this should keep that from happening while still performing it before outputting.
     """
     if bits < 16:
-        return vsuDepth(clip, bits, dither_type="error_diffusion", *kwargs)
+        return vsuDepth(clip, bits, dither_type="error_diffusion", **kwargs)
     else:
-        return vsuDepth(clip, bits, dither_type="none", *kwargs)
+        return vsuDepth(clip, bits, dither_type="none", **kwargs)
 
 def FixColumnBrightnessProtect2(clip, column, adj_val=0, prot_val=20):
     return rektlvl(clip, column, adj_val, "column", prot_val)
