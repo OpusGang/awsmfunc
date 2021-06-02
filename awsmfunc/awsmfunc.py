@@ -1095,7 +1095,8 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
         return Depth(tonemapped_clip, 8)
 
 
-def FillBorders(clip, left=0, right=0, top=0, bottom=0, planes=[0, 1, 2], mode="fillmargins"):
+def FillBorders(clip: vs.VideoNode, left: int = 0, right: int = 0, top: int = 0, bottom: int = 0,
+                planes: list[int, int, int] = [0, 1, 2], mode: str = 'fixborders') -> vs.VideoNode:
     """
     FillBorders wrapper that automatically sets fillmargins mode.
     Chroma planes are processed according to the affected rows in 4:4:4. This means that if the input clip is 4:2:0 and
