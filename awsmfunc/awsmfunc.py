@@ -1107,14 +1107,15 @@ def FillBorders(clip: vs.VideoNode, left: int = 0, right: int = 0, top: int = 0,
             planes = [planes]
 
         y, u, v = split(clip)
+        
+        if 0 in planes:
+            y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
 
         if clip.format.subsampling_w == 1:
             left, right = math.ceil(left / 2), math.ceil(right / 2)
         if clip.format.subsampling_h == 1:
             top, bottom = math.ceil(top / 2), math.ceil(bottom / 2)
 
-        if 0 in planes:
-            y = y.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
         if 1 in planes:
             u = u.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
         if 2 in planes:
