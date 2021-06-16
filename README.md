@@ -15,6 +15,10 @@ Optional plugins:
 
 	pip install git+https://github.com/OpusGang/awsmfunc.git
 
+### Updating everything
+
+	pip install . --upgrade --force-reinstall
+
 #### Dependencies
 * [rekt](https://gitlab.com/Ututu/rekt)
 * [vsutil](https://github.com/Irrational-Encoding-Wizardry/vsutil)
