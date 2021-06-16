@@ -1100,7 +1100,7 @@ def FillBorders(clip: vs.VideoNode, left: int = 0, right: int = 0, top: int = 0,
     """
     FillBorders wrapper that automatically sets fixborders mode.
     If the chroma is subsampled, ceils the number of chroma rows to fill.
-    This meanas that for 4:2:0 with left=1 1px luma and chroma is filled, 2px luma and 1px chroma for left=2,
+    This means that for 4:2:0 with left=1 1px luma and chroma is filled, 2px luma and 1px chroma for left=2,
     3px luma and 2px chroma for left=3 etc.
     """
     if clip.format.num_planes == 3:
