@@ -33,6 +33,7 @@ from .awsmfunc import (
     greyscale,
     saturation,
     BorderResize,
+    RandomFrameNumbers,
 )
 
 from .detect import (

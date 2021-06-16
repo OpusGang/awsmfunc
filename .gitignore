@@ -1,3 +1,4 @@
 awsmfunc.egg-info/
 build/
 dist/
+.vscode

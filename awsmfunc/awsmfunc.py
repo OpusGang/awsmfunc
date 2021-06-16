@@ -980,7 +980,7 @@ def ScreenGen(clip, folder, suffix, frame_numbers="screens.txt", start=1, delim=
                              "PNG", filename, overwrite=True).get_frame(num)
 
 
-def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo=3, max_chroma=True, adjust_gamma=False):
+def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo=3, max_chroma=True, adjust_gamma=False, chromaloc_in_s="top_left", chromaloc_s="top_left"):
     """
     quietvoid's dynamic tonemapping function.
     :param clip: HDR clip.
@@ -1071,7 +1071,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
     use_placebo = libplacebo and ("com.vs.placebo" in core.get_plugins())
 
     if use_placebo:
-        clip = core.resize.Spline36(clip, format=vs.RGB48)
+        clip = core.resize.Spline36(clip, format=vs.RGB48, chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_s)
 
         # Tonemap
         tonemapped_clip = core.placebo.Tonemap(clip, dynamic_peak_detection=True, smoothing_period=1,
@@ -1081,7 +1081,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
                                   matrix_s="709" if clip_orig_format.color_family == vs.YUV else None)
     else:
         clip = core.resize.Spline36(clip, format=vs.YUV444P16, range_in_s="limited",
-                       range_s="full", dither_type="none")
+                       range_s="full", dither_type="none", chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_s)
 
         luma_props = core.std.PlaneStats(clip, plane=0)
         u_props = core.std.PlaneStats(clip, plane=1)
@@ -1606,6 +1606,163 @@ def BorderResize(clip, ref, left=0, right=0, top=0, bottom=0, bb=None, planes=[0
     else:
         return clip.std.AddBorders(left=borders[0], right=borders[1], top=borders[2], bottom=borders[3])
     
+def RandomFrameNumbers(clip, num=6, start_offset=1000, end_offset=10000, output_file="screens.txt", ftypes_first=["P", "B"], ftypes="B", interleaved=None, clips=None, by_blocks=True, max_attempts=50):
+    """
+    Generates a list of random frame numbers, matched according to the specified frame types
+    :param num: Amount of random frame numbers to generate
+    :param start_offset: Amount of frames to skip from the start of the clip
+    :param end_offset: Amount of frames to skip from the end of the clip
+    :param output_file: Frame numbers output text file
+    :param ftypes_first: Accepted frame types for `clip`
+    :param ftypes: Accepted frame types of the compared clips
+    :param interleaved: Number of interleaved clips, to allow matching from a single clip.
+    :param clips: List of clips to be used for frame type matching, must be the same length as `clip`
+    :param by_blocks: Split the random frames by equal length blocks, based on clip's `length` and `num`
+    :param max_attempts: Number of frame type matching attempts in a row before ending recursion
+    :return List of the generated random frame numbers
+    """
+
+    import os
+    import random
+
+    def divisible_random(a,b,n):
+        if not a % n:
+            return random.choice(range(a, b, n))
+        else:
+            return random.choice(range(a + n - (a % n), b, n))
+
+    # filter frame types function for frameeval
+    def filter_ftype(n, f, clip, frame_num, block):
+        match = False
+
+        if isinstance(f, list):
+            for i, p_src in enumerate(f):
+                f_type = p_src.props["_PictType"].decode()
+
+                if i == 0:
+                    if f_type in ftypes_first:
+                        match = True
+                elif ftypes and f_type not in ftypes:
+                    match = False
+        else:
+            # Single clip
+            if f.props["_PictType"].decode() in ftypes_first:
+                match = True
+
+        if match:
+            block['found_frame'] = frame_num
+
+        return clip
+
+    src_len = len(clip)
+
+    if start_offset > src_len:
+        raise ValueError(f'Invalid start offset: offset {start_offset} > {src_len} (clip len)')
+    if end_offset > src_len:
+        end_offset = 0
+
+    # Multiply offsets for interleaved
+    if interleaved:
+        start_offset *= interleaved
+        end_offset *= interleaved
+
+    start, end = (start_offset, src_len - end_offset)
+
+    if isinstance(ftypes, str):
+        ftypes = [ftypes]
+
+    if isinstance(ftypes_first, str):
+        ftypes_first = [ftypes_first]
+
+    # Blocks & found frames dicts
+    generated_blocks = []
+    block_size = end - start
+
+    if by_blocks:
+        block_size = math.floor(block_size / num)
+
+    for i in range(num):
+        block_start = start
+
+        if by_blocks:
+            # Then first random is in range [start, start + block_size]
+            block_start = start + (i * block_size)
+
+        generated_blocks.append({
+            'tested_frames': [],
+            'found_frame': None,
+            'block_start': block_start,
+        })
+
+    # Loop the number of frames we want
+    for block in generated_blocks:
+        block_start = block['block_start']
+        block_end = block['block_start'] + block_size
+
+        has_multiple_clips = (clips and isinstance(clips, list))
+
+        if interleaved:
+            has_multiple_clips = has_multiple_clips or interleaved > 1
+
+        # Try matching if there are multiple clips or we want specific types
+        if has_multiple_clips or ftypes_first or ftypes:
+            with open(os.devnull, "wb") as f:
+                while not block['found_frame']:
+                    frame_num = random.randint(block_start, block_end)
+                    clip_frames = []
+
+                    if interleaved:
+                        frame_num = divisible_random(block_start, block_end, interleaved)
+
+                    if frame_num in block['tested_frames']:
+                        continue
+
+                    # Keep tested in memory
+                    block['tested_frames'].append(frame_num)
+
+                    if interleaved:
+                        for i in range(0, interleaved):
+                            clip_frames.append(clip[frame_num + i])
+                    elif clips and isinstance(clips, list):
+                        if len(clips) > 0:
+                            clip_frames.append(clip[frame_num])
+
+                            for other_clip in clips:
+                                if len(other_clip) == len(clip):
+                                    clip_frames.append(other_clip[frame_num])
+                                else:
+                                    raise ValueError('All compared clips must be the same length!')
+                        else:
+                            raise ValueError('Empty clips list!')
+
+                    if clip_frames:
+                        clip_f = clip_frames[0]
+                    else:
+                        clip_f = clip[frame_num]
+                        clip_frames = list(clip_f)
+
+                    clip_f = clip_f.std.FrameEval(partial(filter_ftype, clip=clip_f, frame_num=frame_num, block=block), prop_src=clip_frames)
+                    clip_f.output(f)
+
+                    if block['found_frame'] and interleaved:
+                        # Assumes the number was determined divisible already
+                        block['found_frame'] = int(frame_num / interleaved)
+
+                    if not block['found_frame'] and len(block['tested_frames']) >= max_attempts:
+                        raise ValueError('Ended recursion because maximum matching attempts were reached')
+        else:
+            # Don't try matching frame types
+            block['found_frame'] = random.randint(block_start, block_end)
+
+    found_frames = sorted([b['found_frame'] for b in generated_blocks])
+
+    if output_file:
+        with open(output_file, "w") as txt:
+            found_frames_lines = [f'{x}\n' for x in found_frames]
+            txt.writelines(found_frames_lines)
+
+    return found_frames
+
 
 #####################
 #      Aliases      #
