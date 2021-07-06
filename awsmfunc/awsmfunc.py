@@ -683,7 +683,7 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
                          cRight=int(bb[1]) + rr, thresh=int(bb[4]), blur=int(bb[5]), scale_thresh=True)
     return zresize(clip=cropeven, width=width, height=height, left=lr, top=tr, right=rr,
                    bottom=br, filter_param_a=filter_param_a,
-                   filter_param_b=filter_param_b)
+                   filter_param_b=filter_param_b, kernel=resizer)
 
 def CropResizeReader(clip, csvfile, width=None, height=None, row=None, adj_row=None, column=None, adj_column=None,
                      fill_max=2, bb=None, FixUncrop=None, resizer='spline36'):
