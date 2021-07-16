@@ -620,6 +620,8 @@ def CropResize(clip, preset=None, width=None, height=None, left=0, right=0, top=
     :param filter_param_a, filter_param_b: Filter parameters for internal resizers, b & c for bicubic, taps for lanczos.
     :return: Resized clip.
     """
+    from warnings import warn
+    warn("CropResize: this function is deprecated.  Please fix your borders separately and resize via awsmfunc.zresize.")
     if preset:
         if clip.width / clip.height > aspect_ratio:
             return CropResize(clip, width=aspect_ratio * preset, left=left, right=right, top=top, bottom=bottom, bb=bb,
@@ -1194,7 +1196,7 @@ def DelFrameProp(clip, primaries=True, matrix=True, transfer=True):
     return clip
 
 
-def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=False, tonemap=False):
+def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=False, tonemap=False, source_filter=None):
     """
     InterleaveDir, load all mkv files located in a directory and interleave them. From sgvsfunc.
     > Usage: InterleaveDir(folder, PrintInfo, DelProp, first, repeat)
@@ -1204,8 +1206,12 @@ def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=Fal
       * first is an optional clip to append in first position of the interleaving list
       * repeat = True means that the appended clip is repeated between each loaded clip from the folder
       * tonemap = True tonemaps each clip before applying FrameInfo
+      * source_filter = Source filter to use for loading clips.  Defaults to ffms2.
     """
     import os
+
+    if source_filter is None:
+        source_filter = core.ffms2.Source
 
     files = sorted(os.listdir(folder))
 
@@ -1222,7 +1228,7 @@ def InterleaveDir(folder, PrintInfo=False, DelProp=False, first=None, repeat=Fal
 
             j = j + 1
             sources.append(0)
-            sources[j] = core.ffms2.Source(folder + '/' + files[i])
+            sources[j] = source_filter(folder + '/' + files[i])
 
             if first != None:
                 sources[j] = core.std.AssumeFPS(clip=sources[j], src=first)
