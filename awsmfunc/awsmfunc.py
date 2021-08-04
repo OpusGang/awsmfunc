@@ -7,6 +7,8 @@ from vsutil import plane, get_subsampling, get_depth, split, join, scale_value
 from vsutil import depth as vsuDepth
 from rekt import rektlvl, rektlvls, rekt_fast
 
+from typing import List
+
 """
 To-do list:
 
@@ -96,8 +98,13 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
                 raise ValueError("ReplaceFrames: mappings exceed clip length!")
 
             if len(clipb) < len(clipa):
+                new_clipb_len = len(clipa) - len(clipb) + start - end
+
+                if new_clipb_len <= 0:
+                    raise ValueError('ReplaceFrames: new mapped clip length invalid!')
+
                 clipb = clipb.std.BlankClip(length=start) + clipb + clipb.std.BlankClip(
-                    length=len(clipa) - len(clipb) + start - end)
+                    length=new_clipb_len)
             elif len(clipb) > len(clipa):
                 clipb = clipb.std.Trim(0, len(clipa) - 1)
 
@@ -1098,7 +1105,7 @@ def DynamicTonemap(clip, show=False, src_fmt=True, libplacebo=True, placebo_algo
 
 
 def FillBorders(clip: vs.VideoNode, left: int = 0, right: int = 0, top: int = 0, bottom: int = 0,
-                planes: list[int, int, int] = [0, 1, 2], mode: str = 'fixborders') -> vs.VideoNode:
+                planes: List[int] = [0, 1, 2], mode: str = 'fixborders') -> vs.VideoNode:
     """
     FillBorders wrapper that automatically sets fixborders mode.
     If the chroma is subsampled, ceils the number of chroma rows to fill.
