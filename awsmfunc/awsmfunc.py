@@ -98,13 +98,8 @@ def ReplaceFrames(clipa, clipb, mappings=None, filename=None):
                 raise ValueError("ReplaceFrames: mappings exceed clip length!")
 
             if len(clipb) < len(clipa):
-                new_clipb_len = len(clipa) - len(clipb) + start - end
-
-                if new_clipb_len <= 0:
-                    raise ValueError('ReplaceFrames: new mapped clip length invalid!')
-
-                clipb = clipb.std.BlankClip(length=start) + clipb + clipb.std.BlankClip(
-                    length=new_clipb_len)
+                clipb = clipb + clipb.std.BlankClip(length=len(clipa) - len(clipb))
+                
             elif len(clipb) > len(clipa):
                 clipb = clipb.std.Trim(0, len(clipa) - 1)
 
@@ -1803,4 +1798,3 @@ GrayScale = greyscale
 ########
 # Dict #
 ########
-
