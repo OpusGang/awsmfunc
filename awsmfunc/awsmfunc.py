@@ -1505,8 +1505,9 @@ def DynamicTonemap(clip: vs.VideoNode,
         else:
             max_rgb = targets[n]
 
-        # Don't go below 100 nits
+        # Don't go below 100 or over 10 000 nits
         nits = max(round(max_rgb), 100)
+        nits = min(nits, ST2084_PEAK_LUMINANCE)
 
         return (max_rgb, nits)
 
@@ -1600,17 +1601,19 @@ def DynamicTonemap(clip: vs.VideoNode,
             nits += (REF_WHITE * (max_rgb / REF_WHITE)) / (TARGET_NITS / max_rgb)
 
         peak_pq = st2084_inverse_eotf(nits)
-
-        # Add the PQ difference to keep a bit more brightness
         target_pq = st2084_inverse_eotf(TARGET_NITS)
-        pq_diff = (peak_pq - target_pq) * (TARGET_NITS / nits)
-        src_peak = 1.0 / (peak_pq + pq_diff)
+        ref_pq = st2084_inverse_eotf(REF_WHITE)
 
-        # Keep better highlight detail, user can adjust midtones
-        # src_peak = 1.0 / peak_pq
+        dst_peak = 1.0
 
-        src_scale = nits / TARGET_NITS
-        dst_scale = nits / REF_WHITE
+        if nits < 1000:
+            src_peak = 1.0 / peak_pq
+            src_scale = (target_pq / peak_pq) + (ref_pq - target_pq)
+            dst_scale = (nits / REF_WHITE) * (ref_pq + (ref_pq - target_pq))
+        else:
+            src_peak = 1.0 / (peak_pq * (ref_pq - target_pq))
+            src_scale = (target_pq / peak_pq) + (ref_pq - target_pq)
+            dst_scale = (1.0 / ref_pq) - (target_pq / src_scale)
 
         clip = core.placebo.Tonemap(clip,
                                     dynamic_peak_detection=False,
@@ -1623,6 +1626,7 @@ def DynamicTonemap(clip: vs.VideoNode,
                                     dstt=1,
                                     src_peak=src_peak,
                                     src_scale=src_scale,
+                                    dst_peak=dst_peak,
                                     dst_scale=dst_scale,
                                     tone_mapping_algo=placebo_algo,
                                     tone_mapping_param=placebo_param)
