@@ -1,7 +1,7 @@
 # awsmfunc
 
 ### Requirements
-* Python 3
+* Python 3.8 minimum
 * [vapoursynth](http://www.vapoursynth.com/)
 * [numpy](https://numpy.org/)
 * [RemapFrames](https://github.com/Irrational-Encoding-Wizardry/Vapoursynth-RemapFrames)
@@ -10,14 +10,15 @@
 Optional plugins:
 * [vs-placebo](https://github.com/Lypheo/vs-placebo)
 * [vapoursynth-descale](https://github.com/Irrational-Encoding-Wizardry/vapoursynth-descale)
+* [vapoursynth-bilateral](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Bilateral)
 
 ### Setting up
 
-	pip install git+https://git.concertos.live/AHD/awsmfunc.git
+	pip install --user git+https://git.concertos.live/AHD/awsmfunc.git
 
 ### Updating everything
 
-	pip install . --upgrade --force-reinstall
+	pip install --user --upgrade --force-reinstall .
 
 #### Dependencies
 * [rekt](https://gitlab.com/Ututu/rekt)
