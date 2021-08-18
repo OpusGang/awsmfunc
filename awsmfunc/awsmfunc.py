@@ -1455,18 +1455,26 @@ def DynamicTonemap(clip: vs.VideoNode,
 
     def __get_rgb_prop_src(clip: vs.VideoNode, reference: Optional[vs.VideoNode],
                            target_list: Optional[List[int]]) -> vs.VideoNode:
-        if not libplacebo and reference is not None:
-            clip_to_blur = core.resize.Spline36(reference,
-                                                format=vs.RGB48,
-                                                range_in_s="limited",
-                                                range_s="full",
-                                                matrix_in_s="2020ncl",
-                                                matrix_s="rgb",
-                                                primaries_in_s="2020",
-                                                primaries_s="xyz",
-                                                dither_type="none",
-                                                chromaloc_in_s=chromaloc_in_s,
-                                                chromaloc_s=chromaloc_s)
+        if reference is not None:
+            if not libplacebo:
+                clip_to_blur = core.resize.Spline36(reference,
+                                                    format=vs.RGB48,
+                                                    range_in_s="limited",
+                                                    range_s="full",
+                                                    matrix_in_s="2020ncl",
+                                                    matrix_s="rgb",
+                                                    primaries_in_s="2020",
+                                                    primaries_s="xyz",
+                                                    dither_type="none",
+                                                    chromaloc_in_s=chromaloc_in_s,
+                                                    chromaloc_s=chromaloc_s)
+            else:
+                clip_to_blur = clip = core.resize.Spline36(reference,
+                                                           format=vs.RGB48,
+                                                           chromaloc_in_s=chromaloc_in_s,
+                                                           chromaloc_s=chromaloc_s,
+                                                           range_in_s="full",
+                                                           range_s="limited")
         else:
             clip_to_blur = clip
 
