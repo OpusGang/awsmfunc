@@ -1,21 +1,75 @@
 import vapoursynth as vs
 from vapoursynth import core
 
+import os
+import time
+from os import PathLike
+from typing import Callable, Dict, List, Set, Union, Optional, Any, Iterable
+
 from functools import partial
 from vsutil import iterate, get_y
 from vsutil import plane as fplane
 from vsutil import depth as Depth
 
+from .awsmfunc import SUBTITLE_DEFAULT_STYLE
 
-def __vs_out_updated(c, t):
-    if c == t:
-        print("Frame: {}/{}".format(c, t), end="\n")
+
+def __vs_out_updated(current: int, total: int):
+    if current == total:
+        print("Frame: {}/{}".format(current, total), end="\n")
     else:
-        print("Frame: {}/{}".format(c, t), end="\r")
+        print("Frame: {}/{}".format(current, total), end="\r")
 
 
-def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, plane=0, darkthr=None, brightthr=None,
-             blankthr=None):
+def __detect(clip: vs.VideoNode, func: Callable[[Set[int]], vs.VideoNode], options: Dict):
+    total_frames = clip.num_frames
+    detections: Set[int] = set([])
+
+    output = options['output']
+    merge = options['merge']
+
+    with open(os.devnull, 'wb') as f:
+        processed = func(detections)
+
+        start = time.time()
+        processed.output(f, progress_update=__vs_out_updated)
+
+    # Sort frames because multithreading likely made them weird
+    detections_list = list(detections)
+    detections_list.sort()
+
+    end = time.time()
+    print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
+    print("Detected frames: {}".format(len(detections_list)))
+
+    if detections_list:
+        with open(output, 'w') as out_file:
+            for d in detections_list:
+                out_file.write(f"{d}\n")
+
+        if merge:
+            merged_output = "merged-{}".format(output)
+            merge_detections(output,
+                             merged_output,
+                             cycle=options['cycle'],
+                             min_zone_len=options['min_zone_len'],
+                             tolerance=options['tolerance'])
+
+        quit("Finished detecting, output file: {}".format(output))
+
+
+def bandmask(clip: vs.VideoNode,
+             thr: int = 1000,
+             pix: int = 3,
+             left: int = 1,
+             mid: int = 1,
+             right: int = 1,
+             dec: int = 2,
+             exp: Optional[int] = None,
+             plane: int = 0,
+             darkthr: Optional[int] = None,
+             brightthr: Optional[int] = None,
+             blankthr: Optional[int] = None) -> vs.VideoNode:
     """
     A mask that finds areas lacking in grain by simply binarizing the gradient.
     :param clip: Clip to be processed
@@ -35,19 +89,25 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
     """
     if len([plane]) != 1:
         raise ValueError("bandmask: Only one plane can be processed at once!")
+
     depth = clip.format.bits_per_sample
     hi = 65535
+
     if depth < 16:
         clip = Depth(clip, 16)
     elif depth == 32:
         hi = 1
         if thr >= 1:
-            thr = thr / 65535
+            thr = int(thr / 65535)
+
     if exp is None:
         exp = dec + pix
+
     pln = fplane(clip, plane)
+
     if not darkthr and brightthr:
         darkthr = 4096
+
     if darkthr and not brightthr:
         if plane == 0:
             brightthr = 60160
@@ -76,14 +136,19 @@ def bandmask(clip, thr=1000, pix=3, left=1, mid=1, right=1, dec=2, exp=None, pla
         return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
 
 
-def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" ", tolerance=0):
+def merge_detections(input: Union[str, PathLike],
+                     output: Union[str, PathLike],
+                     cycle: int = 1,
+                     min_zone_len: int = 1,
+                     delim: str = ' ',
+                     tolerance: int = 0) -> None:
     import numpy as np
 
-    def consecutive(data, cycle=cycle):
+    def consecutive(data: Iterable[int], cycle: int = cycle):
         return np.split(data, np.where(np.diff(data) > cycle + tolerance)[0] + 1)
 
     with open(input, 'r') as in_f:
-        a = np.array(in_f.read().splitlines(), dtype=np.int)
+        a = np.array(in_f.read().splitlines(), dtype=np.uint)
         c = consecutive(a, cycle=cycle)
 
         zones = []
@@ -95,8 +160,8 @@ def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" ", toleranc
             min_zone = min_zone_len - 1 if cycle % min_zone_len == 0 else min_zone_len
 
         for dtc in c:
-            start = dtc[0]
-            end = dtc[-1] + actual_cycle
+            start = int(dtc[0])
+            end = int(dtc[-1] + actual_cycle)
 
             if end - start >= min_zone and start != end:
                 zone = "{}{delim}{}\n".format(start, end, delim=delim)
@@ -108,9 +173,22 @@ def merge_detections(input, output, cycle=1, min_zone_len=1, delim=" ", toleranc
                 print("Merged frames into zonefile: {}".format(output))
 
 
-def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=False, cycle=1, merge=True,
-             min_zone_len=1, tolerance=0, check_next=True, diff=0.10, darkthr=5632, brightthr=60160, blankthr=None,
-             debug=False):
+def banddtct(clip: vs.VideoNode,
+             output: Union[str, PathLike] = "banding-frames.txt",
+             thr: int = 150,
+             hi: float = 0.90,
+             lo: float = 0.10,
+             trim: bool = False,
+             cycle: int = 1,
+             merge: bool = True,
+             min_zone_len: int = 1,
+             tolerance: int = 0,
+             check_next: bool = True,
+             diff: float = 0.10,
+             darkthr: int = 5632,
+             brightthr: int = 60160,
+             blankthr: Optional[int] = None,
+             debug: bool = False) -> None:
     """
     :param clip: Input clip cropped to disclude black bars.  Can resize beforehand as an easy speed-up.
     :param output: Output text file.
@@ -123,13 +201,14 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
                raising thr.
     :param trim: If True and cycle > 1, adds a SelectEvery call.
     :param cycle: Allows setting SelectEvery(cycle=cycle, offsets=0). This can speed things up, but beware that because
-                  frames need to be decoded, this isn’t that insanely helpful. If you want to use your own SelectRangeEvery
-                  call or whatever, still set cycle, but set trim=False!
+                  frames need to be decoded, this isn’t that insanely helpful.
+                  If you want to use your own SelectRangeEvery call or whatever, still set cycle, but set trim=False!
     :param merge: Whether to merge the detected frames into zones (start end) in a separate file.
     :param min_zone_len: Minimum number of consecutive frames for a zone.
     :param tolerance: Sets additional tolerance for zone detection; if detected frames are cycle + tolerance apart,
                       they’ll be merged into a zone.
-    :param check_next: Whether to check the next frame with more lenient settings to make sure zones are picked up properly.
+    :param check_next: Whether to check the next frame with more lenient settings
+                        to make sure zones are picked up properly.
     :param diff: Difference from previous frame for check_next. This is a budget scene change detection. If the next
                  frame is too different from the previous one, it won’t use the lenient detection settings.
     :param darkthr: Threshold under which pixels will be ignored. If you want use an 8-bit value, shift it to 16-bit via
@@ -137,38 +216,33 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
     :param brightthr: Threshold above which pixels will be ignored.
     :param blankthr: Threshold under which changes will be ignored. I haven’t tested it yet, but this with a higher pix
                      could be useful for anime.
-    :param debug: Setting this to True will output the currently used bandmask in the input clip’s format with the current
-                  frame’s value printed in the top left corner; if it falls between the thresholds, the text will turn from green to red.
+    :param debug: Setting this to True will output the currently used bandmask in the input clip’s format
+                  with the current frame’s value printed in the top left corner.
+                  If it falls between the thresholds, the text will turn from green to red.
     :return: None
     """
-    import os
-    import sys
-    import time
 
-    def detect(n, f, clip, hi, lo, detections, diff, check_next):
-        if f[0].props.PlaneStatsAverage >= lo and f[0].props.PlaneStatsAverage <= hi:
-            if check_next:
-                detections.add(n * cycle)
-                if f[1].props.PlaneStatsDiff < diff and f[2].props.PlaneStatsAverage >= lo / 2 and f[
-                    2].props.PlaneStatsAverage <= hi:
-                    detections.add((n + 1) * cycle)
-            else:
-                detections.add(n * cycle)
-
-        return clip
-
+    options = locals()
 
     def debug_detect(n, f, clip, hi, lo):
         if f.props.PlaneStatsAverage >= lo and f.props.PlaneStatsAverage <= hi:
-            return clip.sub.Subtitle(f"{f.props.PlaneStatsAverage}\nBanding detected!", style="sans-serif,20,&H000000FF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1")
+            return clip.sub.Subtitle(f"{f.props.PlaneStatsAverage}\nDetected banding!", style=SUBTITLE_DEFAULT_STYLE)
         else:
-            return clip.sub.Subtitle(f.props.PlaneStatsAverage, style="sans-serif,20,&H0000FF00,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1")
-
+            return clip.sub.Subtitle(f.props.PlaneStatsAverage, style=SUBTITLE_DEFAULT_STYLE)
 
     original_format = clip.format
-
-    clip = bandmask(clip, thr=thr, pix=3, left=1, mid=2, right=1, dec=3, exp=None, plane=0, darkthr=darkthr,
-                    brightthr=brightthr, blankthr=blankthr)
+    clip = bandmask(clip,
+                    thr=thr,
+                    pix=3,
+                    left=1,
+                    mid=2,
+                    right=1,
+                    dec=3,
+                    exp=None,
+                    plane=0,
+                    darkthr=darkthr,
+                    brightthr=brightthr,
+                    blankthr=blankthr)
 
     if debug:
         clip = clip.resize.Point(format=original_format)
@@ -182,122 +256,105 @@ def banddtct(clip, output="banding-frames.txt", thr=150, hi=0.90, lo=0.10, trim=
     clip_diff = core.std.PlaneStats(clip, next_frame)
     clip = clip.std.PlaneStats()
     next_frame = next_frame.std.PlaneStats()
-    total_frames = clip.num_frames
 
-    detected_frames = set([])
+    prop_src = [clip, clip_diff, next_frame]
 
-    with open(os.devnull, 'wb') as f:
-        processed = core.std.FrameEval(clip,
-                                       partial(detect, clip=clip, hi=hi, lo=lo, detections=detected_frames, diff=diff,
-                                               check_next=check_next),
-                                       prop_src=[clip, clip_diff, next_frame])
-        start = time.time()
-        processed.output(f, progress_update=__vs_out_updated)
+    def detect_func(detections):
 
-    # Sort frames because multithreading likely made them weird
-    detected_frames = list(detected_frames)
-    detected_frames.sort()
+        def banding_detect(n, f, clip, detections, hi, lo, diff, check_next):
+            if f[0].props.PlaneStatsAverage >= lo and f[0].props.PlaneStatsAverage <= hi:
+                if check_next:
+                    detections.add(n * cycle)
+                    if f[1].props.PlaneStatsDiff < diff and f[2].props.PlaneStatsAverage >= lo / 2 and f[
+                            2].props.PlaneStatsAverage <= hi:
+                        detections.add((n + 1) * cycle)
+                else:
+                    detections.add(n * cycle)
+            return clip
 
-    end = time.time()
-    print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
-    print("Detected frames: {}".format(len(detected_frames)))
+        return core.std.FrameEval(clip,
+                                  partial(banding_detect,
+                                          clip=clip,
+                                          detections=detections,
+                                          hi=hi,
+                                          lo=lo,
+                                          diff=diff,
+                                          check_next=check_next),
+                                  prop_src=prop_src)
 
-    if detected_frames:
-        with open(output, 'w') as out_file:
-            for f in detected_frames:
-                out_file.write("{}\n".format(f))
-
-        if merge:
-            merged_output = "merged-{}".format(output)
-            merge_detections(output, merged_output, cycle=cycle, min_zone_len=min_zone_len, tolerance=tolerance)
-
-        quit("Finished detecting banding, output file: {}".format(output))
-
-    return None
+    __detect(clip, detect_func, options)
 
 
-def detect_dirty_lines(clip, output, left, top, right, bottom, thr=.1, merged_output=None, cycle=1, tolerance=0):
-    import os
-    import sys
-    import time
+def __detect_dirty_lines(clip: vs.VideoNode, output: Union[str, PathLike], left: Optional[Union[int, List[int]]],
+                         top: Optional[Union[int, List[int]]], right: Optional[Union[int, List[int]]],
+                         bottom: Optional[Union[int, List[int]]], thr: float, merge: bool, cycle: int,
+                         tolerance: int) -> None:
+    options = locals()
 
     luma = get_y(clip)
-
-    def get_rows(luma, ori, num):
-        if ori == "row":
-            clip_a = luma.std.Crop(top=num, bottom=luma.height - num - 1)
-            if num + 1 < luma.height:
-                clip_b = luma.std.Crop(top=num + 1, bottom=luma.height - num - 2)
-            else:
-                clip_b = luma.std.Crop(top=num - 1, bottom=1)
-        elif ori == "column" or ori == "col":
-            clip_a = luma.std.Crop(left=num, right=luma.width - num - 1)
-            if num + 1 < luma.width:
-                clip_b = luma.std.Crop(left=num + 1, right=luma.width - num - 2)
-            else:
-                clip_b = luma.std.Crop(left=num - 1, right=1)
-        return core.std.PlaneStats(clip_a, clip_b)
-
-
-    def detect(n, f, clip, thr, detections):
-        if f.props.PlaneStatsDiff > thr:
-            detections.append(n * cycle)
-        return clip
-    
-
-    def updated(c, t):
-        if c == t:
-            print("Frame: {}/{}".format(c, t), end="\n")
-        else:
-            print("Frame: {}/{}".format(c, t), end="\r")
-
-
-    total_frames = clip.num_frames
-
-    detected_frames = []
 
     column_list = []
     if left:
         column_list.append(left)
     if right:
         column_list.append(right)
+
     row_list = []
     if top:
         row_list.append(top)
     if bottom:
         row_list.append(bottom)
 
-    with open(os.devnull, 'wb') as f:
+    def detect_func(detections):
+
+        def get_rows(luma, ori, num):
+            if ori == "row":
+                clip_a = luma.std.Crop(top=num, bottom=luma.height - num - 1)
+                if num + 1 < luma.height:
+                    clip_b = luma.std.Crop(top=num + 1, bottom=luma.height - num - 2)
+                else:
+                    clip_b = luma.std.Crop(top=num - 1, bottom=1)
+            elif ori == "column" or ori == "col":
+                clip_a = luma.std.Crop(left=num, right=luma.width - num - 1)
+                if num + 1 < luma.width:
+                    clip_b = luma.std.Crop(left=num + 1, right=luma.width - num - 2)
+                else:
+                    clip_b = luma.std.Crop(left=num - 1, right=1)
+            return core.std.PlaneStats(clip_a, clip_b)
+
+        def line_detect(n, f, clip, detections, thr):
+            if f.props.PlaneStatsDiff > thr:
+                detections.append(n * cycle)
+            return clip
+
         for _ in column_list:
             for i in _:
                 clip_diff = get_rows(luma, "col", i)
-                processed = core.std.FrameEval(clip, partial(detect, clip=clip, thr=thr, detections=detected_frames),
+                processed = core.std.FrameEval(clip,
+                                               partial(line_detect, clip=clip, detections=detections, thr=thr),
                                                prop_src=clip_diff)
         for _ in row_list:
             for i in _:
                 clip_diff = get_rows(luma, "row", i)
-                processed = core.std.FrameEval(clip, partial(detect, clip=clip, thr=thr, detections=detected_frames),
+                processed = core.std.FrameEval(clip,
+                                               partial(line_detect, clip=clip, detections=detections, thr=thr),
                                                prop_src=clip_diff)
-        start = time.time()
-        processed.output(f, progress_update=updated)
+        return processed
 
-    end = time.time()
-    print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
-    print("Detected frames: {}".format(len(detected_frames)))
-
-    if detected_frames:
-        with open(output, 'w') as out_file:
-            for f in detected_frames:
-                out_file.write("{}\n".format(f))
-
-        if merged_output:
-            merge_detections(output, merged_output, cycle=cycle, tolerance=tolerance)
-
-    return None
+    __detect(clip, detect_func, options)
 
 
-def dirtdtct(clip, output="dirty-frames.txt", left=None, top=None, right=None, bottom=None, thr=.1, trim=False,
-             cycle=1, merge=True, tolerance=0):
+def dirtdtct(clip: vs.VideoNode,
+             output: Union[str, PathLike] = "dirty-frames.txt",
+             left: Optional[Union[int, List[int]]] = None,
+             top: Optional[Union[int, List[int]]] = None,
+             right: Optional[Union[int, List[int]]] = None,
+             bottom: Optional[Union[int, List[int]]] = None,
+             thr: float = 0.1,
+             trim: bool = False,
+             cycle: int = 1,
+             merge: bool = True,
+             tolerance: int = 0) -> None:
     """
     :param clip: Input clip cropped to disclude black bars.
     :param output: Output text file.
@@ -306,8 +363,8 @@ def dirtdtct(clip, output="dirty-frames.txt", left=None, top=None, right=None, b
                 like .01 for weak dirty lines, around .05 for stronger ones). Lower means more gets picked up.
     :param trim: If True and cycle > 1, adds a SelectEvery call.
     :param cycle: Allows setting SelectEvery(cycle=cycle, offsets=0). This can speed things up, but beware that because
-                  frames need to be decoded, this isn’t that insanely helpful. If you want to use your own SelectRangeEvery
-                  call or whatever, still set cycle, but set trim=False!
+                  frames need to be decoded, this isn’t that insanely helpful.
+                  If you want to use your own SelectRangeEvery call or whatever, still set cycle, but set trim=False!
     :param merge: Whether to merge the detected frames into zones (start end) in a separate file.
     :param tolerance: Sets additional tolerance for zone detection; if detected frames are cycle + tolerance apart,
                       they’ll be merged into a zone.
@@ -330,77 +387,64 @@ def dirtdtct(clip, output="dirty-frames.txt", left=None, top=None, right=None, b
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
-    else:
-        cycle = 1
 
-    if merge:
-        merge = "merged-{}".format(output)
-
-    detect_dirty_lines(clip, output, left, top, right, bottom, thr, merge, cycle, tolerance=tolerance)
-    quit("Finished detecting dirty lines, output file: {}".format(output))
-
-    return None
+    __detect_dirty_lines(clip, output, left, top, right, bottom, thr, merge, cycle, tolerance)
 
 
-def brdrdtct(clip, output="bordered-frames.txt", range=4, left=0, right=0, top=0, bottom=0, color=[0, 123, 123],
-             color_second=[21, 133, 133], trim=False, cycle=1, merge=True, min_zone_len=1, tolerance=0):
+def brdrdtct(clip: vs.VideoNode,
+             output: Union[str, PathLike] = "bordered-frames.txt",
+             range: int = 4,
+             left: int = 0,
+             right: int = 0,
+             top: int = 0,
+             bottom: int = 0,
+             color: List[int] = [0, 123, 123],
+             color_second: List[int] = [21, 133, 133],
+             trim: bool = False,
+             cycle: int = 1,
+             merge: bool = True,
+             min_zone_len: int = 1,
+             tolerance: int = 0) -> None:
     """
     :param clip: Input clip cropped to disclude black bars.
     :param output: Output text file.
-    :param range, left, right, top, bottom, color, color_second: https://github.com/Irrational-Encoding-Wizardry/vapoursynth-autocrop/wiki/CropValues
+    :param range, left, right, top, bottom, color, color_second:
+        https://github.com/Irrational-Encoding-Wizardry/vapoursynth-autocrop/wiki/CropValues
     :param trim: If True and cycle > 1, adds a SelectEvery call.
     :param cycle: Allows setting SelectEvery(cycle=cycle, offsets=0). This can speed things up, but beware that because
-                  frames need to be decoded, this isn’t that insanely helpful. If you want to use your own SelectRangeEvery
-                  call or whatever, still set cycle, but set trim=False!
+                  frames need to be decoded, this isn’t that insanely helpful.
+                  If you want to use your own SelectRangeEvery call or whatever, still set cycle, but set trim=False!
     :param merge: Whether to merge the detected frames into zones (start end) in a separate file.
     :param min_zone_len: Minimum number of consecutive frames for a zone.
     :param tolerance: Sets additional tolerance for zone detection; if detected frames are cycle + tolerance apart,
                       they’ll be merged into a zone.
     :return: None
     """
-    import os
-    import sys
-    import time
-    
-    def detect(n, f, clip, detections):
-        if (f.props.CropTopValue > 0 and f.props.CropBottomValue > 0) or (f.props.CropLeftValue > 0 and f.props.CropRightValue > 0):
-            detections.add(n * cycle)
-        return clip
-    
+
+    options = locals()
+
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
-    
-    total_frames = clip.num_frames
-    
-    detected_frames = set([])
-    
-    clip = clip.acrop.CropValues(range=range, left=left, right=right, top=top, bottom=bottom, color=color,
+
+    clip = clip.acrop.CropValues(range=range,
+                                 left=left,
+                                 right=right,
+                                 top=top,
+                                 bottom=bottom,
+                                 color=color,
                                  color_second=color_second)
 
-    with open(os.devnull, 'wb') as f:
-        processed = core.std.FrameEval(clip,
-                                       partial(detect, clip=clip, detections=detected_frames),
-                                       prop_src=clip)
-        start = time.time()
-        processed.output(f, progress_update=__vs_out_updated)
-    
-    # Sort frames because multithreading likely made them weird
-    detected_frames = list(detected_frames)
-    detected_frames.sort()
+    def detect_func(detections):
 
-    end = time.time()
-    print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
-    print("Detected frames: {}".format(len(detected_frames)))
+        def border_detect(n, f, clip, detections):
+            if ((f.props.CropTopValue > 0 and f.props.CropBottomValue > 0)
+                    or (f.props.CropLeftValue > 0 and f.props.CropRightValue > 0)):
+                detections.add(n * cycle)
 
-    if detected_frames:
-        with open(output, 'w') as out_file:
-            for f in detected_frames:
-                out_file.write("{}\n".format(f))
+            return clip
 
-        if merge:
-            merged_output = "merged-{}".format(output)
-            merge_detections(output, merged_output, cycle=cycle, min_zone_len=min_zone_len, tolerance=tolerance)
+        processed = core.std.FrameEval(clip, partial(border_detect, clip=clip, detections=detections), prop_src=clip)
 
-        quit("Finished detecting bordered frames, output file: {}".format(output))
+        return processed
 
-    return None
+    __detect(clip, detect_func, options)

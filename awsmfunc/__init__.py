@@ -36,14 +36,7 @@ from .awsmfunc import (
     RandomFrameNumbers,
 )
 
-from .detect import (
-    bandmask,
-    merge_detections,
-    banddtct,
-    detect_dirty_lines,
-    dirtdtct,
-    brdrdtct
-)
+from .detect import (bandmask, merge_detections, banddtct, dirtdtct, brdrdtct)
 
 # Aliases
 from .awsmfunc import (
@@ -51,8 +44,14 @@ from .awsmfunc import (
     rfs,
     fb,
     zr,
-    cr, CR, cropresize,
-    gs, grayscale, GreyScale, GrayScale,
+    cr,
+    CR,
+    cropresize,
+    gs,
+    grayscale,
+    GreyScale,
+    GrayScale,
     zr,
-    br, borderresize,
+    br,
+    borderresize,
 )
