@@ -1614,13 +1614,12 @@ def DynamicTonemap(clip: vs.VideoNode,
 
         dst_peak = 1.0
 
+        src_peak = 1.0 / (peak_pq * (ref_pq - target_pq))
+        src_scale = (target_pq / peak_pq) + (ref_pq - target_pq)
+
         if nits < 1000:
-            src_peak = 1.0 / peak_pq
-            src_scale = (target_pq / peak_pq) + (ref_pq - target_pq)
-            dst_scale = (nits / REF_WHITE) * (ref_pq + (ref_pq - target_pq))
+            dst_scale = 1.0 / ((peak_pq + ref_pq) / (target_pq + (peak_pq - ref_pq)))
         else:
-            src_peak = 1.0 / (peak_pq * (ref_pq - target_pq))
-            src_scale = (target_pq / peak_pq) + (ref_pq - target_pq)
             dst_scale = (1.0 / ref_pq) - (target_pq / src_scale)
 
         clip = core.placebo.Tonemap(clip,
