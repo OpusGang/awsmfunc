@@ -1637,8 +1637,9 @@ def DynamicTonemap(clip: vs.VideoNode,
                                     tone_mapping_param=placebo_param)
 
         if show:
-            clip = core.resize.Spline36(clip, range_in_s="limited", range_s="full")
-            clip = __add_show_info(clip, max_rgb, nits, targets)
+            show_clip = core.resize.Spline36(clip, format=vs.YUV444P16, matrix_s="709")
+            clip = __add_show_info(show_clip, max_rgb, nits, targets)
+            clip = core.resize.Spline36(clip, format=vs.RGB48)
 
         return clip
 
@@ -1688,11 +1689,7 @@ def DynamicTonemap(clip: vs.VideoNode,
             prop_src = __get_rgb_prop_src(clip, reference, target_list)
 
             tonemapped_clip = core.std.FrameEval(clip,
-                                                 partial(__pl_dt,
-                                                         clip=clip,
-                                                         targets=target_list,
-                                                         show=show,
-                                                         range='limited'),
+                                                 partial(__pl_dt, clip=clip, targets=target_list, show=show),
                                                  prop_src=prop_src)
     else:
         clip = core.resize.Spline36(clip,
