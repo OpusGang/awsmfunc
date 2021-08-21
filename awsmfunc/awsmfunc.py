@@ -1472,9 +1472,7 @@ def DynamicTonemap(clip: vs.VideoNode,
                 clip_to_blur = clip = core.resize.Spline36(reference,
                                                            format=vs.RGB48,
                                                            chromaloc_in_s=chromaloc_in_s,
-                                                           chromaloc_s=chromaloc_s,
-                                                           range_in_s="full",
-                                                           range_s="limited")
+                                                           chromaloc_s=chromaloc_s)
         else:
             clip_to_blur = clip
 
@@ -1670,12 +1668,7 @@ def DynamicTonemap(clip: vs.VideoNode,
     use_placebo = libplacebo and ("com.vs.placebo" in core.get_plugins())
 
     if use_placebo:
-        clip = core.resize.Spline36(clip,
-                                    format=vs.RGB48,
-                                    chromaloc_in_s=chromaloc_in_s,
-                                    chromaloc_s=chromaloc_s,
-                                    range_in_s="full",
-                                    range_s="limited")
+        clip = core.resize.Spline36(clip, format=vs.RGB48, chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_s)
 
         if placebo_dt:
             # Tonemap
