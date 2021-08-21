@@ -27,16 +27,6 @@ RESIZEDICT: Dict = {
     'spline64': core.resize.Spline64
 }
 
-DESCALEDICT: Dict = {
-    'bilinear': core.descale.Debilinear,
-    'bicubic': core.descale.Debicubic,
-    'point': core.resize.Point,
-    'lanczos': core.descale.Delanczos,
-    'spline16': core.descale.Despline16,
-    'spline36': core.descale.Despline36,
-    'spline64': core.descale.Despline64
-}
-
 SUBTITLE_DEFAULT_STYLE: str = "sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1"
 
 ST2084_PEAK_LUMINANCE = 10000
@@ -2164,6 +2154,16 @@ def RescaleCheck(clip: vs.VideoNode,
     :param bits: Bit depth of output
     :return: Clip resampled to target resolution and back
     """
+    DESCALEDICT: Dict = {
+        'bilinear': core.descale.Debilinear,
+        'bicubic': core.descale.Debicubic,
+        'point': core.resize.Point,
+        'lanczos': core.descale.Delanczos,
+        'spline16': core.descale.Despline16,
+        'spline36': core.descale.Despline36,
+        'spline64': core.descale.Despline64
+    }
+
     has_descale = "tegaf.asi.xe" in core.get_plugins()
 
     if not has_descale:

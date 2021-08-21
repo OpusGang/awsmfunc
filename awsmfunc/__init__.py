@@ -38,9 +38,7 @@ from .awsmfunc import (
     st2084_inverse_eotf,
 )
 
-
 from .detect import (bandmask, merge_detections, banddtct, dirtdtct, brdrdtct)
-
 
 # Aliases
 from .awsmfunc import (
