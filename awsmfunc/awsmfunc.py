@@ -1593,8 +1593,8 @@ def DynamicTonemap(clip: vs.VideoNode,
 
         # I don't really know
         # Avoid overbrightening dark frames because ref white is 203 nits
-        if max_rgb < TARGET_NITS:
-            nits += (REF_WHITE * (max_rgb / REF_WHITE)) / (TARGET_NITS / max_rgb)
+        if nits < TARGET_NITS:
+            nits += (REF_WHITE * (nits / REF_WHITE)) / (TARGET_NITS / nits)
 
         peak_pq = st2084_inverse_eotf(nits)
         target_pq = st2084_inverse_eotf(TARGET_NITS)
