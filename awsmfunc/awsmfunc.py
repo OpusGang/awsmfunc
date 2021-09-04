@@ -1672,7 +1672,6 @@ def DynamicTonemap(clip: vs.VideoNode,
                                                    dstp=3,
                                                    srct=11,
                                                    dstt=1,
-                                                   src_peak=1.0,
                                                    tone_mapping_algo=placebo_algo,
                                                    tone_mapping_param=placebo_param)
         else:
