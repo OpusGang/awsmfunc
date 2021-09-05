@@ -1397,9 +1397,10 @@ def ScreenGen(clip: vs.VideoNode,
             os.mkdir(folder_path)
 
         for i, num in enumerate(screens, start=start):
+            print(end=f'\rScreenGen: Writing file: {i:02d}{suffix}, frame: {num}')
             filename = "{path}/{:02d}{suffix}.png".format(i, path=folder_path, suffix=suffix)
             core.imwri.Write(clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion"),
-                             "PNG",
+                             "PNG24",
                              filename,
                              overwrite=True).get_frame(num)
 
