@@ -17,16 +17,6 @@ To-do list:
  - CropResizeReader needs cfill
 """
 
-RESIZEDICT: Dict = {
-    'bilinear': core.resize.Bilinear,
-    'bicubic': core.resize.Bicubic,
-    'point': core.resize.Point,
-    'lanczos': core.resize.Lanczos,
-    'spline16': core.resize.Spline16,
-    'spline36': core.resize.Spline36,
-    'spline64': core.resize.Spline64
-}
-
 SUBTITLE_DEFAULT_STYLE: str = "sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1"
 
 ST2084_PEAK_LUMINANCE = 10000
@@ -855,6 +845,18 @@ def zresize(clip: vs.VideoNode,
             kernel: str = "spline36",
             ar: float = 16 / 9,
             **kwargs) -> vs.VideoNode:
+
+    # VSEdit doesn't like the global dict
+    RESIZEDICT: Dict = {
+        'bilinear': core.resize.Bilinear,
+        'bicubic': core.resize.Bicubic,
+        'point': core.resize.Point,
+        'lanczos': core.resize.Lanczos,
+        'spline16': core.resize.Spline16,
+        'spline36': core.resize.Spline36,
+        'spline64': core.resize.Spline64
+    }
+
     if preset:
         if clip.width / clip.height > ar:
             return zresize(clip,
