@@ -9,7 +9,7 @@ from typing import Callable, Dict, List, Union, Optional, Any
 
 from vsutil import plane, get_depth, split, join, scale_value
 from vsutil import depth as vsuDepth
-from rekt import rektlvl, rektlvls, rekt_fast
+from rekt import rektlvls, rekt_fast
 """
 To-do list:
 
@@ -40,11 +40,11 @@ def Depth(clip: vs.VideoNode, bits: int, **kwargs) -> vs.VideoNode:
 
 
 def FixColumnBrightnessProtect2(clip: vs.VideoNode, column: int, adj_val: int = 0, prot_val: int = 20) -> vs.VideoNode:
-    return rektlvl(clip, column, adj_val, "column", prot_val)
+    return FixBrightnessProtect2(clip, column=column, adj_column=adj_val, prot_val=prot_val)
 
 
 def FixRowBrightnessProtect2(clip: vs.VideoNode, row: int, adj_val: int = 0, prot_val: int = 20) -> vs.VideoNode:
-    return rektlvl(clip, row, adj_val, "row", prot_val)
+    return FixBrightnessProtect2(clip, row=row, adj_row=adj_val, prot_val=prot_val)
 
 
 def FixBrightnessProtect2(clip: vs.VideoNode,
