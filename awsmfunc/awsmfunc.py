@@ -2233,7 +2233,15 @@ def Import(file: str) -> vs.VideoNode:
     from importlib.machinery import SourceFileLoader
 
     if file.endswith('.vpy'):
-        return SourceFileLoader('script', file).load_module().vs.get_output()
+        output = SourceFileLoader('script', file).load_module().vs.get_output()
+
+        try:
+            if isinstance(output, vs.VideoOutputTuple):
+                return output.clip
+            else:
+                return output
+        except AttributeError:
+            return output
     else:
         raise TypeError("Import: Only .vpy is supported!")
 
