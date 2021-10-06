@@ -1,3 +1,3 @@
 VapourSynth>=49
-vsutil>=0.5.0
+vsutil@https://github.com/Irrational-Encoding-Wizardry/vsutil/archive/08d782115a7464e238a38ea836a44571bcfeecc3.zip
 rekt@https://gitlab.com/Ututu/rekt/-/archive/3da2b2f2b2d670e635cef6dcc61f19c8fe10f1fa/rekt-3da2b2f2b2d670e635cef6dcc61f19c8fe10f1fa.zip
