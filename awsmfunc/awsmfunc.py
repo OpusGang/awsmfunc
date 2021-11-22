@@ -1423,7 +1423,11 @@ def ScreenGen(clip: vs.VideoNode,
                 log_str += f', frame: {num}'
 
             print(end=log_str)
-            core.imwri.Write(rgb_clip, "PNG24", final_path, overwrite=True).get_frame(num)
+            try:
+                core.imwri.Write(rgb_clip, "PNG24", final_path, overwrite=True).get_frame(num)
+            except vs.Error:
+                new_path = folder_path.joinpath(f'%d{suffix}.png').resolve()
+                core.imwri.Write(rgb_clip, "PNG24", new_path, overwrite=True).get_frame(num)
     else:
         raise ValueError('ScreenGen: No screenshots to write to disk')
 
