@@ -36,6 +36,7 @@ from .awsmfunc import (
     RandomFrameNumbers,
     st2084_eotf,
     st2084_inverse_eotf,
+    ScreenGenPrefix,
 )
 
 from .detect import (bandmask, merge_detections, banddtct, dirtdtct, brdrdtct)
