@@ -1,3 +1,4 @@
+from enum import Enum
 import vapoursynth as vs
 from vapoursynth import core
 
@@ -1356,12 +1357,17 @@ def RGBMaskMerge(clipa: vs.VideoNode,
     return clip
 
 
+class ScreenGenPrefix(str, Enum):
+    Sequential = 'seq'
+    FrameNo = 'frame'
+
 def ScreenGen(clip: vs.VideoNode,
-              folder: str,
+              folder: Union[str, PathLike],
               suffix: str,
-              frame_numbers: Union[str, List[int]] = "screens.txt",
+              prefix: Union[ScreenGenPrefix, str] = ScreenGenPrefix.Sequential,
+              frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
               start: int = 1,
-              delim: str = ' ') -> vs.VideoNode:
+              delim: str = ' ') -> None:
     """
     Narkyy's screenshot generator.
     Generates screenshots from a list of frame numbers
@@ -1373,36 +1379,53 @@ def ScreenGen(clip: vs.VideoNode,
     > Usage: ScreenGen(src, "Screenshots", "a")
              ScreenGen(enc, "Screenshots", "b")
     """
-    import os
+    from pathlib import Path
 
-    frame_num_path = "./{name}".format(name=frame_numbers)
-    folder_path = "./{name}".format(name=folder)
+    folder_path = Path(folder).resolve()
 
-    if isinstance(frame_numbers, str) and os.path.isfile(frame_num_path):
-        with open(frame_numbers) as f:
-            screens = f.readlines()
+    if isinstance(frame_numbers, str):
+        frame_num_path = Path(frame_numbers).resolve()
 
-        # Keep value before first delim, so that we can parse default detect zones files
-        screens = [v.split(delim)[0] for v in screens]
+        if frame_num_path.is_file():
+            with open(frame_num_path) as f:
+                screens = f.readlines()
 
-        # str to int
-        screens = [int(x.strip()) for x in screens]
+            # Keep value before first delim, so that we can parse default detect zones files
+            screens = [v.split(delim)[0] for v in screens]
+
+            # str to int
+            screens = [int(x.strip()) for x in screens]
+        else:
+            raise ValueError('ScreenGen: Path to frame numbers file does not exist')
     elif isinstance(frame_numbers, list):
         screens = frame_numbers
     else:
-        raise TypeError('frame_numbers must be a file path or a list of frame numbers')
+        raise TypeError('ScreenGen: frame_numbers must be a file path or a list of frame numbers')
 
     if screens:
-        if not os.path.isdir(folder_path):
-            os.mkdir(folder_path)
+        if not folder_path.is_dir():
+            folder_path.mkdir()
+        
+        rgb_clip = clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion")
 
         for i, num in enumerate(screens, start=start):
-            print(end=f'\rScreenGen: Writing file: {i:02d}{suffix}, frame: {num}')
-            filename = "{path}/{:02d}{suffix}.png".format(i, path=folder_path, suffix=suffix)
-            core.imwri.Write(clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion"),
-                             "PNG24",
-                             filename,
-                             overwrite=True).get_frame(num)
+            if prefix == ScreenGenPrefix.Sequential:
+                filename = f'{i:02d}{suffix}.png'
+            elif prefix == ScreenGenPrefix.FrameNo:
+                filename = f'{num}{suffix}.png'
+            else:
+                raise ValueError('ScreenGen: invalid prefix enum value')
+
+            final_path = folder_path.joinpath(filename).resolve()
+
+            log_str = f'\rScreenGen: Writing file: {filename}'
+            if prefix != ScreenGenPrefix.FrameNo:
+                log_str += f', frame: {num}'
+
+            print(end=log_str)
+            core.imwri.Write(rgb_clip, "PNG24", final_path, overwrite=True).get_frame(num)
+    else:
+        raise ValueError('ScreenGen: No screenshots to write to disk')
 
 
 def DynamicTonemap(clip: vs.VideoNode,
