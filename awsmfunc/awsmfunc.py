@@ -1405,7 +1405,7 @@ def ScreenGen(clip: vs.VideoNode,
     if screens:
         if not folder_path.is_dir():
             folder_path.mkdir()
-        
+
         rgb_clip = clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion")
 
         for i, num in enumerate(screens, start=start):
@@ -1527,15 +1527,15 @@ def DynamicTonemap(clip: vs.VideoNode,
             g_max = st2084_eotf((f[1].props['PlaneStatsMax'] / max_value)) * ST2084_PEAK_LUMINANCE
             b_max = st2084_eotf((f[2].props['PlaneStatsMax'] / max_value)) * ST2084_PEAK_LUMINANCE
 
-            max_rgb = max([r_max, g_max, b_max])
+            max_rgb = round(max([r_max, g_max, b_max]))
         else:
-            max_rgb = targets[n]
+            max_rgb = round(targets[n])
 
         # Don't go below 100 or over 10 000 nits
-        nits = max(round(max_rgb), 100)
-        nits = min(nits, ST2084_PEAK_LUMINANCE)
+        peak = max(max_rgb, TARGET_NITS)
+        peak = min(peak, ST2084_PEAK_LUMINANCE)
 
-        return (max_rgb, nits)
+        return (max_rgb, peak)
 
     def __add_show_info(clip: vs.VideoNode,
                         max_rgb: int,
@@ -1560,7 +1560,7 @@ def DynamicTonemap(clip: vs.VideoNode,
              show: bool,
              adjust_gamma: bool,
              targets: Optional[List[int]] = None) -> vs.VideoNode:
-        max_rgb, nits = __calculate_max_rgb(n, f, targets)
+        max_rgb, peak = __calculate_max_rgb(n, f, targets)
 
         # Tonemap
         clip = core.resize.Spline36(clip,
@@ -1573,23 +1573,23 @@ def DynamicTonemap(clip: vs.VideoNode,
                                     range_in_s="full",
                                     range_s="limited",
                                     dither_type="none",
-                                    nominal_luminance=nits,
+                                    nominal_luminance=peak,
                                     format=vs.YUV444P16)
 
-        do_adjust = (adjust_gamma and nits >= 256 and ("moe.kageru.adaptivegrain" in core.get_plugins()))
+        do_adjust = (adjust_gamma and peak >= 256 and ("moe.kageru.adaptivegrain" in core.get_plugins()))
 
         gamma_adjust = None
         luma_scaling = None
 
         if do_adjust:
-            gamma_adjust = 1.00 + (0.50 * (nits / 1536))
+            gamma_adjust = 1.00 + (0.50 * (peak / 1536))
             gamma_adjust = min(gamma_adjust, 1.50)
 
-            if nits >= 1024:
-                luma_scaling = 1500 - (750 * (nits / 2048))
+            if peak >= 1024:
+                luma_scaling = 1500 - (750 * (peak / 2048))
                 luma_scaling = max(luma_scaling, 1000)
             else:
-                luma_scaling = 1250 - (500 * (nits / 1024))
+                luma_scaling = 1250 - (500 * (peak / 1024))
                 luma_scaling = max(luma_scaling, 1000)
 
             clip = clip.std.PlaneStats()
@@ -1603,7 +1603,7 @@ def DynamicTonemap(clip: vs.VideoNode,
         if show:
             clip = __add_show_info(clip,
                                    max_rgb,
-                                   nits,
+                                   peak,
                                    targets,
                                    adjusted=do_adjust,
                                    gamma_adjust=gamma_adjust,
@@ -1619,26 +1619,14 @@ def DynamicTonemap(clip: vs.VideoNode,
                 show: bool,
                 targets: Optional[List[int]] = None,
                 range: Optional[str] = None) -> vs.VideoNode:
-        max_rgb, nits = __calculate_max_rgb(n, f, targets, range=range)
+        max_rgb, frame_nits = __calculate_max_rgb(n, f, targets, range=range)
 
-        # I don't really know
-        # Avoid overbrightening dark frames because ref white is 203 nits
-        if nits < TARGET_NITS:
-            nits += (REF_WHITE * (nits / REF_WHITE)) / (TARGET_NITS / nits)
+        src_peak = max_rgb / 10.0
+        src_scale = ST2084_PEAK_LUMINANCE / REF_WHITE
 
-        peak_pq = st2084_inverse_eotf(nits)
-        target_pq = st2084_inverse_eotf(TARGET_NITS)
-        ref_pq = st2084_inverse_eotf(REF_WHITE)
-
-        dst_peak = 1.0
-
-        src_peak = 1.0 / (peak_pq * (ref_pq - target_pq))
-        src_scale = (target_pq / peak_pq) + (ref_pq - target_pq)
-
-        if nits < 1000:
-            dst_scale = 1.0 / ((peak_pq + ref_pq) / (target_pq + (peak_pq - ref_pq)))
-        else:
-            dst_scale = (1.0 / ref_pq) - (target_pq / src_scale)
+        dst_peak = TARGET_NITS / 10.0
+        dst_avg = math.pow(0.5, 2.4) if max_rgb <= REF_WHITE else None
+        dst_scale = math.pow(REF_WHITE / TARGET_NITS, 2.4)
 
         clip = core.placebo.Tonemap(clip,
                                     dynamic_peak_detection=False,
@@ -1652,13 +1640,14 @@ def DynamicTonemap(clip: vs.VideoNode,
                                     src_peak=src_peak,
                                     src_scale=src_scale,
                                     dst_peak=dst_peak,
+                                    dst_avg=dst_avg,
                                     dst_scale=dst_scale,
                                     tone_mapping_algo=placebo_algo,
                                     tone_mapping_param=placebo_param)
 
         if show:
             show_clip = core.resize.Spline36(clip, format=vs.YUV444P16, matrix_s="709")
-            clip = __add_show_info(show_clip, max_rgb, nits, targets)
+            clip = __add_show_info(show_clip, max_rgb, frame_nits, targets)
             clip = core.resize.Spline36(clip, format=vs.RGB48)
 
         return clip
