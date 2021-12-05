@@ -1625,7 +1625,7 @@ def DynamicTonemap(clip: vs.VideoNode,
         src_scale = ST2084_PEAK_LUMINANCE / REF_WHITE
 
         dst_peak = TARGET_NITS / 10.0
-        dst_avg = math.pow(0.5, 2.4) if max_rgb <= REF_WHITE else None
+        dst_avg = math.pow(0.5, 2.4) if max_rgb <= 4000 else None
         dst_scale = math.pow(REF_WHITE / TARGET_NITS, 2.4)
 
         clip = core.placebo.Tonemap(clip,
