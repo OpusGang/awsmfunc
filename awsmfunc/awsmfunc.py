@@ -1843,16 +1843,17 @@ def DelFrameProp(clip: vs.VideoNode,
     > Usage: DelFrameProp(clip, primaries, matrix, transfer)
       * primaries, matrix, transfer are boolean, True meaning that the property is deleted (default)
     """
+    props = []
     if primaries:
-        clip = core.std.SetFrameProp(clip, prop="_Primaries", delete=True)
+        props.append("_Primaries")
 
     if matrix:
-        clip = core.std.SetFrameProp(clip, prop="_Matrix", delete=True)
+        props.append("_Matrix")
 
     if transfer:
-        clip = core.std.SetFrameProp(clip, prop="_Transfer", delete=True)
+        props.append("_Transfer")
 
-    return clip
+    return clip.std.RemoveFrameProps(props=props)
 
 
 def InterleaveDir(folder: str,
