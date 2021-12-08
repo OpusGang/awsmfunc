@@ -1443,7 +1443,9 @@ def DynamicTonemap(clip: vs.VideoNode,
                    chromaloc_in_s: str = "top_left",
                    chromaloc_s: str = "top_left",
                    reference: Optional[vs.VideoNode] = None,
-                   predetermined_targets: Optional[Union[str, List[Union[int, float]]]] = None) -> vs.VideoNode:
+                   predetermined_targets: Optional[Union[str, List[Union[int, float]]]] = None,
+                   is_dovi: bool = False,
+                   placebo_use_frame_stats: bool = True) -> vs.VideoNode:
     """
     Narkyy's dynamic tonemapping function.
     The clip (or reference) is blurred, then plane stats are measured.
@@ -1628,27 +1630,52 @@ def DynamicTonemap(clip: vs.VideoNode,
         dst_avg = math.pow(0.5, 2.4)
         dst_scale = math.pow(REF_WHITE / TARGET_NITS, 2.4)
 
+        fprops = f[0].props
+
+        can_map_dovi = (
+            is_dovi and
+            'DolbyVisionRPUPtr' in fprops and
+            'DolbyVisionRPUSize' in fprops and
+            fprops['DolbyVisionRPUSize'] > 0
+        )
+
+        src_csp = 3 if can_map_dovi else 1
+        is_full_range = fprops['_ColorRange'] == 0
+        is_profile_5 = src_csp == 3 and is_full_range
+
+        tm_params = {
+            'src_csp': src_csp,
+            'dst_csp': 0,
+            'tone_mapping_algo': placebo_algo,
+            'tone_mapping_param': placebo_param,
+        }
+        
+        if placebo_use_frame_stats and not is_profile_5:
+            tm_params.update({
+                'src_peak': src_peak,
+                'src_scale': src_scale,
+                'dst_peak': dst_peak,
+                'dst_avg': dst_avg,
+                'dst_scale': dst_scale,
+            })
+
         clip = core.placebo.Tonemap(clip,
                                     dynamic_peak_detection=False,
                                     smoothing_period=-1,
                                     scene_threshold_low=-1,
                                     scene_threshold_high=-1,
-                                    srcp=6,
-                                    dstp=3,
-                                    srct=11,
-                                    dstt=1,
-                                    src_peak=src_peak,
-                                    src_scale=src_scale,
-                                    dst_peak=dst_peak,
-                                    dst_avg=dst_avg,
-                                    dst_scale=dst_scale,
-                                    tone_mapping_algo=placebo_algo,
-                                    tone_mapping_param=placebo_param)
+                                    **tm_params)
 
-        if show:
+        if show and clip.format.color_family != vs.YUV:
             show_clip = core.resize.Spline36(clip, format=vs.YUV444P16, matrix_s="709")
             clip = __add_show_info(show_clip, max_rgb, frame_nits, targets)
-            clip = core.resize.Spline36(clip, format=vs.RGB48)
+        elif show:
+            if is_full_range:
+                clip = clip.resize.Spline36(range_in_s="full", range_s="limited")
+
+            clip = __add_show_info(clip, max_rgb, frame_nits, targets)
+
+        clip = core.std.SetFrameProps(clip, _Matrix=1, _Primaries=1, _Transfer=1)
 
         return clip
 
@@ -1678,7 +1705,14 @@ def DynamicTonemap(clip: vs.VideoNode,
     use_placebo = libplacebo and ("com.vs.placebo" in core.get_plugins())
 
     if use_placebo:
-        clip = core.resize.Spline36(clip, format=vs.RGB48, chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_s)
+        dst_fmt = vs.YUV444P16 if is_dovi else vs.RGB48
+
+        clip = core.resize.Spline36(
+            clip,
+            format=dst_fmt,
+            chromaloc_in_s=chromaloc_in_s,
+            chromaloc_s=chromaloc_s
+        )
 
         if placebo_dt:
             # Tonemap
@@ -1687,10 +1721,8 @@ def DynamicTonemap(clip: vs.VideoNode,
                                                    smoothing_period=1,
                                                    scene_threshold_low=-1,
                                                    scene_threshold_high=-1,
-                                                   srcp=6,
-                                                   dstp=3,
-                                                   srct=11,
-                                                   dstt=1,
+                                                   src_csp=1,
+                                                   dst_csp=0,
                                                    tone_mapping_algo=placebo_algo,
                                                    tone_mapping_param=placebo_param)
         else:
