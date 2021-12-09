@@ -1669,13 +1669,15 @@ def DynamicTonemap(clip: vs.VideoNode,
         if show and clip.format.color_family != vs.YUV:
             show_clip = core.resize.Spline36(clip, format=vs.YUV444P16, matrix_s="709")
             clip = __add_show_info(show_clip, max_rgb, frame_nits, targets)
+            clip = core.resize.Spline36(clip, format=vs.RGB48)
         elif show:
             if is_full_range:
                 clip = clip.resize.Spline36(range_in_s="full", range_s="limited")
 
             clip = __add_show_info(clip, max_rgb, frame_nits, targets)
 
-        clip = core.std.SetFrameProps(clip, _Matrix=1, _Primaries=1, _Transfer=1)
+        if clip.format.color_family == vs.YUV:
+            clip = core.std.SetFrameProps(clip, _Matrix=1, _Primaries=1, _Transfer=1)
 
         return clip
 
