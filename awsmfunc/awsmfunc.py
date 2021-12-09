@@ -1634,9 +1634,7 @@ def DynamicTonemap(clip: vs.VideoNode,
 
         can_map_dovi = (
             is_dovi and
-            'DolbyVisionRPUPtr' in fprops and
-            'DolbyVisionRPUSize' in fprops and
-            fprops['DolbyVisionRPUSize'] > 0
+            'DolbyVisionRPU' in fprops
         )
 
         src_csp = 3 if can_map_dovi else 1
