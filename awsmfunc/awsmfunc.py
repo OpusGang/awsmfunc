@@ -1630,7 +1630,7 @@ def DynamicTonemap(clip: vs.VideoNode,
         dst_avg = math.pow(0.5, 2.4)
         dst_scale = math.pow(REF_WHITE / TARGET_NITS, 2.4)
 
-        fprops = f[0].props
+        fprops = f.props if targets else f[0].props
 
         can_map_dovi = (
             is_dovi and
