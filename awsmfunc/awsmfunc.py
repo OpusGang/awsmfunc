@@ -65,7 +65,8 @@ def FixColumnBrightness(clip: vs.VideoNode,
                         output_high: int = 235) -> vs.VideoNode:
     hbd = Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
-    adj = lambda x: core.std.Levels(
+
+    def adj(x): return core.std.Levels(
         x, min_in=input_low << 8, max_in=input_high << 8, min_out=output_low << 8, max_out=output_high << 8, planes=0)
 
     prc = rekt_fast(lma, adj, left=column, right=clip.width - column - 1)
@@ -84,7 +85,8 @@ def FixRowBrightness(clip: vs.VideoNode,
                      output_high: int = 235) -> vs.VideoNode:
     hbd = Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
-    adj = lambda x: core.std.Levels(
+
+    def adj(x): return core.std.Levels(
         x, min_in=input_low << 8, max_in=input_high << 8, min_out=output_low << 8, max_out=output_high << 8, planes=0)
 
     prc = rekt_fast(lma, adj, top=row, bottom=clip.height - row - 1)
@@ -1361,6 +1363,7 @@ class ScreenGenPrefix(str, Enum):
     Sequential = 'seq'
     FrameNo = 'frame'
 
+
 def ScreenGen(clip: vs.VideoNode,
               folder: Union[str, PathLike],
               suffix: str,
@@ -1435,16 +1438,18 @@ def ScreenGen(clip: vs.VideoNode,
 def DynamicTonemap(clip: vs.VideoNode,
                    show: bool = False,
                    src_fmt: bool = False,
-                   libplacebo: bool = True,
-                   placebo_dt: bool = True,
-                   placebo_algo: int = 3,
-                   placebo_param: Optional[float] = None,
                    adjust_gamma: bool = False,
                    chromaloc_in_s: str = "top_left",
                    chromaloc_s: str = "top_left",
                    reference: Optional[vs.VideoNode] = None,
                    predetermined_targets: Optional[Union[str, List[Union[int, float]]]] = None,
                    is_dovi: bool = False,
+                   libplacebo: bool = True,
+                   placebo_dt: bool = True,
+                   placebo_algo: int = None,
+                   placebo_gamut_mode: int = None,
+                   placebo_mode: int = None,
+                   placebo_param: Optional[float] = None,
                    placebo_use_frame_stats: bool = True) -> vs.VideoNode:
     """
     quietvoid's dynamic tonemapping function.
@@ -1454,10 +1459,6 @@ def DynamicTonemap(clip: vs.VideoNode,
     :param clip: PQ BT.2020 clip.
     :param show: Whether to show nits values.
     :param src_fmt: Whether to output source bit depth instead of 8-bit 4:4:4.
-    :param libplacebo: Whether to use libplacebo as tonemapper
-        Requires vs-placebo plugin.
-    :param placebo_dt: Use libplacebo's dynamic peak detection instead of FrameEval
-    :param placebo_algo: The tonemapping algo to use
     :param adjust_gamma: Adjusts gamma/saturation dynamically on low brightness areas when target nits are high.
         Requires adaptivegrain-rs plugin.
     :param chromaloc_in_s: Chromaloc of input
@@ -1467,13 +1468,17 @@ def DynamicTonemap(clip: vs.VideoNode,
     :param predetermined_targets: List of target nits per frame.
         List of numbers or file containing a target per line
         Must be equal to clip length
+    :param libplacebo: Whether to use libplacebo as tonemapper
+        Requires vs-placebo plugin.
+    :param placebo_dt: Use libplacebo's dynamic peak detection instead of FrameEval
+    :param placebo_algo: The tonemapping algo to use
     :return: SDR YUV444P16 clip by default.
     """
 
     from pathlib import Path
 
     REF_WHITE = 203.0
-    TARGET_NITS = 100.0
+    TARGET_NITS = REF_WHITE
 
     def __get_rgb_prop_src(clip: vs.VideoNode, reference: Optional[vs.VideoNode],
                            target_list: Optional[List[int]]) -> vs.VideoNode:
@@ -1623,45 +1628,46 @@ def DynamicTonemap(clip: vs.VideoNode,
                 range: Optional[str] = None) -> vs.VideoNode:
         max_rgb, frame_nits = __calculate_max_rgb(n, f, targets, range=range)
 
-        src_peak = frame_nits / 10.0
-        src_scale = ST2084_PEAK_LUMINANCE / frame_nits
-
-        dst_peak = TARGET_NITS / 10.0
-        dst_avg = math.pow(0.5, 2.4)
-        dst_scale = math.pow(REF_WHITE / TARGET_NITS, 2.4)
-
         fprops = f.props if targets else f[0].props
 
+        src_max = frame_nits
+        src_min = None
+
+        if 'MasteringDisplayMinLuminance' in fprops:
+            src_min = fprops['MasteringDisplayMinLuminance']
+        else:
+            src_min = 0.0050  # placebo default
+
+        dst_max = TARGET_NITS
+        dst_min = dst_max / 1000.0  # 1000:1 default
+
         can_map_dovi = (
-            is_dovi and
-            'DolbyVisionRPU' in fprops
+            is_dovi
+            and 'DolbyVisionRPU' in fprops
         )
 
         src_csp = 3 if can_map_dovi else 1
         is_full_range = fprops['_ColorRange'] == 0
-        is_profile_5 = src_csp == 3 and is_full_range
 
         tm_params = {
             'src_csp': src_csp,
             'dst_csp': 0,
-            'tone_mapping_algo': placebo_algo,
+            'gamut_mode': placebo_gamut_mode,
+            'tone_mapping_function': placebo_algo,
             'tone_mapping_param': placebo_param,
+            'tone_mapping_mode': placebo_mode,
         }
-        
-        if placebo_use_frame_stats and not is_profile_5:
+
+        if placebo_use_frame_stats:
             tm_params.update({
-                'src_peak': src_peak,
-                'src_scale': src_scale,
-                'dst_peak': dst_peak,
-                'dst_avg': dst_avg,
-                'dst_scale': dst_scale,
+                'src_max': src_max,
+                'src_min': src_min,
+                'dst_max': dst_max,
+                'dst_min': dst_min,
             })
 
         clip = core.placebo.Tonemap(clip,
                                     dynamic_peak_detection=False,
-                                    smoothing_period=-1,
-                                    scene_threshold_low=-1,
-                                    scene_threshold_high=-1,
                                     **tm_params)
 
         if show and clip.format.color_family != vs.YUV:
@@ -1715,16 +1721,19 @@ def DynamicTonemap(clip: vs.VideoNode,
         )
 
         if placebo_dt:
+            tm_params = {
+                'src_csp': 1,
+                'dst_csp': 0,
+                'gamut_mode': placebo_gamut_mode,
+                'tone_mapping_function': placebo_algo,
+                'tone_mapping_param': placebo_param,
+                'tone_mapping_mode': placebo_mode,
+            }
+
             # Tonemap
             tonemapped_clip = core.placebo.Tonemap(clip,
                                                    dynamic_peak_detection=True,
-                                                   smoothing_period=1,
-                                                   scene_threshold_low=-1,
-                                                   scene_threshold_high=-1,
-                                                   src_csp=1,
-                                                   dst_csp=0,
-                                                   tone_mapping_algo=placebo_algo,
-                                                   tone_mapping_param=placebo_param)
+                                                   **tm_params)
         else:
             prop_src = __get_rgb_prop_src(clip, reference, target_list)
 
