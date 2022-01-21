@@ -1444,6 +1444,7 @@ def DynamicTonemap(clip: vs.VideoNode,
                    reference: Optional[vs.VideoNode] = None,
                    predetermined_targets: Optional[Union[str, List[Union[int, float]]]] = None,
                    is_dovi: bool = False,
+                   target_nits: int = 203.0,
                    libplacebo: bool = True,
                    placebo_dt: bool = True,
                    placebo_algo: int = None,
@@ -1476,9 +1477,6 @@ def DynamicTonemap(clip: vs.VideoNode,
     """
 
     from pathlib import Path
-
-    REF_WHITE = 203.0
-    TARGET_NITS = REF_WHITE
 
     def __get_rgb_prop_src(clip: vs.VideoNode, reference: Optional[vs.VideoNode],
                            target_list: Optional[List[int]]) -> vs.VideoNode:
@@ -1539,7 +1537,7 @@ def DynamicTonemap(clip: vs.VideoNode,
             max_rgb = round(targets[n])
 
         # Don't go below 100 or over 10 000 nits
-        peak = max(max_rgb, TARGET_NITS)
+        peak = max(max_rgb, target_nits)
         peak = min(peak, ST2084_PEAK_LUMINANCE)
 
         return (max_rgb, peak)
@@ -1638,7 +1636,7 @@ def DynamicTonemap(clip: vs.VideoNode,
         else:
             src_min = 0.0050  # placebo default
 
-        dst_max = TARGET_NITS
+        dst_max = target_nits
         dst_min = dst_max / 1000.0  # 1000:1 default
 
         can_map_dovi = (
@@ -1656,14 +1654,14 @@ def DynamicTonemap(clip: vs.VideoNode,
             'tone_mapping_function': placebo_algo,
             'tone_mapping_param': placebo_param,
             'tone_mapping_mode': placebo_mode,
+            'dst_max': dst_max,
+            'dst_min': dst_min,
         }
 
         if placebo_use_frame_stats:
             tm_params.update({
                 'src_max': src_max,
                 'src_min': src_min,
-                'dst_max': dst_max,
-                'dst_min': dst_min,
             })
 
         clip = core.placebo.Tonemap(clip,
@@ -1721,6 +1719,9 @@ def DynamicTonemap(clip: vs.VideoNode,
         )
 
         if placebo_dt:
+            dst_max = target_nits
+            dst_min = dst_max / 1000.0  # 1000:1 default
+
             tm_params = {
                 'src_csp': 1,
                 'dst_csp': 0,
@@ -1728,6 +1729,8 @@ def DynamicTonemap(clip: vs.VideoNode,
                 'tone_mapping_function': placebo_algo,
                 'tone_mapping_param': placebo_param,
                 'tone_mapping_mode': placebo_mode,
+                'dst_max': dst_max,
+                'dst_min': dst_min,
             }
 
             # Tonemap
