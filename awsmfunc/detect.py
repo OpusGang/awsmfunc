@@ -285,10 +285,17 @@ def banddtct(clip: vs.VideoNode,
     __detect(clip, detect_func, options)
 
 
-def __detect_dirty_lines(clip: vs.VideoNode, output: Union[str, PathLike], left: Optional[Union[int, List[int]]],
-                         top: Optional[Union[int, List[int]]], right: Optional[Union[int, List[int]]],
-                         bottom: Optional[Union[int, List[int]]], thr: float, merge: bool, cycle: int,
-                         tolerance: int) -> None:
+def __detect_dirty_lines(clip: vs.VideoNode,
+                         output: Union[str, PathLike],
+                         left: Optional[Union[int, List[int]]],
+                         top: Optional[Union[int, List[int]]],
+                         right: Optional[Union[int, List[int]]],
+                         bottom: Optional[Union[int, List[int]]],
+                         thr: float,
+                         cycle: int,
+                         merge: bool = True,
+                         min_zone_len: int = 1,
+                         tolerance: int = 0) -> None:
     options = locals()
 
     luma = get_y(clip)
@@ -324,7 +331,7 @@ def __detect_dirty_lines(clip: vs.VideoNode, output: Union[str, PathLike], left:
 
         def line_detect(n, f, clip, detections, thr):
             if f.props.PlaneStatsDiff > thr:
-                detections.append(n * cycle)
+                detections.add(n * cycle)
             return clip
 
         for _ in column_list:
@@ -354,6 +361,7 @@ def dirtdtct(clip: vs.VideoNode,
              trim: bool = False,
              cycle: int = 1,
              merge: bool = True,
+             min_zone_len: int = 1,
              tolerance: int = 0) -> None:
     """
     :param clip: Input clip cropped to disclude black bars.
