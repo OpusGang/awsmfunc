@@ -396,7 +396,7 @@ def dirtdtct(clip: vs.VideoNode,
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
 
-    __detect_dirty_lines(clip, output, left, top, right, bottom, thr, merge, cycle, tolerance)
+    __detect_dirty_lines(clip, output, left, top, right, bottom, thr, cycle, merge, min_zone_len, tolerance)
 
 
 def brdrdtct(clip: vs.VideoNode,
