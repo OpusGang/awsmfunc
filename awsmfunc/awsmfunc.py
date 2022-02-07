@@ -1503,7 +1503,7 @@ def DynamicTonemap(clip: vs.VideoNode,
 
         try:
             blurred_clip = core.bilateral.Bilateral(clip_to_blur, sigmaS=1)
-        except vs.Error:
+        except:
             blurred_clip = core.std.Convolution(clip_to_blur, matrix=[1, 2, 1, 2, 4, 2, 1, 2, 1])
 
         if not target_list:
