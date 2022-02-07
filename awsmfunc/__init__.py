@@ -39,7 +39,7 @@ from .awsmfunc import (
     ScreenGenPrefix,
 )
 
-from .detect import (bandmask, merge_detections, banddtct, dirtdtct, brdrdtct)
+from .detect import (bandmask, merge_detections, banddtct, cambidtct, dirtdtct, brdrdtct)
 
 # Aliases
 from .awsmfunc import (
