@@ -1440,7 +1440,7 @@ def DynamicTonemap(clip: vs.VideoNode,
                    src_fmt: bool = False,
                    adjust_gamma: bool = False,
                    chromaloc_in_s: str = "top_left",
-                   chromaloc_s: str = "top_left",
+                   chromaloc_s: str = "left",
                    reference: Optional[vs.VideoNode] = None,
                    predetermined_targets: Optional[Union[str, List[Union[int, float]]]] = None,
                    is_dovi: bool = False,
@@ -1492,12 +1492,12 @@ def DynamicTonemap(clip: vs.VideoNode,
                                                     primaries_s="xyz",
                                                     dither_type="none",
                                                     chromaloc_in_s=chromaloc_in_s,
-                                                    chromaloc_s=chromaloc_s)
+                                                    chromaloc_s=chromaloc_in_s)
             else:
                 clip_to_blur = clip = core.resize.Spline36(reference,
                                                            format=vs.RGB48,
                                                            chromaloc_in_s=chromaloc_in_s,
-                                                           chromaloc_s=chromaloc_s)
+                                                           chromaloc_s=chromaloc_in_s)
         else:
             clip_to_blur = clip
 
@@ -1715,7 +1715,7 @@ def DynamicTonemap(clip: vs.VideoNode,
             clip,
             format=dst_fmt,
             chromaloc_in_s=chromaloc_in_s,
-            chromaloc_s=chromaloc_s
+            chromaloc_s=chromaloc_in_s
         )
 
         if placebo_dt:
@@ -1754,7 +1754,7 @@ def DynamicTonemap(clip: vs.VideoNode,
                                     primaries_s="xyz",
                                     dither_type="none",
                                     chromaloc_in_s=chromaloc_in_s,
-                                    chromaloc_s=chromaloc_s)
+                                    chromaloc_s=chromaloc_in_s)
 
         prop_src = __get_rgb_prop_src(clip, reference, target_list)
 
@@ -1766,7 +1766,8 @@ def DynamicTonemap(clip: vs.VideoNode,
                                                      targets=target_list),
                                              prop_src=prop_src)
 
-    tonemapped_clip = core.resize.Spline36(tonemapped_clip, format=vs.YUV444P16, matrix_s="709")
+    tonemapped_clip = core.resize.Spline36(tonemapped_clip, format=vs.YUV444P16, matrix_s="709",
+                                           chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_s)
 
     if src_fmt:
         return core.resize.Spline36(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
