@@ -1892,7 +1892,7 @@ def InterleaveDir(folder: str,
     for i in range(len(files)):
         filename = files[i].name
 
-        if files[i].is_file() and '.mkv' in files[i].suffixes:
+        if files[i].is_file() and '.mkv' == files[i].suffix:
 
             j = j + 1
             sources.append(0)
