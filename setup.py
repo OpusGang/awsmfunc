@@ -5,7 +5,7 @@ with open('requirements.txt') as fh:
 
 setup(
     name='awsmfunc',
-    version='1.3.2',
+    version='1.3.1',
     url='https://git.concertos.live/AHD/awsmfunc',
     author='AHD',
     packages=['awsmfunc'],
