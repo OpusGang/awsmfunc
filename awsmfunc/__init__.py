@@ -37,6 +37,8 @@ from .awsmfunc import (
     st2084_eotf,
     st2084_inverse_eotf,
     ScreenGenPrefix,
+    HasLoadedPlugin,
+    MapDolbyVision,
 )
 
 from .detect import (bandmask, merge_detections, banddtct, cambidtct, dirtdtct, brdrdtct)
