@@ -1678,9 +1678,6 @@ def DynamicTonemap(clip: vs.VideoNode,
 
             clip = __add_show_info(clip, max_rgb, frame_nits, targets)
 
-        if clip.format.color_family == vs.YUV:
-            clip = core.std.SetFrameProps(clip, _Matrix=1, _Primaries=1, _Transfer=1)
-
         return clip
 
     clip_orig_format = clip.format
@@ -1723,7 +1720,7 @@ def DynamicTonemap(clip: vs.VideoNode,
             dst_min = dst_max / 1000.0  # 1000:1 default
 
             tm_params = {
-                'src_csp': 1,
+                'src_csp': 3 if is_dovi else 1,
                 'dst_csp': 0,
                 'gamut_mode': placebo_gamut_mode,
                 'tone_mapping_function': placebo_algo,
@@ -1743,6 +1740,9 @@ def DynamicTonemap(clip: vs.VideoNode,
             tonemapped_clip = core.std.FrameEval(clip,
                                                  partial(__pl_dt, clip=clip, targets=target_list, show=show),
                                                  prop_src=prop_src)
+        
+        if tonemapped_clip.format.color_family == vs.YUV:
+            tonemapped_clip = core.std.SetFrameProps(tonemapped_clip, _Matrix=1, _Primaries=1, _Transfer=1)
     else:
         clip = core.resize.Spline36(clip,
                                     format=vs.RGB48,
