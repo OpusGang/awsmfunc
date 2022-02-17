@@ -895,8 +895,15 @@ def zresize(clip: vs.VideoNode,
         rh = height / clip.height
         rw = width / clip.width
 
-    w = round(((clip.width - left - right) * rw) / 2) * 2
-    h = round(((clip.height - top - bottom) * rh) / 2) * 2
+    orig_w = clip.width
+    orig_h = clip.height
+
+    w = round(((orig_w - left - right) * rw) / 2) * 2
+    h = round(((orig_h - top - bottom) * rh) / 2) * 2
+
+    if orig_w == w and orig_h == h:
+        # noop
+        return clip
 
     resizer = RESIZEDICT[kernel.lower()]
     return resizer(clip=clip,
@@ -908,348 +915,6 @@ def zresize(clip: vs.VideoNode,
                    src_height=clip.height - top - bottom,
                    dither_type="error_diffusion",
                    **kwargs)
-
-
-def CropResize(clip: vs.VideoNode,
-               preset: Optional[int] = None,
-               width: Optional[int] = None,
-               height: Optional[int] = None,
-               left: int = 0,
-               right: int = 0,
-               top: int = 0,
-               bottom: int = 0,
-               bb: Any = None,
-               fill: Optional[List[int]] = None,
-               fillplanes: Optional[List[int]] = None,
-               cfill: Optional[Union[List[int], Callable[[vs.VideoNode], vs.VideoNode]]] = None,
-               resizer: str = "spline36",
-               filter_param_a: Union[int, float] = None,
-               filter_param_b: Union[int, float] = None,
-               aspect_ratio: float = 16 / 9) -> vs.VideoNode:
-    """
-    Originally from sgvsfunc.  Added chroma filling option and preset parameter.
-    This function is a wrapper around cropping and resizing with the option to fill and remove columns/rows.
-    :param clip: Clip to be processed.
-    :param preset: Desired output height as if output clip was 16 / 9, calculates width and height.
-                   E.g. 1920x872 source with preset=720p will output 1280x582.
-    :param width: Width of output clip.  If height is specified without width, width is auto-calculated.
-    :param height: Height of output clip.  If width is specified without height, height is auto-calculated.
-    :param left: Left offset of resized clip.
-    :param right: Right offset of resized clip.
-    :param top: Top offset of resized clip.
-    :param bottom: Bottom offset of resized clip.
-    :param bb: Parameters to be parsed to bbmod: cTop, cBottom, cLeft, cRight[, thresh=128, blur=999].
-    :param fill: Parameters to be parsed to fb.FillBorders: left, right, top, bottom.
-    :param fillplanes: Planes for fill to be applied to.
-    :param cfill: If a list is specified, same as fill for chroma planes exclusively.  Else, a lambda function can be
-                  specified, e.g. cfill=lambda c: c.edgefixer.ContinuityFixer(left=0, top=0, right=[2, 4, 4], bottom=0).
-    :param resizer: Resize kernel to be used.
-    :param filter_param_a, filter_param_b: Filter parameters for internal resizers, b & c for bicubic, taps for lanczos.
-    :return: Resized clip.
-    """
-    from warnings import warn
-    warn(
-        "CropResize: this function is deprecated.  Please fix your borders separately and resize via awsmfunc.zresize.")
-    if preset:
-        if clip.width / clip.height > aspect_ratio:
-            return CropResize(clip,
-                              width=int(aspect_ratio * preset),
-                              left=left,
-                              right=right,
-                              top=top,
-                              bottom=bottom,
-                              bb=bb,
-                              fill=fill,
-                              fillplanes=fillplanes,
-                              cfill=cfill,
-                              resizer=resizer,
-                              filter_param_a=filter_param_a,
-                              filter_param_b=filter_param_b)
-        else:
-            return CropResize(clip,
-                              height=preset,
-                              left=left,
-                              right=right,
-                              top=top,
-                              bottom=bottom,
-                              bb=bb,
-                              fill=fill,
-                              fillplanes=fillplanes,
-                              cfill=cfill,
-                              resizer=resizer,
-                              filter_param_a=filter_param_a,
-                              filter_param_b=filter_param_b)
-    if fill is None:
-        fill = [0, 0, 0, 0]
-    if fillplanes is None:
-        fillplanes = [0, 1, 2]
-    if isinstance(fill, list):
-        if len(fill) == 4:
-            if left - int(fill[0]) >= 0 and right - int(fill[1]) >= 0 and top - int(fill[2]) >= 0 and bottom - int(
-                    fill[3]) >= 0:
-                left = left - int(fill[0])
-                right = right - int(fill[1])
-                top = top - int(fill[2])
-                bottom = bottom - int(fill[3])
-            else:
-                raise ValueError('CropResize: filling exceeds cropping.')
-        else:
-            raise TypeError('CropResize: fill arguments not valid.')
-
-    lr = left % 2
-    rr = right % 2
-    tr = top % 2
-    br = bottom % 2
-
-    if bb:
-        if len(bb) == 4:
-            bb.append(None)
-            bb.append(999)
-        elif len(bb) != 6:
-            raise TypeError('CropResize: bbmod arguments not valid.')
-
-    if left or right or top or bottom:
-        cropeven = core.std.Crop(clip, left=left - lr, right=right - rr, top=top - tr, bottom=bottom - br)
-        if fill is not False and (lr or rr or tr or br):
-            cropeven = fb(cropeven,
-                          left=lr + int(fill[0]),
-                          right=rr + int(fill[1]),
-                          top=tr + int(fill[2]),
-                          bottom=br + int(fill[3]),
-                          planes=fillplanes)
-    else:
-        cropeven = clip
-
-    if cfill:
-        y, u, v = split(cropeven)
-        if isinstance(cfill, list):
-            u = core.fb.FillBorders(u, cfill[0], cfill[1], cfill[2], cfill[3], mode="fillmargins")
-            v = core.fb.FillBorders(v, cfill[0], cfill[1], cfill[2], cfill[3], mode="fillmargins")
-        else:
-            u = cfill(u)
-            v = cfill(v)
-        cropeven = core.std.ShufflePlanes([y, u, v], [0, 0, 0], vs.YUV)
-
-    if bb:
-        bb = [
-            int(bb[0]) + lr + int(fill[0]),
-            int(bb[1]) + rr + int(fill[1]),
-            int(bb[2]) + tr + int(fill[2]),
-            int(bb[3]) + br + int(fill[3]),
-            int(bb[4]),
-            int(bb[5])
-        ]
-        cropeven = bbmod(cropeven,
-                         cTop=int(bb[2]) + tr,
-                         cBottom=int(bb[3]) + br,
-                         cLeft=int(bb[0]) + lr,
-                         cRight=int(bb[1]) + rr,
-                         thresh=int(bb[4]),
-                         blur=int(bb[5]),
-                         scale_thresh=True)
-
-    return zresize(clip=cropeven,
-                   width=width,
-                   height=height,
-                   left=lr,
-                   top=tr,
-                   right=rr,
-                   bottom=br,
-                   filter_param_a=filter_param_a,
-                   filter_param_b=filter_param_b,
-                   kernel=resizer)
-
-
-def CropResizeReader(clip: vs.VideoNode,
-                     csvfile: Union[str, PathLike],
-                     width: Optional[int] = None,
-                     height: Optional[int] = None,
-                     row: Optional[Union[int, List[int]]] = None,
-                     adj_row: Optional[Union[int, List[int]]] = None,
-                     column: Optional[Union[int, List[int]]] = None,
-                     adj_column: Optional[Union[int, List[int]]] = None,
-                     fill_max: int = 2,
-                     bb: Any = None,
-                     FixUncrop: Optional[List[int]] = None,
-                     resizer: str = "spline36") -> vs.VideoNode:
-    """
-    CropResizeReader, cropResize for variable borders by loading crop values from a csv file
-      Also fill small borders and fix brightness/apply bbmod relatively to the variable border
-      From sgvsfunc.
-    > Usage: CropResizeReader(clip, csvfile, width, height, row, adj_row, column, adj_column, fill_max, bb, FixUncrop, resizer)
-      * csvfile is the path to a csv file containing in each row: <startframe> <endframe> <left> <right> <top> <bottom>
-        where left, right, top, bottom are the number of pixels to crop
-        Optionally, the number of pixels to fill can be appended to each line <left> <right> <top> <bottom> in order to reduce the black borders.
-        Filling can be useful in case of small borders to equilibriate the number of pixels between right/top and left/bottom after resizing.
-      * width and height are the dimensions of the resized clip
-        If none of them is indicated, no resizing is performed. If only one of them is indicated, the other is deduced.
-      * row, adj_row, column, adj_column are lists of values to use FixBrightnessProtect2, where row/column is relative to the border defined by the cropping
-      * Borders <=fill_max will be filled instead of creating a black border
-      * bb is a list containing bbmod values [cLeft, cRight, cTop, cBottom, thresh, blur] where thresh and blur are optional.
-        Mind the order: it is different from usual cTop, cBottom, cLeft, cRight
-      * FixUncrop is a list of 4 booleans [left right top bottom]
-        False means that FixBrightness/bbmod is only apply where crop>0, True means it is applied on the whole clip
-      * resizer should be Bilinear, Bicubic, Point, Lanczos, Spline16 or Spline36 (default)
-    """
-    if FixUncrop is None:
-        FixUncrop = [False, False, False, False]
-    import csv
-
-    if len(FixUncrop) != 4:
-        raise TypeError('CropResizeReader: FixUncrop argument not valid.')
-
-    if (width is None) and (height is None):
-        width = clip.width
-        height = clip.height
-        rh = rw = 1
-    elif width is None:
-        rh = rw = height / clip.height
-        width = round((clip.width * rh) / 2) * 2
-    elif height is None:
-        rh = rw = width / clip.width
-        height = round((clip.height * rw) / 2) * 2
-    else:
-        rh = height / clip.height
-        rw = width / clip.width
-
-    filtered = clip
-
-    if bb is not None:
-        if len(bb) == 4:
-            bb.append(None)
-            bb.append(999)
-        elif len(bb) != 6:
-            raise TypeError('CropResizeReader: bbmod arguments not valid.')
-        bbtemp = [bb[0], bb[1], bb[2], bb[3], bb[4], bb[5]]
-        if FixUncrop[0] is False:
-            bbtemp[0] = 0
-        if FixUncrop[1] is False:
-            bbtemp[1] = 0
-        if FixUncrop[2] is False:
-            bbtemp[2] = 0
-        if FixUncrop[3] is False:
-            bbtemp[3] = 0
-
-        filtered = bbmod(filtered,
-                         cTop=bbtemp[2],
-                         cBottom=bbtemp[3],
-                         cLeft=bbtemp[0],
-                         cRight=bbtemp[1],
-                         thresh=bbtemp[4],
-                         blur=bbtemp[5])
-
-    resized = core.resize.Spline36(clip=filtered, width=width, height=height, dither_type="error_diffusion")
-
-    with open(csvfile) as cropcsv:
-        cropzones = csv.reader(cropcsv, delimiter=' ')
-        for zone in cropzones:
-
-            cl = int(zone[2])
-            cr = int(zone[3])
-            ct = int(zone[4])
-            cb = int(zone[5])
-
-            filteredtemp = clip
-
-            if row is not None:
-                if not isinstance(row, list):
-                    row = [int(row)]
-                    adj_row = [int(adj_row)]
-                for i in range(len(row)):
-                    if row[i] < 0:
-                        if FixUncrop[3] is True or cb > 0:
-                            filteredtemp = FixBrightnessProtect2(clip=filteredtemp,
-                                                                 row=int(row[i]) - cb,
-                                                                 adj_row=adj_row[i])
-                    else:
-                        if FixUncrop[2] is True or ct > 0:
-                            filteredtemp = FixBrightnessProtect2(clip=filteredtemp,
-                                                                 row=ct + int(row[i]),
-                                                                 adj_row=adj_row[i])
-
-            if column is not None:
-                if not isinstance(column, list):
-                    column = [int(column)]
-                    adj_column = [int(adj_column)]
-                for j in range(len(column)):
-                    if column[j] < 0:
-                        if FixUncrop[1] is True or cr > 0:
-                            filteredtemp = FixBrightnessProtect2(clip=filteredtemp,
-                                                                 column=int(column[j]) - cr,
-                                                                 adj_column=adj_column[j])
-                    else:
-                        if FixUncrop[0] is True or cl > 0:
-                            filteredtemp = FixBrightnessProtect2(clip=filteredtemp,
-                                                                 column=cl + int(column[j]),
-                                                                 adj_column=adj_column[j])
-
-            bbtemp = None
-            if bb is not None:
-                bbtemp = [bb[0], bb[1], bb[2], bb[3], bb[4], bb[5]]
-                if FixUncrop[0] is False and cl == 0:
-                    bbtemp[0] = 0
-                if FixUncrop[1] is False and cr == 0:
-                    bbtemp[1] = 0
-                if FixUncrop[2] is False and ct == 0:
-                    bbtemp[2] = 0
-                if FixUncrop[3] is False and cb == 0:
-                    bbtemp[3] = 0
-
-            if cl > 0 and cl <= fill_max:
-                filteredtemp = core.fb.FillBorders(filteredtemp, left=cl, mode="fillmargins")
-                if bbtemp is not None:
-                    bbtemp[0] = int(bbtemp[0]) + cl
-                cl = 0
-
-            if cr > 0 and cr <= fill_max:
-                filteredtemp = core.fb.FillBorders(filteredtemp, right=cr, mode="fillmargins")
-                if bbtemp is not None:
-                    bbtemp[1] = int(bbtemp[1]) + cr
-                cr = 0
-
-            if ct > 0 and ct <= fill_max:
-                filteredtemp = core.fb.FillBorders(filteredtemp, top=ct, mode="fillmargins")
-                if bbtemp is not None:
-                    bbtemp[2] = int(bbtemp[2]) + ct
-                ct = 0
-
-            if cb > 0 and cb <= fill_max:
-                filteredtemp = core.fb.FillBorders(filteredtemp, bottom=cb, mode="fillmargins")
-                if bbtemp is not None:
-                    bbtemp[3] = int(bbtemp[3]) + cb
-                cb = 0
-
-            if len(zone) == 6:
-                fill = [0, 0, 0, 0]
-            elif len(zone) == 10:
-                fill = [int(zone[6]), int(zone[7]), int(zone[8]), int(zone[9])]
-            else:
-                raise TypeError('CropResizeReader: csv file not valid.')
-
-            resizedcore = CropResize(filteredtemp,
-                                     width=width,
-                                     height=height,
-                                     left=cl,
-                                     right=cr,
-                                     top=ct,
-                                     bottom=cb,
-                                     bb=bbtemp,
-                                     fill=fill,
-                                     resizer=resizer)
-
-            x = round((cl * rw) / 2) * 2
-            y = round((ct * rh) / 2) * 2
-            resizedfull = BlackBorders(resizedcore,
-                                       left=x,
-                                       right=width - resizedcore.width - x,
-                                       top=y,
-                                       bottom=height - resizedcore.height - y)
-
-            maps = "[" + zone[0] + " " + zone[1] + "]"
-            resized = ReplaceFrames(resized, resizedfull, mappings=maps)
-            filtered = ReplaceFrames(filtered, filteredtemp, mappings=maps)
-
-    return resized
 
 
 def DebandReader(clip: vs.VideoNode,
@@ -2161,47 +1826,35 @@ def autogma(clip: vs.VideoNode, adj: float = 1.3, thr: float = 0.40) -> vs.Video
         return prc
 
 
-def UpscaleCheck(clip: vs.VideoNode,
-                 res: int = 720,
-                 title: str = "Upscaled",
-                 bits: Optional[int] = None) -> vs.VideoNode:
+def UpscaleCheck(clip: vs.VideoNode, height: int = 720, kernel: str = 'spline36', interleave: bool = True, **kwargs):
+    """Quick port of https://gist.github.com/pcroland/c1f1e46cd3e36021927eb033e5161298
+    Really dumb "detail check" that exists because descaling
+    Doesn't really work on a lot of live action stuff
+    Output will always be more distorted than the input.
+
+    Args:
+        clip (vs.VideoNode): Your input clip
+        height (int): Target resolution. Defaults to 720.
+        kernel (str): Resampler of choice. Defaults to 'spline36'.
+
+    Returns:
+        [vs.VideoNode]: Resampled clip
     """
-    Quick port of https://gist.github.com/pcroland/c1f1e46cd3e36021927eb033e5161298
-    Dumb detail check (but not as dumb as greyscale) 
-    Resizes luma to specified resolution and scales back with Spline36
-    Handles conversion automatically so you can input a raw RGB image, 
-    Without needing to convert to YUV4XXPX manually like the AviSynth counterpart
-    TODO: -
 
-    :param res: Target resolution (720, 576, 480, ...)
-    :param title: Custom text output ("540p upscale")
-    :param bits: Bit depth of output
-    :return: Clip resampled to target resolution and back
-    """
-    src = clip
+    # We can skip this if the input clip is int8, since zimg will handle this internally
+    # If other resizers are ever added (fmtc, placebo), this should be reconsidered
+    # But that's probably out of scope
+    if 9 <= clip.format.bits_per_sample < 16:
+        clip = Depth(clip, 16)
 
-    # Generic error handling, YCOCG & COMPAT input not tested as such blocked by default
-    if src.format.color_family not in [vs.YUV, vs.GRAY, vs.RGB]:
-        raise TypeError("UpscaleCheck: Only supports YUV, GRAY or RGB input!")
-    elif src.format.color_family in [vs.GRAY, vs.RGB]:
-        clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s='709')
+    # downsample & back up
+    resample = zresize(clip, preset=height, kernel=kernel, **kwargs)
+    resample = zresize(resample, width=clip.width, height=clip.height, kernel=kernel, **kwargs)
 
-    if src.format.color_family is vs.RGB and src.format.bits_per_sample == 8:
-        bits = 8
-    elif bits is None:
-        bits = src.format.bits_per_sample
-
-    b16 = Depth(clip, 16)
-    lma = core.std.ShufflePlanes(b16, 0, vs.GRAY)
-
-    dwn = CropResize(lma, preset=res, resizer='Spline36')
-    ups = core.resize.Spline36(dwn, clip.width, clip.height)
-
-    mrg = core.std.ShufflePlanes([ups, b16], [0, 1, 2], vs.YUV)
-    txt = FrameInfo(mrg, f"{title}")
-    cmp = core.std.Interleave([b16, txt])
-
-    return Depth(cmp, bits)
+    if interleave:
+        return core.std.Interleave([clip, resample])
+    else:
+        return Depth(resample, clip.format.bits_per_sample)
 
 
 def RescaleCheck(clip: vs.VideoNode,
@@ -2674,10 +2327,6 @@ rfs = ReplaceFrames
 fb = FillBorders
 
 zr = zresize
-
-cr = CropResize
-CR = CropResize
-cropresize = CropResize
 
 br = BorderResize
 borderresize = BorderResize
