@@ -66,8 +66,13 @@ def FixColumnBrightness(clip: vs.VideoNode,
     hbd = Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
 
-    def adj(x): return core.std.Levels(
-        x, min_in=input_low << 8, max_in=input_high << 8, min_out=output_low << 8, max_out=output_high << 8, planes=0)
+    def adj(x):
+        return core.std.Levels(x,
+                               min_in=input_low << 8,
+                               max_in=input_high << 8,
+                               min_out=output_low << 8,
+                               max_out=output_high << 8,
+                               planes=0)
 
     prc = rekt_fast(lma, adj, left=column, right=clip.width - column - 1)
 
@@ -86,8 +91,13 @@ def FixRowBrightness(clip: vs.VideoNode,
     hbd = Depth(clip, 16)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
 
-    def adj(x): return core.std.Levels(
-        x, min_in=input_low << 8, max_in=input_high << 8, min_out=output_low << 8, max_out=output_high << 8, planes=0)
+    def adj(x):
+        return core.std.Levels(x,
+                               min_in=input_low << 8,
+                               max_in=input_high << 8,
+                               min_out=output_low << 8,
+                               max_out=output_high << 8,
+                               planes=0)
 
     prc = rekt_fast(lma, adj, top=row, bottom=clip.height - row - 1)
 
@@ -1581,7 +1591,7 @@ def DynamicTonemap(clip: vs.VideoNode,
                                     nominal_luminance=peak,
                                     format=vs.YUV444P16)
 
-        do_adjust = (adjust_gamma and peak >= 256 and ("moe.kageru.adaptivegrain" in core.get_plugins()))
+        do_adjust = (adjust_gamma and peak >= 256 and HasLoadedPlugin("moe.kageru.adaptivegrain"))
 
         gamma_adjust = None
         luma_scaling = None
@@ -1639,10 +1649,7 @@ def DynamicTonemap(clip: vs.VideoNode,
         dst_max = target_nits
         dst_min = dst_max / 1000.0  # 1000:1 default
 
-        can_map_dovi = (
-            is_dovi
-            and 'DolbyVisionRPU' in fprops
-        )
+        can_map_dovi = (is_dovi and 'DolbyVisionRPU' in fprops)
 
         src_csp = 3 if can_map_dovi else 1
         is_full_range = fprops['_ColorRange'] == 0
@@ -1664,9 +1671,7 @@ def DynamicTonemap(clip: vs.VideoNode,
                 'src_min': src_min,
             })
 
-        clip = core.placebo.Tonemap(clip,
-                                    dynamic_peak_detection=False,
-                                    **tm_params)
+        clip = core.placebo.Tonemap(clip, dynamic_peak_detection=False, **tm_params)
 
         if show and clip.format.color_family != vs.YUV:
             show_clip = core.resize.Spline36(clip, format=vs.YUV444P16, matrix_s="709")
@@ -1703,17 +1708,12 @@ def DynamicTonemap(clip: vs.VideoNode,
             raise ValueError('No predetermined target list found')
 
     # Make sure libplacebo is properly loaded
-    use_placebo = libplacebo and ("com.vs.placebo" in core.get_plugins())
+    use_placebo = libplacebo and HasLoadedPlugin("com.vs.placebo")
 
     if use_placebo:
         dst_fmt = vs.YUV444P16 if is_dovi else vs.RGB48
 
-        clip = core.resize.Spline36(
-            clip,
-            format=dst_fmt,
-            chromaloc_in_s=chromaloc_in_s,
-            chromaloc_s=chromaloc_in_s
-        )
+        clip = core.resize.Spline36(clip, format=dst_fmt, chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_in_s)
 
         if placebo_dt:
             dst_max = target_nits
@@ -1731,16 +1731,14 @@ def DynamicTonemap(clip: vs.VideoNode,
             }
 
             # Tonemap
-            tonemapped_clip = core.placebo.Tonemap(clip,
-                                                   dynamic_peak_detection=True,
-                                                   **tm_params)
+            tonemapped_clip = core.placebo.Tonemap(clip, dynamic_peak_detection=True, **tm_params)
         else:
             prop_src = __get_rgb_prop_src(clip, reference, target_list)
 
             tonemapped_clip = core.std.FrameEval(clip,
                                                  partial(__pl_dt, clip=clip, targets=target_list, show=show),
                                                  prop_src=prop_src)
-        
+
         if tonemapped_clip.format.color_family == vs.YUV:
             tonemapped_clip = core.std.SetFrameProps(tonemapped_clip, _Matrix=1, _Primaries=1, _Transfer=1)
     else:
@@ -1766,8 +1764,11 @@ def DynamicTonemap(clip: vs.VideoNode,
                                                      targets=target_list),
                                              prop_src=prop_src)
 
-    tonemapped_clip = core.resize.Spline36(tonemapped_clip, format=vs.YUV444P16, matrix_s="709",
-                                           chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_s)
+    tonemapped_clip = core.resize.Spline36(tonemapped_clip,
+                                           format=vs.YUV444P16,
+                                           matrix_s="709",
+                                           chromaloc_in_s=chromaloc_in_s,
+                                           chromaloc_s=chromaloc_s)
 
     if src_fmt:
         return core.resize.Spline36(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
@@ -2228,7 +2229,7 @@ def RescaleCheck(clip: vs.VideoNode,
         'spline64': core.descale.Despline64
     }
 
-    has_descale = "tegaf.asi.xe" in core.get_plugins()
+    has_descale = HasLoadedPlugin("tegaf.asi.xe")
 
     if not has_descale:
         raise ModuleNotFoundError("RescaleCheck: Requires 'descale' plugin to be installed")
@@ -2617,6 +2618,51 @@ def st2084_inverse_eotf(x: float) -> float:
 
     return math.pow((ST2084_C1 + (ST2084_C2 * math.pow(y, ST2084_M1))) / (1 + (ST2084_C3 * math.pow(y, ST2084_M1))),
                     ST2084_M2)
+
+
+def HasLoadedPlugin(identifier: str) -> bool:
+    return any(p.identifier == identifier for p in core.plugins())
+
+
+def MapDolbyVision(base_layer: vs.VideoNode, enhancement_layer: vs.VideoNode) -> vs.VideoNode:
+    """
+    Polynomial luma mapping, MMR chroma mapping on base layer.
+    NLQ 12 bits restoration from enhancement layer.
+
+    Input must be limited range, output is limited range.
+    Both clips must have the same aspect ratio.
+
+    Requires DolbyVisionRPU frame props to exist in both clips.
+    Clips:
+        `base_layer` clip: Profile 7 (BL+EL+RPU).
+        `enhancement_layer` clip: Profile 7 (EL+RPU).
+
+    Output: 12 bits mapped clip.
+
+    Plugins needed: vs-placebo, vs-nlq.
+    vs-placebo must be built with libdovi.
+    """
+
+    has_placebo = HasLoadedPlugin("com.vs.placebo")
+    has_vsnlq = HasLoadedPlugin("com.quietvoid")
+
+    if not has_placebo:
+        raise ValueError('vs-placebo plugin must be installed!')
+    if not has_vsnlq:
+        raise ValueError("vs-nlq plugin must be installed!")
+
+    base_16 = Depth(base_layer, 16)
+
+    poly_mmr = core.placebo.Tonemap(
+        base_16,
+        src_csp=3,
+        dst_csp=1,
+    )
+    poly_mmr = core.resize.Spline36(poly_mmr, format=vs.YUV420P16)
+
+    scaled_el = core.resize.Point(enhancement_layer, width=base_layer.width, height=base_layer.height)
+
+    return core.vsnlq.MapNLQ(poly_mmr, scaled_el)
 
 
 #####################

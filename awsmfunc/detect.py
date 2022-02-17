@@ -284,21 +284,21 @@ def banddtct(clip: vs.VideoNode,
 
     __detect(clip, detect_func, options)
 
-    
+
 def cambidtct(clip: vs.VideoNode,
-             output: Union[str, PathLike] = "banding-frames.txt",
-             thr: float = 5.0,
-             thr_next: float = 4.5,
-             cambi_args: Union[None, dict] = None,
-             trim: bool = False,
-             cycle: int = 1,
-             merge: bool = True,
-             min_zone_len: int = 1,
-             tolerance: int = 0,
-             check_next: bool = True,
-             diff: float = 0.10,
-             debug: bool = False) -> None:
- 
+              output: Union[str, PathLike] = "banding-frames.txt",
+              thr: float = 5.0,
+              thr_next: float = 4.5,
+              cambi_args: Union[None, dict] = None,
+              trim: bool = False,
+              cycle: int = 1,
+              merge: bool = True,
+              min_zone_len: int = 1,
+              tolerance: int = 0,
+              check_next: bool = True,
+              diff: float = 0.10,
+              debug: bool = False) -> None:
+
     options = locals()
 
     def debug_detect(n, f, clip):
@@ -317,17 +317,17 @@ def cambidtct(clip: vs.VideoNode,
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
- 
+
     next_frame = clip[1:]
- 
+
     clip_diff = core.std.PlaneStats(clip, next_frame)
     clip = clip.std.PlaneStats()
     next_frame = next_frame.std.PlaneStats()
- 
+
     prop_src = [clip, clip_diff, next_frame]
- 
+
     def detect_func(detections):
- 
+
         def banding_detect(n, f, clip, detections, diff, check_next):
             if f[0].props['CAMBI'] >= thr:
                 if check_next:
@@ -337,7 +337,7 @@ def cambidtct(clip: vs.VideoNode,
                 else:
                     detections.add(n * cycle)
             return clip
- 
+
         return core.std.FrameEval(clip,
                                   partial(banding_detect,
                                           clip=clip,
@@ -345,9 +345,9 @@ def cambidtct(clip: vs.VideoNode,
                                           diff=diff,
                                           check_next=check_next),
                                   prop_src=prop_src)
- 
+
     __detect(clip, detect_func, options)
-    
+
 
 def __detect_dirty_lines(clip: vs.VideoNode,
                          output: Union[str, PathLike],
