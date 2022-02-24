@@ -1435,10 +1435,19 @@ def DynamicTonemap(clip: vs.VideoNode,
                                            chromaloc_in_s=chromaloc_in_s,
                                            chromaloc_s=chromaloc_s)
 
+    final_clip = None
     if src_fmt:
-        return core.resize.Spline36(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
+        final_clip = core.resize.Spline36(tonemapped_clip, format=clip_orig_format, dither_type="error_diffusion")
     else:
-        return Depth(tonemapped_clip, 8)
+        final_clip = Depth(tonemapped_clip, 8)
+
+    # Force props
+    if final_clip.format.color_family == vs.YUV:
+        final_clip = core.std.SetFrameProps(final_clip, _Matrix=1, _Primaries=1, _Transfer=1)
+    else:
+        final_clip = core.std.SetFrameProps(final_clip, _Matrix=0, _Primaries=1, _Transfer=1)
+
+    return final_clip
 
 
 def FillBorders(clip: vs.VideoNode,
