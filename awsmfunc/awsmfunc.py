@@ -11,12 +11,6 @@ from typing import Callable, Dict, List, Union, Optional, Any
 from vsutil import plane, get_depth, split, join, scale_value
 from vsutil import depth as vsuDepth
 from rekt import rektlvls, rekt_fast
-"""
-To-do list:
-
- - CropResize: default chroma fill might make more sense
- - CropResizeReader needs cfill
-"""
 
 SUBTITLE_DEFAULT_STYLE: str = "sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1"
 
@@ -1803,7 +1797,6 @@ def mt_lut(clip: vs.VideoNode, expr: str, planes: List[int] = [0]) -> vs.VideoNo
 
 def autogma(clip: vs.VideoNode, adj: float = 1.3, thr: float = 0.40) -> vs.VideoNode:
     """
-    From https://gitlab.com/snippets/1895974.
     Just a simple function to help identify banding.
     First plane's gamma is raised by adj. If the average pixel value is greater than thr, the output will be inverted.
     :param clip: Clip to be processed. GRAY or YUV color family is required.
@@ -1974,7 +1967,6 @@ def Import(file: str) -> vs.VideoNode:
 
 def greyscale(clip: vs.VideoNode) -> vs.VideoNode:
     """
-    From https://gitlab.com/snippets/1895242.
     Really stupid function. Only advisable if you're not doing any other filtering. Replaces chroma planes with gray.
     """
     if clip.format.color_family != vs.YUV:
