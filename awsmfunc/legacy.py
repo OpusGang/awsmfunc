@@ -13,7 +13,7 @@ def LumaMaskMerge(clipa: vs.VideoNode,
                   scale_inputs: bool = False,
                   planes: Union[int, List[int]] = 0) -> vs.VideoNode:
     """
-    LumaMaskMerge, merges clips using a binary mask defined by a brightness level. From sgvsfunc, with added planes.
+    LumaMaskMerge, merges clips using a binary mask defined by a brightness level.
     > Usage: LumaMaskMerge(clipa, clipb, threshold, invert, scale_inputs)
       * threshold is the brightness level. clipb is applied where the brightness is below threshold
       * If invert = True, clipb is applied where the brightness is above threshold
@@ -45,7 +45,7 @@ def RGBMaskMerge(clipa: vs.VideoNode,
                  Bmax: int,
                  scale_inputs: bool = False) -> vs.VideoNode:
     """
-    RGBMaskMerge, merges clips using a binary mask defined by a RGB range. From sgvsfunc.
+    RGBMaskMerge, merges clips using a binary mask defined by a RGB range.
     > Usage: RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs)
       * clipb is applied where Rmin < R < Rmax and Gmin < G < Gmax and Bmin < B < Bmax
       * scale_inputs = True scales Rmin, Rmax, Gmin, Gmax, Bmin, Bmax from 8bits to current bit depth (8, 10 or 16).
@@ -87,7 +87,7 @@ def DelFrameProp(clip: vs.VideoNode,
                  matrix: bool = True,
                  transfer: bool = True) -> vs.VideoNode:
     """
-    DelFrameProp, delete primaries, matrix or transfer frame properties. From sgvsfunc.
+    DelFrameProp, delete primaries, matrix or transfer frame properties.
       Avoids "Unrecognized transfer characteristics" or
         "unrecognized color primaries" associated with Vapoursynth Editor
     > Usage: DelFrameProp(clip, primaries, matrix, transfer)

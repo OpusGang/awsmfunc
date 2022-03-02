@@ -109,7 +109,7 @@ def bbmod(clip: vs.VideoNode,
           cLeft: Optional[int] = None,
           cRight: Optional[int] = None) -> vs.VideoNode:
     """
-    quietvoid's bbmod helper for a significant speedup from cropping unnecessary pixels before processing.
+    bbmod helper for a significant speedup from cropping unnecessary pixels before processing.
     :param clip: Clip to be processed.
     :param top: Top rows to be processed.
     :param bottom: Bottom rows to be processed.
@@ -385,7 +385,6 @@ def bbmoda(c: vs.VideoNode,
            csize: int = 2,
            scale_offsets: bool = True) -> vs.VideoNode:
     """
-    From sgvsfunc. I'm not updating the doc strings, here, read bbmod instead.
     bbmod, port from Avisynth's function, a mod of BalanceBorders
       The function changes the extreme pixels of the clip, to fix or attenuate dirty borders
       Any bit depth
@@ -685,7 +684,7 @@ def AddBordersMod(clip: vs.VideoNode,
                   bsat: float = 0.2,
                   color: Union[str, List[float]] = None) -> vs.VideoNode:
     """
-    VapourSynth port of AddBordersMod.  Replacement for BlackBorders from sgvsfunc.
+    VapourSynth port of AddBordersMod.
     Fuck writing a proper docstring.
     :param clip:
     :param left:
@@ -838,7 +837,7 @@ def DebandReader(clip: vs.VideoNode,
                  delimiter: str = ' ',
                  mask: Optional[vs.VideoNode] = None) -> vs.VideoNode:
     """
-    DebandReader, read a csv file to apply a f3kdb filter for given strengths and frames. From sgvsfunc.
+    DebandReader, read a csv file to apply a f3kdb filter for given strengths and frames.
     > Usage: DebandReader(clip, csvfile, grain, range)
       * csvfile is the path to a csv file containing in each row: <startframe> <endframe> <strength>
       * grain is passed as grainy and grainc in the f3kdb filter
@@ -885,7 +884,6 @@ def ScreenGen(clip: vs.VideoNode,
               start: int = 1,
               delim: str = ' ') -> None:
     """
-    quietvoid's screenshot generator.
     Generates screenshots from a list of frame numbers
     folder is the folder name that is created
     suffix is the final name appended
@@ -966,7 +964,6 @@ def DynamicTonemap(clip: vs.VideoNode,
                    placebo_param: Optional[float] = None,
                    placebo_use_frame_stats: bool = True) -> vs.VideoNode:
     """
-    quietvoid's dynamic tonemapping function.
     The clip (or reference) is blurred, then plane stats are measured.
     The tonemapping is then done according to the max RGB value.
 
@@ -1335,7 +1332,7 @@ def SelectRangeEvery(clip: vs.VideoNode,
                      length: int,
                      offset: Union[int, List[int]] = [0, 0]) -> vs.VideoNode:
     """
-    SelectRangeEvery, port from Avisynth's function. From sgvsfunc.
+    SelectRangeEvery, port from Avisynth's function.
     Offset can be an array with the first entry being the offset from the start and the second from the end.
     > Usage: SelectRangeEvery(clip, every, length, offset)
       * select <length> frames every <every> frames, starting at frame <offset>
@@ -1356,7 +1353,7 @@ def FrameInfo(clip: vs.VideoNode,
               newlines: int = 3,
               pad_info: bool = False) -> vs.VideoNode:
     """
-    FrameInfo. From sgvsfunc, with additional style option.
+    FrameInfo.
     > Usage: FrameInfo(clip, title)
       * Print the frame number, the picture type and a title on each frame
     """
@@ -1398,7 +1395,7 @@ def InterleaveDir(folder: str,
                   tonemap: bool = False,
                   source_filter: Optional[Callable[[Union[str, PathLike]], vs.VideoNode]] = None) -> vs.VideoNode:
     """
-    InterleaveDir, load all mkv files located in a directory and interleave them. From sgvsfunc.
+    InterleaveDir, load all mkv files located in a directory and interleave them.
     > Usage: InterleaveDir(folder, PrintInfo, DelProp, first, repeat)
       * folder is the folder path
       * PrintInfo = True prints the frame number, picture type and file name on each frame
@@ -1460,7 +1457,7 @@ def InterleaveDir(folder: str,
 
 def ExtractFramesReader(clip: vs.VideoNode, csvfile: Union[str, PathLike]) -> vs.VideoNode:
     """
-    ExtractFramesReader, reads a csv file to extract ranges of frames. From sgvsfunc.
+    ExtractFramesReader, reads a csv file to extract ranges of frames.
     > Usage: ExtractFramesReader(clip, csvfile)
       * csvfile is the path to a csv file containing in each row: <startframe> <endframe>
         the csv file may contain other columns, which will not be read
@@ -1602,7 +1599,7 @@ def fixlvls(clip: vs.VideoNode,
 
 def mt_lut(clip: vs.VideoNode, expr: str, planes: List[int] = [0]) -> vs.VideoNode:
     """
-    mt_lut, port from Avisynth's function. From sgvsfunc.
+    mt_lut, port from Avisynth's function.
     > Usage: mt_lut(clip, expr, planes)
       * expr is an infix expression, not like avisynth's mt_lut which takes a postfix one
     """
