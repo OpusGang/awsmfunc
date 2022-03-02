@@ -7,11 +7,6 @@ from .awsmfunc import (
     rfs,
     fb,
     zr,
-    gs,
-    grayscale,
-    GreyScale,
-    GrayScale,
-    zr,
     br,
     borderresize,
 )

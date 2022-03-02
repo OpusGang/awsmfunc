@@ -1753,18 +1753,6 @@ def Import(file: str) -> vs.VideoNode:
         raise TypeError("Import: Only .vpy is supported!")
 
 
-def greyscale(clip: vs.VideoNode) -> vs.VideoNode:
-    """
-    Really stupid function. Only advisable if you're not doing any other filtering. Replaces chroma planes with gray.
-    """
-    if clip.format.color_family != vs.YUV:
-        raise TypeError("GreyScale: YUV input is required!")
-
-    grey = core.std.BlankClip(clip)
-
-    return core.std.ShufflePlanes([clip, grey], [0, 1, 2], vs.YUV)
-
-
 def saturation(clip: vs.VideoNode, sat: float, dither_type: str = "error_diffusion") -> vs.VideoNode:
     if clip.format.color_family != vs.YUV:
         raise TypeError("saturation: YUV input is required!")
@@ -2119,11 +2107,3 @@ zr = zresize
 br = BorderResize
 borderresize = BorderResize
 
-gs = greyscale
-grayscale = greyscale
-GreyScale = greyscale
-GrayScale = greyscale
-
-########
-# Dict #
-########
