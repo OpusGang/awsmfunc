@@ -1,49 +1,9 @@
-from .awsmfunc import (
-    FixColumnBrightnessProtect2,
-    FixRowBrightnessProtect2,
-    FixBrightnessProtect2,
-    FixColumnBrightness,
-    FixRowBrightness,
-    ReplaceFrames,
-    bbmod,
-    bbmoda,
-    AddBordersMod,
-    BlackBorders,
-    zresize,
-    DebandReader,
-    LumaMaskMerge,
-    RGBMaskMerge,
-    ScreenGen,
-    DynamicTonemap,
-    FillBorders,
-    SelectRangeEvery,
-    FrameInfo,
-    DelFrameProp,
-    InterleaveDir,
-    ExtractFramesReader,
-    fixlvls,
-    mt_lut,
-    scale_value as scale,
-    autogma,
-    UpscaleCheck,
-    RescaleCheck,
-    Import,
-    greyscale,
-    saturation,
-    BorderResize,
-    RandomFrameNumbers,
-    st2084_eotf,
-    st2084_inverse_eotf,
-    ScreenGenPrefix,
-    HasLoadedPlugin,
-    MapDolbyVision,
+from . import (
+    avisynth, awsmfunc, legacy, detect
 )
-
-from .detect import (bandmask, merge_detections, banddtct, cambidtct, dirtdtct, brdrdtct)
 
 # Aliases
 from .awsmfunc import (
-    GetPlane,
     rfs,
     fb,
     zr,
