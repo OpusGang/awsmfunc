@@ -1480,14 +1480,12 @@ def ExtractFramesReader(clip: vs.VideoNode, csvfile: Union[str, PathLike]) -> vs
 
 
 def fixlvls(clip: vs.VideoNode,
-            gamma: Optional[float] = None,
+            gamma: float = 0.88,
             min_in: Union[int, List[Union[int, float]]] = [16, 16],
             max_in: Union[int, List[Union[int, float]]] = [235, 240],
-            min_out: Optional[Union[int, List[Union[int, float]]]] = None,
-            max_out: Optional[Union[int, List[Union[int, float]]]] = None,
-            planes: Union[int, List[Union[int, float]]] = 0,
-            preset: int = None,
-            range: int = 0,
+            min_out: Union[int, List[Union[int, float]]] = [16, 16],
+            max_out: Union[int, List[Union[int, float]]] = [235, 240],
+            planes: Union[int, List[Union[int, float]]] = [0],
             input_depth: int = 8) -> vs.VideoNode:
     """
     A wrapper around std.Levels to fix what's commonly known as the gamma bug.
@@ -1497,104 +1495,34 @@ def fixlvls(clip: vs.VideoNode,
     :param max_in: Input maximum.
     :param min_out: Output minimum.
     :param max_out: Output maximum.
-    :param preset: 1: standard gamma bug, 2: luma-only overflow, 3: overflow
-    overflow explained: https://guide.encode.moe/encoding/video-artifacts.html#underflow--overflow
-    :param range: Pixel value range.
+    :param planes: Planes to process.
+    :param input_depth: Depth to scale values from.
     :return: Clip with gamma adjusted or levels fixed.
     """
-    depth = 32
-    clip_ = Depth(clip, depth, range=range, range_in=range)
+    o_depth = clip.format.bits_per_sample
+    clip = Depth(clip, 32)
 
-    if gamma is None and preset is not None:
-        gamma = 0.88
-    elif gamma is None and preset is None:
-        gamma = 1
+    vals = [min_in.copy(), max_in.copy(), min_out.copy(), max_out.copy()]
 
-    if isinstance(min_in, int):
-        min_in = [
-            scale_value(min_in, input_depth, depth, range, scale_offsets=True),
-            scale_value(min_in, input_depth, depth, range, scale_offsets=True, chroma=True)
-        ]
-    else:
-        min_in = [
-            scale_value(min_in[0], input_depth, depth, range, scale_offsets=True),
-            scale_value(min_in[1], input_depth, depth, range, scale_offsets=True, chroma=True)
-        ]
+    for i in range(len(vals)):
+        if not isinstance(vals[i], list):
+            vals[i] = [vals[i], vals[i]]
+        for j in range(2):
+            vals[i][j] = scale_value(vals[i][j], input_depth, 32, scale_offsets=True, chroma=j)
 
-    if isinstance(max_in, int):
-        max_in = [
-            scale_value(max_in, input_depth, depth, range, scale_offsets=True),
-            scale_value(max_in, input_depth, depth, range, scale_offsets=True, chroma=True)
-        ]
-    else:
-        max_in = [
-            scale_value(max_in[0], input_depth, depth, range, scale_offsets=True),
-            scale_value(max_in[1], input_depth, depth, range, scale_offsets=True, chroma=True)
-        ]
+    if isinstance(planes, int):
+        planes = [planes]
 
-    if min_out is None:
-        min_out = min_in
-    elif isinstance(min_out, int):
-        min_out = [
-            scale_value(min_out, input_depth, depth, range, scale_offsets=True),
-            scale_value(min_out, input_depth, depth, range, scale_offsets=True, chroma=True)
-        ]
-    else:
-        min_out = [
-            scale_value(min_out[0], input_depth, depth, range, scale_offsets=True),
-            scale_value(min_out[1], input_depth, depth, range, scale_offsets=True, chroma=True)
-        ]
+    chroma = planes.copy()
+    if 0 in planes:
+        clip = core.std.Levels(clip, gamma=gamma, min_in=vals[0][0], max_in=vals[1][0],
+                min_out=vals[2][0], max_out=vals[3][0], planes=0)
+        chroma.remove(0)
+    if chroma:
+        clip = core.std.Levels(clip, gamma=gamma, min_in=vals[0][1], max_in=vals[1][1],
+                min_out=vals[2][1], max_out=vals[3][1], planes=chroma)
 
-    if max_out is None:
-        max_out = max_in
-    elif isinstance(max_out, int):
-        max_out = [
-            scale_value(max_out, input_depth, depth, range, scale_offsets=True),
-            scale_value(max_out, input_depth, depth, range, scale_offsets=True, chroma=True)
-        ]
-    else:
-        max_out = [
-            scale_value(max_out[0], input_depth, depth, range, scale_offsets=True),
-            scale_value(max_out[1], input_depth, depth, range, scale_offsets=True, chroma=True)
-        ]
-
-    if preset is None:
-        if isinstance(planes, int):
-            p = 0 if planes == 0 else 1
-            adj = core.std.Levels(clip_,
-                                  gamma=gamma,
-                                  min_in=min_in[p],
-                                  max_in=max_in[p],
-                                  min_out=min_out[p],
-                                  max_out=max_out[p],
-                                  planes=planes)
-        else:
-            adj = clip_
-            for _ in planes:
-                p = 0 if _ == 0 else 1
-                adj = core.std.Levels(adj,
-                                      gamma=gamma,
-                                      min_in=min_in[p],
-                                      max_in=max_in[p],
-                                      min_out=min_out[p],
-                                      max_out=max_out[p],
-                                      planes=_)
-
-    elif preset == 1:
-        adj = core.std.Levels(clip_, gamma=gamma, planes=0)
-
-    elif preset == 2:
-        y, u, v = split(clip)
-        y = y.resize.Point(range_in_s="full", range_s="limited", format=y.format, dither_type="error_diffusion")
-        return join([y, u, v])
-
-    elif preset == 3:
-        return clip.resize.Point(range_in_s="full",
-                                 range_s="limited",
-                                 format=clip.format,
-                                 dither_type="error_diffusion")
-
-    return Depth(adj, clip.format.bits_per_sample, range=range, range_in=range)
+    return Depth(clip, o_depth)
 
 
 def mt_lut(clip: vs.VideoNode, expr: str, planes: List[int] = [0]) -> vs.VideoNode:
