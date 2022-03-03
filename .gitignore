@@ -3,3 +3,4 @@ build/
 dist/
 .vscode
 .mypy_cache
+/awsmfunc/__pycache__

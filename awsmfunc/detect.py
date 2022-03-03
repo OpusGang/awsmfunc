@@ -11,7 +11,7 @@ from vsutil import iterate, get_y
 from vsutil import plane as fplane
 from vsutil import depth as Depth
 
-from .awsmfunc import SUBTITLE_DEFAULT_STYLE
+from .base import SUBTITLE_DEFAULT_STYLE
 
 
 def __vs_out_updated(current: int, total: int):
@@ -192,9 +192,9 @@ def banddtct(clip: vs.VideoNode,
     """
     :param clip: Input clip cropped to disclude black bars.  Can resize beforehand as an easy speed-up.
     :param output: Output text file.
-    :param thr: The maximum variation for something to be picked up as banded; the higher this is, the more will be 
+    :param thr: The maximum variation for something to be picked up as banded; the higher this is, the more will be
                 detected. Decent default values for live action are 100-200, 10-75 for anime.
-    :param hi: The maximum threshold, which is used to filter out black frames, credits et cetera; changing this won’t
+    :param hi: The maximum threshold, which is used to filter out black frames, credits et cetera; changing this won't
                usually be necessary. If you find that some skies are being ignored, raise this.
     :param lo: The minimum threshold, which is used to determine when a frame can be considered to include banding.
                If there are small banded areas that are missed by the default, lower this. Raising this is a bit like
@@ -520,3 +520,17 @@ def brdrdtct(clip: vs.VideoNode,
         return processed
 
     __detect(clip, detect_func, options)
+
+
+#####################
+#      Exports      #
+#####################
+
+__all__ = [
+    "banddtct",
+    "bandmask",
+    "brdrdtct",
+    "cambidtct",
+    "dirtdtct",
+    "merge_detections",
+]

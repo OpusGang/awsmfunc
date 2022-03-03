@@ -8,11 +8,12 @@ from functools import partial
 
 from typing import Callable, Dict, List, Union, Optional, Any
 
-from vsutil import plane, get_depth, split, join, scale_value
+from vsutil import get_depth, split, join, scale_value
 from vsutil import depth as vsuDepth
-from rekt import rektlvls, rekt_fast
+from rekt import rektlvls
 
-SUBTITLE_DEFAULT_STYLE: str = "sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1"
+SUBTITLE_DEFAULT_STYLE: str = ("sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
+                               "0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1")
 
 ST2084_PEAK_LUMINANCE = 10000
 ST2084_M1 = 0.1593017578125
@@ -470,9 +471,8 @@ def bbmoda(c: vs.VideoNode,
         uvexpr = []
 
         for t in [1, 2]:
-            uvexpr.append(
-                f"{uvexpr_} x - {thresh[t]} > x {thresh[t]} + {uvexpr_} x - -{thresh[t]} < x {thresh[t]} - {uvexpr_} ? ?"
-            )
+            uvexpr.append((f"{uvexpr_} x - {thresh[t]} > x {thresh[t]} + {uvexpr_} x - "
+                           f"-{thresh[t]} < x {thresh[t]} - {uvexpr_} ? ?"))
         if c.format.sample_type == vs.INTEGER:
             exprchroma = f"x {scale128} - abs 2 *"
             expruv = f"z y / 8 min 0.4 max x {scale128} - * {scale128} + x - {scale128} +"
@@ -1013,7 +1013,7 @@ def DynamicTonemap(clip: vs.VideoNode,
 
         try:
             blurred_clip = core.bilateral.Bilateral(clip_to_blur, sigmaS=1)
-        except:
+        except Exception:
             blurred_clip = core.std.Convolution(clip_to_blur, matrix=[1, 2, 1, 2, 4, 2, 1, 2, 1])
 
         if not target_list:
@@ -1441,7 +1441,7 @@ def InterleaveDir(folder: str,
                 raise TypeError('InterleaveDir: PrintInfo must be a boolean.')
 
             if DelProp is True:
-                sources[j] = DelFrameProp(sources[j])
+                sources[j] = core.std.RemoveFrameProps(sources[j], props=["_Primaries", "_Matrix", "_Transfer"])
             elif DelProp is not False:
                 raise TypeError('InterleaveDir: DelProp must be a boolean.')
 
@@ -1612,8 +1612,7 @@ def mt_lut(clip: vs.VideoNode, expr: str, planes: List[int] = [0]) -> vs.VideoNo
     return core.std.Lut(clip=clip, function=clampexpr, planes=planes)
 
 
-def UpscaleCheck(clip: vs.VideoNode, height: int = 720,
-                 kernel: str = 'spline36', interleave: bool = True, **kwargs):
+def UpscaleCheck(clip: vs.VideoNode, height: int = 720, kernel: str = 'spline36', interleave: bool = True, **kwargs):
     """
     Quick port of https://gist.github.com/pcroland/c1f1e46cd3e36021927eb033e5161298
     Really dumb "detail check" that exists because descaling
@@ -2107,3 +2106,40 @@ zr = zresize
 br = BorderResize
 borderresize = BorderResize
 
+#####################
+#      Exports      #
+#####################
+
+__all__ = [
+    "AddBordersMod",
+    "BorderResize",
+    "DebandReader",
+    "Depth",
+    "DynamicTonemap",
+    "ExtractFramesReader",
+    "FillBorders",
+    "FrameInfo",
+    "HasLoadedPlugin",
+    "Import",
+    "InterleaveDir",
+    "MapDolbyVision",
+    "RandomFrameNumbers",
+    "ReplaceFrames",
+    "RescaleCheck",
+    "ScreenGen",
+    "SelectRangeEvery",
+    "UpscaleCheck",
+    "bbmod",
+    "bbmoda",
+    "borderresize",
+    "br",
+    "fb",
+    "fixlvls",
+    "mt_lut",
+    "rfs",
+    "saturation",
+    "st2084_eotf",
+    "st2084_inverse_eotf",
+    "zr",
+    "zresize",
+]
