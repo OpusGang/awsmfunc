@@ -166,20 +166,20 @@ def FixColumnBrightness(clip: vs.VideoNode,
                         input_high: int = 235,
                         output_low: int = 16,
                         output_high: int = 235) -> vs.VideoNode:
-    hbd = Depth(clip, 16)
+    hbd = Depth(clip, 32)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
 
     def adj(x):
         return core.std.Levels(x,
-                               min_in=input_low << 8,
-                               max_in=input_high << 8,
-                               min_out=output_low << 8,
-                               max_out=output_high << 8,
+                               min_in=scale_value(input_low, 8, 32, scale_offsets=True),
+                               max_in=scale_value(input_high, 8, 32, scale_offsets=True),
+                               min_out=scale_value(output_low, 8, 32, scale_offsets=True),
+                               max_out=scale_value(output_high, 8, 32, scale_offsets=True),
                                planes=0)
 
     prc = rekt_fast(lma, adj, left=column, right=clip.width - column - 1)
 
-    if clip.format.color_family is vs.YUV:
+    if clip.format.color_family == vs.YUV:
         prc = core.std.ShufflePlanes([prc, hbd], [0, 1, 2], vs.YUV)
 
     return Depth(prc, clip.format.bits_per_sample)
@@ -191,20 +191,20 @@ def FixRowBrightness(clip: vs.VideoNode,
                      input_high: int = 235,
                      output_low: int = 16,
                      output_high: int = 235) -> vs.VideoNode:
-    hbd = Depth(clip, 16)
+    hbd = Depth(clip, 32)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
 
     def adj(x):
         return core.std.Levels(x,
-                               min_in=input_low << 8,
-                               max_in=input_high << 8,
-                               min_out=output_low << 8,
-                               max_out=output_high << 8,
+                               min_in=scale_value(input_low, 8, 32, scale_offsets=True),
+                               max_in=scale_value(input_high, 8, 32, scale_offsets=True),
+                               min_out=scale_value(output_low, 8, 32, scale_offsets=True),
+                               max_out=scale_value(output_high, 8, 32, scale_offsets=True),
                                planes=0)
 
     prc = rekt_fast(lma, adj, top=row, bottom=clip.height - row - 1)
 
-    if clip.format.color_family is vs.YUV:
+    if clip.format.color_family == vs.YUV:
         prc = core.std.ShufflePlanes([prc, hbd], [0, 1, 2], vs.YUV)
 
     return Depth(prc, clip.format.bits_per_sample)
