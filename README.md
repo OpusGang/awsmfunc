@@ -26,3 +26,6 @@ Optional plugins:
 
 #### Recommended VS Community Python Modules 
 * [See Wiki](https://github.com/OpusGang/awsmfunc/wiki/Recommended-VS-Community-Python-Modules)
+
+### Contact
+- **IRC Channel**: `#OpusGang` on `irc.libera.chat`
