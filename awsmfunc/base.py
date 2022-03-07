@@ -876,17 +876,19 @@ class ScreenGenPrefix(str, Enum):
     FrameNo = 'frame'
 
 
-def ScreenGen(clip: vs.VideoNode,
+def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
               folder: Union[str, PathLike],
-              suffix: str,
+              suffix: Optional[Union[str, List[str]]] = None,
               prefix: Union[ScreenGenPrefix, str] = ScreenGenPrefix.Sequential,
               frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
               start: int = 1,
               delim: str = ' ') -> None:
     """
     Generates screenshots from a list of frame numbers
+    clip: Clip or list of clips to generate screenshots from
     folder is the folder name that is created
-    suffix is the final name appended
+    suffix: str or list of str of the appended file name suffix(es).
+       - Optional, defaults to letters of the alphabet by order in the clip list
     frame_numbers is the list of frames, defaults to a file named screens.txt. Either a list or a file
     start is the number at which the filenames start
 
@@ -916,32 +918,56 @@ def ScreenGen(clip: vs.VideoNode,
     else:
         raise TypeError('ScreenGen: frame_numbers must be a file path or a list of frame numbers')
 
+    clips = clip
+
+    if not isinstance(clip, list):
+        clips = [clip]
+
+    suffixes = suffix
+
+    if suffix is None:
+        import string
+
+        suffixes = list(string.ascii_lowercase)[:len(clips)]
+    elif not isinstance(suffix, list):
+        suffixes = [suffix]
+
+    if len(clips) != len(suffixes):
+        raise ValueError('ScreenGen: number of clips must be equal to number of suffixes')
+
+    clip_infos = [dict(clip=c, suffix=s) for (c, s) in zip(clips, suffixes)]
+
     if screens:
         if not folder_path.is_dir():
             folder_path.mkdir()
 
-        rgb_clip = clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion")
+        for info in clip_infos:
+            clip = info['clip']
+            suffix = info['suffix']
 
-        for i, num in enumerate(screens, start=start):
-            if prefix == ScreenGenPrefix.Sequential:
-                filename = f'{i:02d}{suffix}.png'
-            elif prefix == ScreenGenPrefix.FrameNo:
-                filename = f'{num}{suffix}.png'
-            else:
-                raise ValueError('ScreenGen: invalid prefix enum value')
+            rgb_clip = clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion")
 
-            final_path = folder_path.joinpath(filename).resolve()
+            for i, num in enumerate(screens, start=start):
+                if prefix == ScreenGenPrefix.Sequential:
+                    filename = f'{i:02d}{suffix}.png'
+                elif prefix == ScreenGenPrefix.FrameNo:
+                    filename = f'{num}{suffix}.png'
+                else:
+                    raise ValueError('ScreenGen: invalid prefix enum value')
 
-            log_str = f'\rScreenGen: Writing file: {filename}'
-            if prefix != ScreenGenPrefix.FrameNo:
-                log_str += f', frame: {num}'
+                final_path = folder_path.joinpath(filename).resolve()
 
-            print(end=log_str)
-            try:
-                core.imwri.Write(rgb_clip, "PNG24", final_path, overwrite=True).get_frame(num)
-            except vs.Error:
-                new_path = folder_path.joinpath(f'%d{suffix}.png').resolve()
-                core.imwri.Write(rgb_clip, "PNG24", new_path, overwrite=True).get_frame(num)
+                log_str = f'\rScreenGen: Writing file: {filename}'
+                if prefix != ScreenGenPrefix.FrameNo:
+                    log_str += f', frame: {num}'
+
+                print(end=log_str)
+
+                try:
+                    core.imwri.Write(rgb_clip, "PNG24", final_path, overwrite=True).get_frame(num)
+                except vs.Error:
+                    new_path = folder_path.joinpath(f'%d{suffix}.png').resolve()
+                    core.imwri.Write(rgb_clip, "PNG24", new_path, overwrite=True).get_frame(num)
     else:
         raise ValueError('ScreenGen: No screenshots to write to disk')
 
@@ -1515,12 +1541,22 @@ def fixlvls(clip: vs.VideoNode,
 
     chroma = planes.copy()
     if 0 in planes:
-        clip = core.std.Levels(clip, gamma=gamma, min_in=vals[0][0], max_in=vals[1][0],
-                min_out=vals[2][0], max_out=vals[3][0], planes=0)
+        clip = core.std.Levels(clip,
+                               gamma=gamma,
+                               min_in=vals[0][0],
+                               max_in=vals[1][0],
+                               min_out=vals[2][0],
+                               max_out=vals[3][0],
+                               planes=0)
         chroma.remove(0)
     if chroma:
-        clip = core.std.Levels(clip, gamma=gamma, min_in=vals[0][1], max_in=vals[1][1],
-                min_out=vals[2][1], max_out=vals[3][1], planes=chroma)
+        clip = core.std.Levels(clip,
+                               gamma=gamma,
+                               min_in=vals[0][1],
+                               max_in=vals[1][1],
+                               min_out=vals[2][1],
+                               max_out=vals[3][1],
+                               planes=chroma)
 
     return Depth(clip, o_depth)
 
