@@ -7,7 +7,7 @@ setup(
     url='https://github.com/OpusGang/awsmfunc',
     license='MIT',
     author='OpusGang',
-    packages=['awsmfunc'],
+    packages=['awsmfunc', 'awsmfunc.types'],
     package_data={
         'awsmfunc': ['py.typed'],
     },
