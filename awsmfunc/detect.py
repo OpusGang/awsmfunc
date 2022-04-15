@@ -31,14 +31,14 @@ def __detect(clip: vs.VideoNode, func: Callable[[Set[int]], vs.VideoNode], optio
     with open(os.devnull, 'wb') as f:
         processed = func(detections)
 
-        start = time.time()
+        start = time.monotonic()
         processed.output(f, progress_update=__vs_out_updated)
 
     # Sort frames because multithreading likely made them weird
     detections_list = list(detections)
     detections_list.sort()
 
-    end = time.time()
+    end = time.monotonic()
     print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
     print("Detected frames: {}".format(len(detections_list)))
 
