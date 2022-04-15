@@ -87,7 +87,7 @@ def bandmask(clip: vs.VideoNode,
     :param blankthr: If set, values with less change than this will be ignored and set black.
     :return: Grayscale mask of areas with gradient smaller than thr.
     """
-    if len([plane]) != 1:
+    if len(tuple(plane)) != 1:
         raise ValueError("bandmask: Only one plane can be processed at once!")
 
     depth = clip.format.bits_per_sample
