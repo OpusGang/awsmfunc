@@ -1689,12 +1689,19 @@ def Import(file: str, output_key: int = 0) -> vs.VideoNode:
     TODO: Find a way of keeping this more in-line with expected VS behavior (no output unless specified)
     """
     from importlib import util, machinery
+    import inspect
 
     if file.endswith('.vpy'):
         loader = machinery.SourceFileLoader('script', file)
         spec = util.spec_from_loader(loader.name, loader)
         module = util.module_from_spec(spec)
         loader.exec_module(module)
+
+        script_imports = inspect.getmembers(module, inspect.ismodule)
+        imported_vs = any(info[0] == 'vs' and info[1].__name__ == 'vapoursynth' for info in script_imports)
+
+        if not imported_vs:
+            raise ValueError('The script does not import vapoursynth as vs')
 
         outputs: dict = module.vs.get_outputs()
         if outputs and output_key in outputs:
