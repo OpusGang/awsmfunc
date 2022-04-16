@@ -80,15 +80,13 @@ def bandmask(clip: vs.VideoNode,
     :param right: Right shift.
     :param dec: Amount of minimize calls.
     :param exp: Amount of maximize calls, defaults to dec + pix.
-    :param plane: Plane to be processed.
+    :param plane: Plane index to be processed.
     :param darkthr: If set, values under darkthr will be ignored and set black.
     :param brightthr: If set, values above brightthr will be ignored and set to black.
                       If either darkthr or brightthr is set and the other isn't, the other will default to TV range.
     :param blankthr: If set, values with less change than this will be ignored and set black.
     :return: Grayscale mask of areas with gradient smaller than thr.
     """
-    if len([plane]) != 1:
-        raise ValueError("bandmask: Only one plane can be processed at once!")
 
     depth = clip.format.bits_per_sample
     hi = 65535
