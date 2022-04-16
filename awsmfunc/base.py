@@ -1674,30 +1674,41 @@ def RescaleCheck(clip: vs.VideoNode,
     return Depth(txt, bits)
 
 
-def Import(file: str) -> vs.VideoNode:
+def Import(file: str, output_key: int = 0) -> vs.VideoNode:
     """
     Allows for easy import of your .vpy
     This will load a script even without set_output being present, however;
-    if you would like to manipulate the clip you will need to specifiy an output:
-    --
-    script = Import(r'1080p.vpy')
-    script = FrameInfo(script, "Filtered")
-    script.set_output()
-    --
+    if you would like to manipulate the clip you will need to specifiy an output.
+
+    >>> script = Import(r'1080p.vpy')
+    >>> script = FrameInfo(script, "Filtered")
+    >>> script.set_output()
+
+    Requires that the script contains `import vapoursynth as vs`.
+
     TODO: Find a way of keeping this more in-line with expected VS behavior (no output unless specified)
     """
-    from importlib.machinery import SourceFileLoader
+    from importlib import util, machinery
 
     if file.endswith('.vpy'):
-        output = SourceFileLoader('script', file).load_module().vs.get_output()
+        loader = machinery.SourceFileLoader('script', file)
+        spec = util.spec_from_loader(loader.name, loader)
+        module = util.module_from_spec(spec)
+        loader.exec_module(module)
 
-        try:
-            if isinstance(output, vs.VideoOutputTuple):
-                return output.clip
-            else:
+        outputs: dict = module.vs.get_outputs()
+        if outputs and output_key in outputs:
+            output = outputs.get(output_key)
+
+            try:
+                if isinstance(output, vs.VideoOutputTuple):
+                    return output.clip
+                else:
+                    return output
+            except AttributeError:
                 return output
-        except AttributeError:
-            return output
+        else:
+            raise ValueError(f'No outputs or invalid output key. Outputs: {[*outputs]}')
     else:
         raise TypeError("Import: Only .vpy is supported!")
 
