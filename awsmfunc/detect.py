@@ -4,7 +4,7 @@ from vapoursynth import core
 import os
 import time
 from os import PathLike
-from typing import Callable, Dict, List, Set, Union, Optional, Any, Iterable
+from typing import Callable, Dict, List, Set, Union, Optional, Any
 
 from functools import partial
 from vsutil import iterate, get_y
@@ -16,31 +16,30 @@ from .base import SUBTITLE_DEFAULT_STYLE
 
 def __vs_out_updated(current: int, total: int):
     if current == total:
-        print("Frame: {}/{}".format(current, total), end="\n")
+        print(f"Frame: {current}/{total}", end="\n")
     else:
-        print("Frame: {}/{}".format(current, total), end="\r")
+        print(f"Frame: {current}/{total}", end="\r")
 
 
-def __detect(clip: vs.VideoNode, func: Callable[[Set[int]], vs.VideoNode], options: Dict):
+def __detect(clip: vs.VideoNode, func: Callable[[Callable[[int], None]], vs.VideoNode], options: Dict):
     total_frames = clip.num_frames
-    detections: Set[int] = set([])
+    detections: Set[int] = set()
 
     output = options['output']
     merge = options['merge']
 
     with open(os.devnull, 'wb') as f:
-        processed = func(detections)
+        processed = func(detections.add)
 
         start = time.monotonic()
         processed.output(f, progress_update=__vs_out_updated)
 
     # Sort frames because multithreading likely made them weird
-    detections_list = list(detections)
-    detections_list.sort()
+    detections_list = sorted(detections)
 
     end = time.monotonic()
-    print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
-    print("Detected frames: {}".format(len(detections_list)))
+    print(f"Elapsed: {end - start:0.2f} seconds ({total_frames / float(end - start):0.2f} fps)")
+    print(f"Detected frames: {len(detections_list)}")
 
     if detections_list:
         with open(output, 'w') as out_file:
@@ -48,14 +47,14 @@ def __detect(clip: vs.VideoNode, func: Callable[[Set[int]], vs.VideoNode], optio
                 out_file.write(f"{d}\n")
 
         if merge:
-            merged_output = "merged-{}".format(output)
+            merged_output = f"merged-{output}"
             merge_detections(output,
                              merged_output,
                              cycle=options['cycle'],
                              min_zone_len=options['min_zone_len'],
                              tolerance=options['tolerance'])
 
-        quit("Finished detecting, output file: {}".format(output))
+        quit(f"Finished detecting, output file: {output}")
 
 
 def bandmask(clip: vs.VideoNode,
@@ -119,7 +118,7 @@ def bandmask(clip: vs.VideoNode,
         if not blankthr:
             diff = core.std.Expr([orig, c], "x y - abs").std.Binarize(thr, hi, 0)
         else:
-            diff = core.std.Expr([orig, c], "x y - abs").std.Expr("x {} > x {} < thr {} 0 ?".format(blankthr, thr, hi))
+            diff = core.std.Expr([orig, c], "x y - abs").std.Expr(f"x {blankthr} > x {thr} < thr {hi} 0 ?")
         decreased = iterate(diff, core.std.Minimum, dec)
         return iterate(decreased, core.std.Maximum, exp)
 
@@ -129,7 +128,7 @@ def bandmask(clip: vs.VideoNode,
     h2 = comp(pln, 2 * [0] + [left] + 2 * [0] + [mid] + 2 * [0] + [right])
 
     if darkthr:
-        return core.std.Expr([v1, v2, h1, h2, pln], "b {} > b {} < and x y + z + a + 0 ?".format(darkthr, brightthr))
+        return core.std.Expr([v1, v2, h1, h2, pln], f"b {darkthr} > b {brightthr} < and x y + z + a + 0 ?")
     else:
         return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
 
@@ -142,33 +141,31 @@ def merge_detections(input: Union[str, PathLike],
                      tolerance: int = 0) -> None:
     import numpy as np
 
-    def consecutive(data: Iterable[int], cycle: int = cycle):
-        return np.split(data, np.where(np.diff(data) > cycle + tolerance)[0] + 1)
-
     with open(input, 'r') as in_f:
         a = np.array(in_f.read().splitlines(), dtype=np.uint)
-        c = consecutive(a, cycle=cycle)
+    # Consecutive
+    c = np.split(a, np.where(np.diff(a) > cycle + tolerance)[0] + 1)
 
-        zones = []
-        actual_cycle = cycle - 1
+    zones = []
+    actual_cycle = cycle - 1
 
-        if min_zone_len >= cycle:
-            min_zone = min_zone_len - 1 if min_zone_len % cycle == 0 else min_zone_len
-        else:
-            min_zone = min_zone_len - 1 if cycle % min_zone_len == 0 else min_zone_len
+    if min_zone_len >= cycle:
+        min_zone = min_zone_len - 1 if min_zone_len % cycle == 0 else min_zone_len
+    else:
+        min_zone = min_zone_len - 1 if cycle % min_zone_len == 0 else min_zone_len
 
-        for dtc in c:
-            start = int(dtc[0])
-            end = int(dtc[-1] + actual_cycle)
+    for dtc in c:
+        start = int(dtc[0])
+        end = int(dtc[-1] + actual_cycle)
 
-            if end - start >= min_zone and start != end:
-                zone = "{}{delim}{}\n".format(start, end, delim=delim)
-                zones.append(zone)
+        if end - start >= min_zone and start != end:
+            zone = f"{start}{delim}{end}\n"
+            zones.append(zone)
 
-        if zones:
-            with open(output, 'w') as out_f:
-                out_f.writelines(zones)
-                print("Merged frames into zonefile: {}".format(output))
+    if zones:
+        with open(output, 'w') as out_f:
+            out_f.writelines(zones)
+        print(f"Merged frames into zonefile: {output}")
 
 
 def banddtct(clip: vs.VideoNode,
@@ -222,12 +219,6 @@ def banddtct(clip: vs.VideoNode,
 
     options = locals()
 
-    def debug_detect(n, f, clip, hi, lo):
-        if f.props.PlaneStatsAverage >= lo and f.props.PlaneStatsAverage <= hi:
-            return clip.sub.Subtitle(f"{f.props.PlaneStatsAverage}\nDetected banding!", style=SUBTITLE_DEFAULT_STYLE)
-        else:
-            return clip.sub.Subtitle(f.props.PlaneStatsAverage, style=SUBTITLE_DEFAULT_STYLE)
-
     original_format = clip.format
     clip = bandmask(clip,
                     thr=thr,
@@ -243,8 +234,18 @@ def banddtct(clip: vs.VideoNode,
                     blankthr=blankthr)
 
     if debug:
-        clip = clip.resize.Point(format=original_format)
-        return clip.std.FrameEval(partial(debug_detect, clip=clip, hi=hi, lo=lo), clip.std.PlaneStats())
+        debug_clip = clip.resize.Point(format=original_format)
+
+        def debug_detect(n, f):
+            if lo <= f.props.PlaneStatsAverage <= hi:
+                return debug_clip.sub.Subtitle(
+                    f"{f.props.PlaneStatsAverage}\nDetected banding!",
+                    style=SUBTITLE_DEFAULT_STYLE)
+            else:
+                return debug_clip.sub.Subtitle(f.props.PlaneStatsAverage,
+                                         style=SUBTITLE_DEFAULT_STYLE)
+
+        return debug_clip.std.FrameEval(debug_detect, debug_clip.std.PlaneStats())
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
@@ -255,30 +256,21 @@ def banddtct(clip: vs.VideoNode,
     clip = clip.std.PlaneStats()
     next_frame = next_frame.std.PlaneStats()
 
-    prop_src = [clip, clip_diff, next_frame]
+    prop_src = (clip, clip_diff, next_frame)
 
-    def detect_func(detections):
-
-        def banding_detect(n, f, clip, detections, hi, lo, diff, check_next):
-            if f[0].props.PlaneStatsAverage >= lo and f[0].props.PlaneStatsAverage <= hi:
+    def detect_func(add_detection):
+        def banding_detect(n, f):
+            if lo <= f[0].props.PlaneStatsAverage <= hi:
                 if check_next:
-                    detections.add(n * cycle)
+                    add_detection(n * cycle)
                     if f[1].props.PlaneStatsDiff < diff and f[2].props.PlaneStatsAverage >= lo / 2 and f[
                             2].props.PlaneStatsAverage <= hi:
-                        detections.add((n + 1) * cycle)
+                        add_detection((n + 1) * cycle)
                 else:
-                    detections.add(n * cycle)
+                    add_detection(n * cycle)
             return clip
 
-        return core.std.FrameEval(clip,
-                                  partial(banding_detect,
-                                          clip=clip,
-                                          detections=detections,
-                                          hi=hi,
-                                          lo=lo,
-                                          diff=diff,
-                                          check_next=check_next),
-                                  prop_src=prop_src)
+        return core.std.FrameEval(clip, banding_detect, prop_src=prop_src)
 
     __detect(clip, detect_func, options)
 
@@ -299,19 +291,24 @@ def cambidtct(clip: vs.VideoNode,
 
     options = locals()
 
-    def debug_detect(n, f, clip):
-        if f.props['CAMBI'] >= thr:
-            return clip.sub.Subtitle(f"{f.props['CAMBI']}\nDetected banding!", style=SUBTITLE_DEFAULT_STYLE)
-        else:
-            return clip.sub.Subtitle(f.props['CAMBI'], style=SUBTITLE_DEFAULT_STYLE)
-
-    cambi_dict: Dict[str, Any] = dict(topk=0.1, tvi_threshold=0.012)
+    cambi_dict: Dict[str, Any] = {'topk': 0.1, 'tvi_threshold': 0.012}
     if cambi_args is not None:
         cambi_dict |= cambi_args
     clip = core.akarin.Cambi(clip, **cambi_dict)
 
     if debug:
-        return clip.std.FrameEval(partial(debug_detect, clip=clip), clip.std.PlaneStats())
+        debug_clip = clip
+
+        def debug_detect(n, f):
+            if f.props['CAMBI'] >= thr:
+                return debug_clip.sub.Subtitle(
+                    f"{f.props['CAMBI']}\nDetected banding!",
+                    style=SUBTITLE_DEFAULT_STYLE)
+            else:
+                return debug_clip.sub.Subtitle(f.props['CAMBI'],
+                                         style=SUBTITLE_DEFAULT_STYLE)
+
+        return debug_clip.std.FrameEval(debug_detect, clip.std.PlaneStats())
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
@@ -322,27 +319,20 @@ def cambidtct(clip: vs.VideoNode,
     clip = clip.std.PlaneStats()
     next_frame = next_frame.std.PlaneStats()
 
-    prop_src = [clip, clip_diff, next_frame]
+    prop_src = (clip, clip_diff, next_frame)
 
-    def detect_func(detections):
-
-        def banding_detect(n, f, clip, detections, diff, check_next):
+    def detect_func(add_detection):
+        def banding_detect(n, f):
             if f[0].props['CAMBI'] >= thr:
                 if check_next:
-                    detections.add(n * cycle)
+                    add_detection(n * cycle)
                     if f[1].props.PlaneStatsDiff < diff and f[2].props['CAMBI'] >= thr_next:
-                        detections.add((n + 1) * cycle)
+                        add_detection((n + 1) * cycle)
                 else:
-                    detections.add(n * cycle)
+                    add_detection(n * cycle)
             return clip
 
-        return core.std.FrameEval(clip,
-                                  partial(banding_detect,
-                                          clip=clip,
-                                          detections=detections,
-                                          diff=diff,
-                                          check_next=check_next),
-                                  prop_src=prop_src)
+        return core.std.FrameEval(clip, banding_detect, prop_src=prop_src)
 
     __detect(clip, detect_func, options)
 
@@ -374,7 +364,7 @@ def __detect_dirty_lines(clip: vs.VideoNode,
     if bottom:
         row_list.append(bottom)
 
-    def detect_func(detections):
+    def detect_func(add_detection):
 
         def get_rows(luma, ori, num):
             if ori == "row":
@@ -391,22 +381,22 @@ def __detect_dirty_lines(clip: vs.VideoNode,
                     clip_b = luma.std.Crop(left=num - 1, right=1)
             return core.std.PlaneStats(clip_a, clip_b)
 
-        def line_detect(n, f, clip, detections, thr):
+        def line_detect(n, f, clip, thr):
             if f.props.PlaneStatsDiff > thr:
-                detections.add(n * cycle)
+                add_detection(n * cycle)
             return clip
 
         for _ in column_list:
             for i in _:
                 clip_diff = get_rows(luma, "col", i)
                 processed = core.std.FrameEval(clip,
-                                               partial(line_detect, clip=clip, detections=detections, thr=thr),
+                                               partial(line_detect, clip=clip, thr=thr),
                                                prop_src=clip_diff)
         for _ in row_list:
             for i in _:
                 clip_diff = get_rows(luma, "row", i)
                 processed = core.std.FrameEval(clip,
-                                               partial(line_detect, clip=clip, detections=detections, thr=thr),
+                                               partial(line_detect, clip=clip, thr=thr),
                                                prop_src=clip_diff)
         return processed
 
@@ -504,16 +494,15 @@ def brdrdtct(clip: vs.VideoNode,
                                  color=color,
                                  color_second=color_second)
 
-    def detect_func(detections):
-
-        def border_detect(n, f, clip, detections):
+    def detect_func(add_detection):
+        def border_detect(n, f):
             if ((f.props.CropTopValue > 0 and f.props.CropBottomValue > 0)
                     or (f.props.CropLeftValue > 0 and f.props.CropRightValue > 0)):
-                detections.add(n * cycle)
+                add_detection(n * cycle)
 
             return clip
 
-        processed = core.std.FrameEval(clip, partial(border_detect, clip=clip, detections=detections), prop_src=clip)
+        processed = core.std.FrameEval(clip, border_detect, prop_src=clip)
 
         return processed
 
@@ -524,11 +513,11 @@ def brdrdtct(clip: vs.VideoNode,
 #      Exports      #
 #####################
 
-__all__ = [
+__all__ = (
     "banddtct",
     "bandmask",
     "brdrdtct",
     "cambidtct",
     "dirtdtct",
     "merge_detections",
-]
+)

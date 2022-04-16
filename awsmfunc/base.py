@@ -6,7 +6,7 @@ from os import PathLike
 from functools import partial
 
 from enum import Enum
-from typing import Callable, Dict, List, Union, Optional, Any
+from typing import Callable, Dict, List, Union, Optional, Any, Tuple, TypeVar
 
 from vsutil import get_depth, split, join, scale_value
 from vsutil import depth as vsuDepth
@@ -23,6 +23,9 @@ ST2084_M2 = 78.84375
 ST2084_C1 = 0.8359375
 ST2084_C2 = 18.8515625
 ST2084_C3 = 18.6875
+
+ElementType = TypeVar('ElementType')
+ListOrTuple = Union[List[ElementType], Tuple[ElementType]]
 
 
 def Depth(clip: vs.VideoNode, bits: int, **kwargs) -> vs.VideoNode:
@@ -59,7 +62,7 @@ def ReplaceFrames(clipa: vs.VideoNode,
             import re
             if filename:
                 with open(filename, 'r') as mf:
-                    mappings += '\n{}'.format(mf.read())
+                    mappings += f'\n{mf.read()}'
             # Some people used this as separators and wondered why it wasn't working
             mappings = mappings.replace(',', ' ').replace(':', ' ')
 
@@ -157,7 +160,7 @@ def bbmod(clip: vs.VideoNode,
 
     if planes is not None:
         if isinstance(planes, int):
-            planes = [planes]
+            planes = (planes,)
 
         if 0 in planes:
             y = True
@@ -421,7 +424,7 @@ def bbmoda(c: vs.VideoNode,
     if not isinstance(c, vs.VideoNode):
         raise TypeError(funcName + ': \"c\" must be a clip!')
 
-    if isinstance(thresh, int) or isinstance(thresh, float):
+    if isinstance(thresh, (int, float)):
         # thresh needs to be lower for chroma for cpass2
         if cpass2:
             thresh = [thresh] + (2 * [round(thresh / 10)])
@@ -878,11 +881,11 @@ class ScreenGenPrefix(str, Enum):
     FrameNo = 'frame'
 
 
-def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
+def ScreenGen(clip: Union[vs.VideoNode, ListOrTuple[vs.VideoNode]],
               folder: Union[str, PathLike],
-              suffix: Optional[Union[str, List[str]]] = None,
+              suffix: Optional[Union[str, ListOrTuple[str]]] = None,
               prefix: Union[ScreenGenPrefix, str] = ScreenGenPrefix.Sequential,
-              frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
+              frame_numbers: Union[Union[str, PathLike], ListOrTuple[int]] = "screens.txt",
               start: int = 1,
               delim: str = ' ') -> None:
     """
@@ -915,29 +918,26 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
             screens = [int(x.strip()) for x in screens]
         else:
             raise ValueError('ScreenGen: Path to frame numbers file does not exist')
-    elif isinstance(frame_numbers, list):
+    elif isinstance(frame_numbers, (list, tuple)):
         screens = frame_numbers
     else:
         raise TypeError('ScreenGen: frame_numbers must be a file path or a list of frame numbers')
 
-    clips = clip
-
-    if not isinstance(clip, list):
-        clips = [clip]
+    clips = [clip] if isinstance(clip, vs.VideoNode) else clip
 
     suffixes = suffix
 
     if suffix is None:
         import string
 
-        suffixes = list(string.ascii_lowercase)[:len(clips)]
-    elif not isinstance(suffix, list):
-        suffixes = [suffix]
+        suffixes = tuple(string.ascii_lowercase)[:len(clips)]
+    elif isinstance(suffix, str):
+        suffixes = (suffix,)
 
     if len(clips) != len(suffixes):
         raise ValueError('ScreenGen: number of clips must be equal to number of suffixes')
 
-    clip_infos = [dict(clip=c, suffix=s) for (c, s) in zip(clips, suffixes)]
+    clip_infos = [{'clip': c, 'suffix': s} for (c, s) in zip(clips, suffixes)]
 
     if screens:
         if not folder_path.is_dir():
@@ -1029,10 +1029,10 @@ def DynamicTonemap(clip: vs.VideoNode,
                                                     chromaloc_in_s=chromaloc_in_s,
                                                     chromaloc_s=chromaloc_in_s)
             else:
-                clip_to_blur = clip = core.resize.Spline36(reference,
-                                                           format=vs.RGB48,
-                                                           chromaloc_in_s=chromaloc_in_s,
-                                                           chromaloc_s=chromaloc_in_s)
+                clip_to_blur = core.resize.Spline36(reference,
+                                                    format=vs.RGB48,
+                                                    chromaloc_in_s=chromaloc_in_s,
+                                                    chromaloc_s=chromaloc_in_s)
         else:
             clip_to_blur = clip
 
@@ -1060,14 +1060,14 @@ def DynamicTonemap(clip: vs.VideoNode,
 
         if range:
             if range == 'limited':
-                max_value = 60395
+                max_value = 60395.0
 
         if not targets:
             r_max = st2084_eotf((f[0].props['PlaneStatsMax'] / max_value)) * ST2084_PEAK_LUMINANCE
             g_max = st2084_eotf((f[1].props['PlaneStatsMax'] / max_value)) * ST2084_PEAK_LUMINANCE
             b_max = st2084_eotf((f[2].props['PlaneStatsMax'] / max_value)) * ST2084_PEAK_LUMINANCE
 
-            max_rgb = round(max([r_max, g_max, b_max]))
+            max_rgb = round(max((r_max, g_max, b_max)))
         else:
             max_rgb = round(targets[n])
 
@@ -1085,12 +1085,12 @@ def DynamicTonemap(clip: vs.VideoNode,
                         gamma_adjust: float = None,
                         luma_scaling: float = None) -> vs.VideoNode:
         if not targets:
-            string = "Max RGB: {:.04f}, target: {} nits".format(max_rgb, nits)
+            string = f"Max RGB: {max_rgb:.04f}, target: {nits} nits"
         else:
             string = f"Predetermined target: {nits} nits"
 
         if adjusted:
-            string += "\ngamma_adjust: {:.04f}, luma_scaling: {:.04f}".format(gamma_adjust, luma_scaling)
+            string += f"\ngamma_adjust: {gamma_adjust:.04f}, luma_scaling: {luma_scaling:.04f}"
 
         return core.sub.Subtitle(clip, string)
 
@@ -1203,10 +1203,10 @@ def DynamicTonemap(clip: vs.VideoNode,
             if targets_path.is_file():
                 with open(targets_path) as f:
                     target_list = f.readlines()
-                    target_list = [float(x.strip()) for x in target_list]
+                target_list = [float(x.strip()) for x in target_list]
 
         if target_list:
-            target_list = [int(round(x)) for x in target_list]
+            target_list = [round(x) for x in target_list]
 
             if len(target_list) != clip.num_frames:
                 raise ValueError('Number of targets != clip length')
@@ -1302,7 +1302,7 @@ def FillBorders(clip: vs.VideoNode,
                 right: int = 0,
                 top: int = 0,
                 bottom: int = 0,
-                planes: Union[int, List[int]] = [0, 1, 2],
+                planes: Union[int, ListOrTuple[int]] = (0, 1, 2),
                 mode: str = 'fixborders') -> vs.VideoNode:
     """
     FillBorders wrapper that automatically sets fixborders mode.
@@ -1312,7 +1312,7 @@ def FillBorders(clip: vs.VideoNode,
     """
     if clip.format.num_planes == 3:
         if isinstance(planes, int):
-            planes = [planes]
+            planes = (planes,)
 
         y, u, v = split(clip)
 
@@ -1342,7 +1342,7 @@ def FillBorders(clip: vs.VideoNode,
 def SelectRangeEvery(clip: vs.VideoNode,
                      every: int,
                      length: int,
-                     offset: Union[int, List[int]] = [0, 0]) -> vs.VideoNode:
+                     offset: Union[int, ListOrTuple[int]] = (0, 0)) -> vs.VideoNode:
     """
     SelectRangeEvery, port from Avisynth's function.
     Offset can be an array with the first entry being the offset from the start and the second from the end.
@@ -1350,7 +1350,7 @@ def SelectRangeEvery(clip: vs.VideoNode,
       * select <length> frames every <every> frames, starting at frame <offset>
     """
     if isinstance(offset, int):
-        offset = [offset, 0]
+        offset = (offset, 0)
 
     select = core.std.Trim(clip, first=offset[0], last=clip.num_frames - 1 - offset[1])
     select = core.std.SelectEvery(select, cycle=every, offsets=range(length))
@@ -1370,33 +1370,33 @@ def FrameInfo(clip: vs.VideoNode,
       * Print the frame number, the picture type and a title on each frame
     """
 
-    def FrameProps(n: int, f: vs.VideoFrame, clip: vs.VideoNode, padding: Optional[str]) -> vs.VideoNode:
+    padding_info: Optional[str] = None
+
+    if pad_info:
+        padding_info = " " + ('\n' * newlines)
+        padding_title = " " + ('\n' * (newlines + 4))
+    else:
+        padding_title = " " + ('\n' * newlines)
+
+    def FrameProps(n: int, f: vs.VideoFrame) -> vs.VideoNode:
         if "_PictType" in f.props:
             info = f"Frame {n} of {clip.num_frames}\nPicture type: {f.props['_PictType'].decode()}"
         else:
             info = f"Frame {n} of {clip.num_frames}\nPicture type: N/A"
 
-        if pad_info and padding:
-            info_text = [padding + info]
+        if pad_info and padding_info:
+            info_text = [padding_info + info]
         else:
             info_text = [info]
 
-        clip = core.sub.Subtitle(clip, text=info_text, style=style)
+        subtitled = core.sub.Subtitle(clip, text=info_text, style=style)
 
-        return clip
+        return subtitled
 
-    padding_info: Optional[str] = None
+    info_clip = core.std.FrameEval(clip, FrameProps, prop_src=clip)
+    info_clip = core.sub.Subtitle(info_clip, text=[padding_title + title], style=style)
 
-    if pad_info:
-        padding_info = " " + "".join(['\n'] * newlines)
-        padding_title = " " + "".join(['\n'] * (newlines + 4))
-    else:
-        padding_title = " " + "".join(['\n'] * newlines)
-
-    clip = core.std.FrameEval(clip, partial(FrameProps, clip=clip, padding=padding_info), prop_src=clip)
-    clip = core.sub.Subtitle(clip, text=[padding_title + title], style=style)
-
-    return clip
+    return info_clip
 
 
 def InterleaveDir(folder: str,
@@ -1423,7 +1423,7 @@ def InterleaveDir(folder: str,
         source_filter = core.ffms2.Source
 
     folder_path = Path(folder)
-    files = sorted(folder_path.iterdir())
+    file_paths = sorted(folder_path.iterdir())
 
     if first is not None:
         sources = [first]
@@ -1432,10 +1432,10 @@ def InterleaveDir(folder: str,
         sources = []
         j = -1
 
-    for i in range(len(files)):
-        filename = files[i].name
+    for file_path in file_paths:
+        filename = file_path.name
 
-        if files[i].is_file() and '.mkv' == files[i].suffix:
+        if file_path.is_file() and '.mkv' == file_path.suffix:
 
             j = j + 1
             sources.append(0)
@@ -1547,7 +1547,7 @@ def fixlvls(clip: vs.VideoNode,
     return Depth(clip, o_depth)
 
 
-def mt_lut(clip: vs.VideoNode, expr: str, planes: List[int] = [0]) -> vs.VideoNode:
+def mt_lut(clip: vs.VideoNode, expr: str, planes: ListOrTuple[int] = (0,)) -> vs.VideoNode:
     """
     mt_lut, port from Avisynth's function.
     > Usage: mt_lut(clip, expr, planes)
@@ -1557,7 +1557,7 @@ def mt_lut(clip: vs.VideoNode, expr: str, planes: List[int] = [0]) -> vs.VideoNo
     maximum = 235 * ((1 << clip.format.bits_per_sample) - 1) // 256
 
     def clampexpr(x: float) -> int:
-        return int(max(minimum, min(round(eval(expr)), maximum)))
+        return max(minimum, min(round(eval(expr)), maximum))
 
     return core.std.Lut(clip=clip, function=clampexpr, planes=planes)
 
@@ -1590,7 +1590,7 @@ def UpscaleCheck(clip: vs.VideoNode, height: int = 720, kernel: str = 'spline36'
     resample = zresize(resample, width=clip.width, height=clip.height, kernel=kernel, **kwargs)
 
     if interleave:
-        mix = core.std.Interleave([clip, resample])
+        mix = core.std.Interleave((clip, resample))
         return Depth(mix, clip.format.bits_per_sample)
     else:
         return Depth(resample, clip.format.bits_per_sample)
@@ -1628,9 +1628,9 @@ def RescaleCheck(clip: vs.VideoNode,
 
     src = clip
     # Generic error handling, YCOCG & COMPAT input not tested as such blocked by default
-    if src.format.color_family not in [vs.YUV, vs.GRAY, vs.RGB]:
+    if src.format.color_family not in (vs.YUV, vs.GRAY, vs.RGB):
         raise TypeError("UpscaleCheck: Only supports YUV, GRAY or RGB input!")
-    elif src.format.color_family in [vs.GRAY, vs.RGB]:
+    elif src.format.color_family in (vs.GRAY, vs.RGB):
         clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s='709')
 
     if src.format.color_family is vs.RGB and src.format.bits_per_sample == 8:
@@ -1668,7 +1668,7 @@ def RescaleCheck(clip: vs.VideoNode,
 
     ups = zresize(dwn, width=lma.width, height=lma.height, filter_param_a=b, filter_param_b=c, kernel=kernel)
 
-    mrg = core.std.ShufflePlanes([ups, b32], [0, 1, 2], vs.YUV)
+    mrg = core.std.ShufflePlanes((ups, b32), (0, 1, 2), vs.YUV)
     txt = FrameInfo(mrg, txt)
 
     return Depth(txt, bits)
@@ -1738,9 +1738,9 @@ def BorderResize(clip: vs.VideoNode,
                  right: int = 0,
                  top: int = 0,
                  bottom: int = 0,
-                 bb: List[int] = None,
-                 planes: List[int] = [0, 1, 2],
-                 sat: Optional[List[float]] = None) -> vs.VideoNode:
+                 bb: Optional[ListOrTuple[int]] = None,
+                 planes: ListOrTuple[int] = (0, 1, 2),
+                 sat: Optional[ListOrTuple[float]] = None) -> vs.VideoNode:
     """
     A wrapper to resize clips with borders.  This is meant for scenefiltering differing crops.
     :param ref: Reference resized clip, used purely to determine dimensions.
@@ -1753,7 +1753,7 @@ def BorderResize(clip: vs.VideoNode,
     ow, oh = clip.width, clip.height
 
     # we'll need the mod 2 values later for filling
-    mod2 = [left % 2, right % 2, top % 2, bottom % 2]
+    mod2 = (left % 2, right % 2, top % 2, bottom % 2)
 
     # figure out border size
     leftm = left - mod2[0]
@@ -1835,8 +1835,8 @@ def RandomFrameNumbers(clip: vs.VideoNode,
                        start_offset: int = 1000,
                        end_offset: int = 10000,
                        output_file: Union[str, PathLike] = "screens.txt",
-                       ftypes_first: Union[str, List[str]] = ["P", "B"],
-                       ftypes: Union[str, List[str]] = "B",
+                       ftypes_first: Union[str, ListOrTuple[str]] = ("P", "B"),
+                       ftypes: Union[str, ListOrTuple[str]] = "B",
                        interleaved: Optional[int] = None,
                        clips: Optional[List[vs.VideoNode]] = None,
                        by_blocks: bool = True,
@@ -1903,10 +1903,10 @@ def RandomFrameNumbers(clip: vs.VideoNode,
     start, end = (start_offset, src_len - end_offset)
 
     if isinstance(ftypes, str):
-        ftypes = [ftypes]
+        ftypes = (ftypes,)
 
     if isinstance(ftypes_first, str):
-        ftypes_first = [ftypes_first]
+        ftypes_first = (ftypes_first,)
 
     # Blocks & found frames dicts
     generated_blocks: List[Dict] = []
@@ -1933,7 +1933,7 @@ def RandomFrameNumbers(clip: vs.VideoNode,
         block_start = block['block_start']
         block_end = block['block_start'] + block_size
 
-        has_multiple_clips = (clips and isinstance(clips, list))
+        has_multiple_clips = is_clips_collection = (clips and isinstance(clips, (list, tuple)))
 
         if interleaved:
             has_multiple_clips = has_multiple_clips or interleaved > 1
@@ -1957,7 +1957,7 @@ def RandomFrameNumbers(clip: vs.VideoNode,
                     if interleaved:
                         for i in range(0, interleaved):
                             clip_frames.append(clip[frame_num + i])
-                    elif clips and isinstance(clips, list):
+                    elif is_clips_collection:
                         if len(clips) > 0:
                             clip_frames.append(clip[frame_num])
 
@@ -1973,7 +1973,7 @@ def RandomFrameNumbers(clip: vs.VideoNode,
                         clip_f = clip_frames[0]
                     else:
                         clip_f = clip[frame_num]
-                        clip_frames = list(clip_f)
+                        clip_frames = tuple(clip_f)
 
                     clip_f = clip_f.std.FrameEval(partial(filter_ftype, clip=clip_f, frame_num=frame_num, block=block),
                                                   prop_src=clip_frames)
@@ -1981,7 +1981,7 @@ def RandomFrameNumbers(clip: vs.VideoNode,
 
                     if block['found_frame'] and interleaved:
                         # Assumes the number was determined divisible already
-                        block['found_frame'] = int(frame_num / interleaved)
+                        block['found_frame'] = frame_num // interleaved
 
                     if not block['found_frame'] and len(block['tested_frames']) >= max_attempts:
                         raise ValueError('Ended recursion because maximum matching attempts were reached')
@@ -1992,20 +1992,20 @@ def RandomFrameNumbers(clip: vs.VideoNode,
     found_frames = sorted([b['found_frame'] for b in generated_blocks])
 
     if output_file:
+        found_frames_lines = [f'{x}\n' for x in found_frames]
         with open(output_file, "w") as txt:
-            found_frames_lines = [f'{x}\n' for x in found_frames]
             txt.writelines(found_frames_lines)
 
     return found_frames
 
 
 def st2084_eotf(x: float) -> float:
-    y = float(0.0)
-    if (x > 0.0):
-        xpow = math.pow(x, float(1.0) / ST2084_M2)
-        num = max(xpow - ST2084_C1, float(0.0))
-        den = max(ST2084_C2 - ST2084_C3 * xpow, float('-inf'))
-        y = float(math.pow(num / den, float(1.0) / ST2084_M1))
+    y = 0.0
+    if x > 0.0:
+        xpow = math.pow(x, 1.0 / ST2084_M2)
+        num = max(xpow - ST2084_C1, 0.0)
+        den = max(ST2084_C2 - ST2084_C3 * xpow, -math.inf)
+        y = math.pow(num / den, 1.0 / ST2084_M1)
 
     return y
 
@@ -2078,7 +2078,7 @@ borderresize = BorderResize
 #      Exports      #
 #####################
 
-__all__ = [
+__all__ = (
     "AddBordersMod",
     "BorderResize",
     "DebandReader",
@@ -2110,4 +2110,4 @@ __all__ = [
     "st2084_inverse_eotf",
     "zr",
     "zresize",
-]
+)
