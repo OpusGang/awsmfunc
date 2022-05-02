@@ -11,6 +11,7 @@ Optional plugins:
 * [vs-placebo](https://github.com/Lypheo/vs-placebo)
 * [vapoursynth-descale](https://github.com/Irrational-Encoding-Wizardry/vapoursynth-descale)
 * [vapoursynth-bilateral](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Bilateral)
+* [vsfpng](https://github.com/Mikewando/vsfpng)
 
 ### Setting up
 
