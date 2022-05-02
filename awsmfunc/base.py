@@ -878,24 +878,50 @@ class ScreenGenPrefix(str, Enum):
     FrameNo = 'frame'
 
 
+class ScreenGenEncoder(str, Enum):
+    imwri = 'imwri'
+    fpng = 'fpng'
+
+    def write_frame(self, clip: vs.VideoNode, frame_num: int, path: PathLike, compression: Optional[int] = None):
+        if self == self.imwri:
+            core.imwri.Write(clip, "PNG24", path, overwrite=True).get_frame(frame_num)
+        elif self == self.fpng:
+            core.fpng.Write(clip, filename=path, overwrite=True, compression=compression).get_frame(frame_num)
+
+
 def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
               folder: Union[str, PathLike],
               suffix: Optional[Union[str, List[str]]] = None,
               prefix: Union[ScreenGenPrefix, str] = ScreenGenPrefix.Sequential,
               frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
               start: int = 1,
-              delim: str = ' ') -> None:
+              delim: str = ' ',
+              encoder: Union[ScreenGenPrefix, str] = ScreenGenEncoder.fpng,
+              fpng_compression: int = 1) -> None:
     """
     Generates screenshots from a list of frame numbers
     clip: Clip or list of clips to generate screenshots from
-    folder is the folder name that is created
+    folder: is the folder name that is created
     suffix: str or list of str of the appended file name suffix(es).
-       - Optional, defaults to letters of the alphabet by order in the clip list
-    frame_numbers is the list of frames, defaults to a file named screens.txt. Either a list or a file
-    start is the number at which the filenames start
+        - Optional, defaults to letters of the alphabet by order in the clip list
+    prefix: the unique identifier for every screenshot file generated
+        - Must match `ScreenGenPrefix` enum, or literals 'seq' or 'frame'
+    frame_numbers: the list of frames, defaults to a file named screens.txt. Either a list or a file
+    start: is the number at which the filenames start
+    encoder: plugin to use to write the PNG. Defaults to fpng if present.
+        - Must match `ScreenGenEncoder` enum.
+         - imwri: https://github.com/vapoursynth/vs-imwri
+         - fpng: https://github.com/Mikewando/vsfpng
+    fpng_compression: Compression level to use for fpng. imwri compresses by default
+        0 - fast compression
+        1 - slow compression (Default)
+        2 - uncompressed
 
-    > Usage: ScreenGen(src, "Screenshots", "a")
-             ScreenGen(enc, "Screenshots", "b")
+    Usage:
+    >>> ScreenGen(src, "Screenshots", "a")\n
+    >>> ScreenGen(enc, "Screenshots", "b")
+    or
+    >>> ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
     """
     from pathlib import Path
 
@@ -943,6 +969,12 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
         if not folder_path.is_dir():
             folder_path.mkdir()
 
+        encoder_final: ScreenGenEncoder = encoder
+        has_vsfpng_plugin = HasLoadedPlugin("tools.mike.fpng")
+
+        if not has_vsfpng_plugin and encoder_final == ScreenGenEncoder.fpng:
+            encoder_final = ScreenGenEncoder.imwri
+
         for info in clip_infos:
             clip = info['clip']
             suffix = info['suffix']
@@ -966,10 +998,11 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
                 print(end=log_str)
 
                 try:
-                    core.imwri.Write(rgb_clip, "PNG24", final_path, overwrite=True).get_frame(num)
+                    encoder_final.write_frame(rgb_clip, num, final_path, fpng_compression)
                 except vs.Error:
                     new_path = folder_path.joinpath(f'%d{suffix}.png').resolve()
-                    core.imwri.Write(rgb_clip, "PNG24", new_path, overwrite=True).get_frame(num)
+                    encoder_final.write_frame(rgb_clip, num, new_path, fpng_compression)
+
     else:
         raise ValueError('ScreenGen: No screenshots to write to disk')
 
@@ -1346,8 +1379,10 @@ def SelectRangeEvery(clip: vs.VideoNode,
     """
     SelectRangeEvery, port from Avisynth's function.
     Offset can be an array with the first entry being the offset from the start and the second from the end.
-    > Usage: SelectRangeEvery(clip, every, length, offset)
-      * select <length> frames every <every> frames, starting at frame <offset>
+
+    Usage:
+    >>> # select <length> frames every <every> frames, starting at frame <offset>
+    >>> SelectRangeEvery(clip, every, length, offset)
     """
     if isinstance(offset, int):
         offset = [offset, 0]
@@ -1365,9 +1400,11 @@ def FrameInfo(clip: vs.VideoNode,
               newlines: int = 3,
               pad_info: bool = False) -> vs.VideoNode:
     """
-    FrameInfo.
-    > Usage: FrameInfo(clip, title)
-      * Print the frame number, the picture type and a title on each frame
+    FrameInfo. Frame number, frame type and title for the clip
+
+    Usage:
+    >>> # Print the frame number, the picture type and a title on each frame (hardcoded subtitle)
+    >>> FrameInfo(clip, title)
     """
 
     def FrameProps(n: int, f: vs.VideoFrame, clip: vs.VideoNode, padding: Optional[str]) -> vs.VideoNode:
@@ -1470,9 +1507,11 @@ def InterleaveDir(folder: str,
 def ExtractFramesReader(clip: vs.VideoNode, csvfile: Union[str, PathLike]) -> vs.VideoNode:
     """
     ExtractFramesReader, reads a csv file to extract ranges of frames.
-    > Usage: ExtractFramesReader(clip, csvfile)
-      * csvfile is the path to a csv file containing in each row: <startframe> <endframe>
-        the csv file may contain other columns, which will not be read
+
+    Usage:
+    >>> # csvfile is the path to a csv file containing in each row: <startframe> <endframe>
+    >>> # the csv file may contain other columns, which will not be read
+    >>> ExtractFramesReader(clip, csvfile)
     """
     import csv
 
@@ -1550,8 +1589,10 @@ def fixlvls(clip: vs.VideoNode,
 def mt_lut(clip: vs.VideoNode, expr: str, planes: List[int] = [0]) -> vs.VideoNode:
     """
     mt_lut, port from Avisynth's function.
-    > Usage: mt_lut(clip, expr, planes)
-      * expr is an infix expression, not like avisynth's mt_lut which takes a postfix one
+
+    Usage:
+    >>> # expr is an infix expression, not like avisynth's mt_lut which takes a postfix one
+    >>> mt_lut(clip, expr, planes)
     """
     minimum = 16 * ((1 << clip.format.bits_per_sample) - 1) // 256
     maximum = 235 * ((1 << clip.format.bits_per_sample) - 1) // 256
@@ -2095,6 +2136,8 @@ __all__ = [
     "ReplaceFrames",
     "RescaleCheck",
     "ScreenGen",
+    "ScreenGenPrefix",
+    "ScreenGenEncoder",
     "SelectRangeEvery",
     "UpscaleCheck",
     "bbmod",
