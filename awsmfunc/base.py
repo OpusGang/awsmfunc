@@ -896,7 +896,7 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
               frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
               start: int = 1,
               delim: str = ' ',
-              encoder: Union[ScreenGenPrefix, str] = ScreenGenEncoder.fpng,
+              encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
               fpng_compression: int = 1) -> None:
     """
     Generates screenshots from a list of frame numbers
@@ -969,7 +969,7 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
         if not folder_path.is_dir():
             folder_path.mkdir()
 
-        encoder_final: ScreenGenEncoder = encoder
+        encoder_final = encoder
         has_vsfpng_plugin = HasLoadedPlugin("tools.mike.fpng")
 
         if not has_vsfpng_plugin and encoder_final == ScreenGenEncoder.fpng:
