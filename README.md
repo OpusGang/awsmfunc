@@ -22,7 +22,7 @@ Optional plugins:
 	pip install --user --upgrade --force-reinstall .
 
 #### Dependencies
-* [rekt](https://gitlab.com/Ututu/rekt)
+* [rekt](https://github.com/OpusGang/rekt)
 * [vsutil](https://github.com/Irrational-Encoding-Wizardry/vsutil)
 
 #### Recommended VS Community Python Modules 
