@@ -785,8 +785,14 @@ def zresize(clip: vs.VideoNode,
         'spline64': core.resize.Spline64
     }
 
+    orig_w = clip.width
+    orig_h = clip.height
+
+    orig_cropped_w = orig_w - left - right
+    orig_cropped_h = orig_h - top - bottom
+
     if preset:
-        if clip.width / clip.height > ar:
+        if orig_cropped_w / orig_cropped_h > ar:
             return zresize(clip,
                            width=int(ar * preset),
                            left=left,
@@ -799,22 +805,19 @@ def zresize(clip: vs.VideoNode,
             return zresize(clip, height=preset, left=left, right=right, top=top, bottom=bottom, kernel=kernel, **kwargs)
 
     if (width is None) and (height is None):
-        width = clip.width
-        height = clip.height
+        width = orig_w
+        height = orig_h
         rh = rw = 1
     elif width is None:
-        rh = rw = height / (clip.height - top - bottom)
+        rh = rw = height / orig_cropped_h
     elif height is None:
-        rh = rw = width / (clip.width - left - right)
+        rh = rw = width / orig_cropped_w
     else:
-        rh = height / clip.height
-        rw = width / clip.width
+        rh = height / orig_h
+        rw = width / orig_w
 
-    orig_w = clip.width
-    orig_h = clip.height
-
-    w = round(((orig_w - left - right) * rw) / 2) * 2
-    h = round(((orig_h - top - bottom) * rh) / 2) * 2
+    w = round((orig_cropped_w * rw) / 2) * 2
+    h = round((orig_cropped_h * rh) / 2) * 2
 
     if orig_w == w and orig_h == h:
         # noop
@@ -826,8 +829,8 @@ def zresize(clip: vs.VideoNode,
                    height=h,
                    src_left=left,
                    src_top=top,
-                   src_width=clip.width - left - right,
-                   src_height=clip.height - top - bottom,
+                   src_width=orig_cropped_w,
+                   src_height=orig_cropped_h,
                    dither_type="error_diffusion",
                    **kwargs)
 
