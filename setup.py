@@ -14,7 +14,7 @@ setup(
     install_requires=[
         'VapourSynth>=57',
         'rekt @ git+https://github.com/OpusGang/rekt.git',
-        'vsutil @ git+https://github.com/Irrational-Encoding-Wizardry/vsutil.git@956fa579406ca9edf6e0b6a834defae28efb51ce',
+        'vsutil==0.7.0',
     ],
     zip_safe=False,
     python_requires='>=3.8',
