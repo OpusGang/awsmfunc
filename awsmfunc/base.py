@@ -2065,7 +2065,9 @@ def HasLoadedPlugin(identifier: str) -> bool:
     return any(p.identifier == identifier for p in core.plugins())
 
 
-def MapDolbyVision(base_layer: vs.VideoNode, enhancement_layer: vs.VideoNode) -> vs.VideoNode:
+def MapDolbyVision(base_layer: vs.VideoNode,
+                   enhancement_layer: vs.VideoNode,
+                   rpu: Optional[str] = None) -> vs.VideoNode:
     """
     Polynomial luma mapping, MMR chroma mapping on base layer.
     NLQ 12 bits restoration from enhancement layer.
@@ -2085,7 +2087,7 @@ def MapDolbyVision(base_layer: vs.VideoNode, enhancement_layer: vs.VideoNode) ->
     """
 
     has_placebo = HasLoadedPlugin("com.vs.placebo")
-    has_vsnlq = HasLoadedPlugin("com.quietvoid")
+    has_vsnlq = HasLoadedPlugin("com.vsnlq")
 
     if not has_placebo:
         raise ValueError('vs-placebo plugin must be installed!')
@@ -2103,7 +2105,7 @@ def MapDolbyVision(base_layer: vs.VideoNode, enhancement_layer: vs.VideoNode) ->
 
     scaled_el = core.resize.Point(enhancement_layer, width=base_layer.width, height=base_layer.height)
 
-    return core.vsnlq.MapNLQ(poly_mmr, scaled_el)
+    return core.vsnlq.MapNLQ(poly_mmr, scaled_el, rpu=rpu)
 
 
 #####################
