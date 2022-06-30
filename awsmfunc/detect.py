@@ -12,13 +12,42 @@ from vsutil import plane as fplane
 from vsutil import depth as Depth
 
 from .base import SUBTITLE_DEFAULT_STYLE
+from .types.misc import DetectProgressState
 
 
-def __vs_out_updated(current: int, total: int):
+def awf_init_progress_state() -> DetectProgressState:
+    return {
+        "start_time": time.monotonic(),
+        "frames_done": 0,
+        "fps": 0.0,
+        "last_fps_report_time": time.monotonic(),
+    }
+
+
+def awf_vs_out_updated(current: int, total: int, state: Optional[DetectProgressState] = None):
+    progress = f"Frame: {current}/{total}"
+    ratio = float(current) / float(total)
+
+    if state:
+        state["frames_done"] += 1
+
+        current = time.monotonic()
+        elapsed = current - state["last_fps_report_time"]
+        elapsed_from_start = current - state["start_time"]
+
+        if elapsed > 0.5:
+            state["last_fps_report_time"] = current
+        if elapsed_from_start > 8:
+            state["fps"] = state["frames_done"] / elapsed_from_start
+
+            progress += f' ({state["fps"]:0.2f} fps)'
+
+    progress += f' {ratio:0.2%}'
+
     if current == total:
-        print("Frame: {}/{}".format(current, total), end="\n")
+        print(progress, end="\n")
     else:
-        print("Frame: {}/{}".format(current, total), end="\r")
+        print(progress, end="\r")
 
 
 def __detect(clip: vs.VideoNode, func: Callable[[Set[int]], vs.VideoNode], options: Dict):
@@ -31,15 +60,16 @@ def __detect(clip: vs.VideoNode, func: Callable[[Set[int]], vs.VideoNode], optio
     with open(os.devnull, 'wb') as f:
         processed = func(detections)
 
-        start = time.monotonic()
-        processed.output(f, progress_update=__vs_out_updated)
+        state = awf_init_progress_state()
+        processed.output(f, progress_update=partial(awf_vs_out_updated, state=state))
 
     # Sort frames because multithreading likely made them weird
     detections_list = list(detections)
     detections_list.sort()
 
+    start = state["start_time"]
     end = time.monotonic()
-    print("Elapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
+    print("\nElapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
     print("Detected frames: {}".format(len(detections_list)))
 
     if detections_list:
@@ -525,6 +555,8 @@ def brdrdtct(clip: vs.VideoNode,
 #####################
 
 __all__ = [
+    "awf_init_progress_state",
+    "awf_vs_out_updated",
     "banddtct",
     "bandmask",
     "brdrdtct",
