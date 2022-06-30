@@ -18,11 +18,11 @@ SUBTITLE_DEFAULT_STYLE: str = ("sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&
                                "0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1")
 
 ST2084_PEAK_LUMINANCE = 10000
-ST2084_M1 = 0.1593017578125
-ST2084_M2 = 78.84375
-ST2084_C1 = 0.8359375
-ST2084_C2 = 18.8515625
-ST2084_C3 = 18.6875
+ST2084_M1 = 2610.0 / 16384.0
+ST2084_M2 = (2523.0 / 4096.0) * 128.0
+ST2084_C1 = 3424.0 / 4096.0
+ST2084_C2 = (2413.0 / 4096.0) * 32.0
+ST2084_C3 = (2392.0 / 4096.0) * 32.0
 
 
 def Depth(clip: vs.VideoNode, bits: int, **kwargs) -> vs.VideoNode:
@@ -772,6 +772,7 @@ def zresize(clip: vs.VideoNode,
             bottom: int = 0,
             kernel: str = "spline36",
             ar: float = 16 / 9,
+            dither_type="error_diffusion",
             **kwargs) -> vs.VideoNode:
 
     # VSEdit doesn't like the global dict
@@ -824,15 +825,18 @@ def zresize(clip: vs.VideoNode,
         return clip
 
     resizer = RESIZEDICT[kernel.lower()]
-    return resizer(clip=clip,
-                   width=w,
-                   height=h,
-                   src_left=left,
-                   src_top=top,
-                   src_width=orig_cropped_w,
-                   src_height=orig_cropped_h,
-                   dither_type="error_diffusion",
-                   **kwargs)
+
+    fun = dict(clip=clip,
+               width=w,
+               height=h,
+               src_left=left,
+               src_top=top,
+               src_width=orig_cropped_w,
+               src_height=orig_cropped_h,
+               dither_type=dither_type,
+               **kwargs)
+
+    return resizer(**fun)
 
 
 def DebandReader(clip: vs.VideoNode,
