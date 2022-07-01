@@ -12,6 +12,7 @@ from vsutil import get_depth, split, join, scale_value
 from vsutil import depth as vsuDepth
 from rekt import rektlvls
 
+from .types.dovi import HdrMeasurement
 from .types.placebo import PlaceboTonemapOpts
 
 SUBTITLE_DEFAULT_STYLE: str = ("sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
@@ -2112,6 +2113,105 @@ def MapDolbyVision(base_layer: vs.VideoNode,
     return core.vsnlq.MapNLQ(poly_mmr, scaled_el, rpu=rpu)
 
 
+def add_hdr_measurement_props(clip: vs.VideoNode,
+                              maxrgb: bool = True,
+                              hlg: bool = False,
+                              as_nits: bool = True,
+                              measurements: Optional[List[HdrMeasurement]] = None):
+    """
+    Measures the brightness of the frame using PlaneStats.
+    Adds the info into props, and a list if available.
+
+    The input clip is scaled down by 2x both horizontally and vertically.
+    If the input is HLG, it is converted to PQ for measuring only.
+
+    Props added:
+        - `HDRMin`: Min brightness
+        - `HDRMax`: Max brightness
+        - `HDRAvg`: Average brightness
+
+        The values are PQ code by default.
+        Can be converted to nits (cd/m^2) using `as_nits`.
+
+    :param maxrgb: Whether to use MaxRGB or Luma for the brightness
+    :param hlg: Whether the input clip is HLG
+    :param as_nits: Set the prop to nits values instead of PQ codes
+    :param measurements: List to store the measurements
+    """
+
+    def pq_props(n: int, f: list, maxrgb: bool, as_nits: bool, measurements: List[HdrMeasurement]):
+        fout = f[0].copy()
+        prop_src = f[1:]
+
+        if maxrgb:
+            min_pq = max([cmp.props["pqMin"] for cmp in prop_src])
+            max_pq = max([cmp.props["pqMax"] for cmp in prop_src])
+            avg_pq = max([cmp.props["pqAverage"] for cmp in prop_src])
+        else:
+            prop_src = prop_src[0]
+
+            min_pq = prop_src.props["pqMin"]
+            max_pq = prop_src.props["pqMax"]
+            avg_pq = prop_src.props["pqAverage"]
+
+        min_prop = min_pq / 65535.0
+        max_prop = max_pq / 65535.0
+        avg_prop = avg_pq
+
+        if as_nits:
+            min_prop = st2084_eotf(min_prop) * ST2084_PEAK_LUMINANCE
+            max_prop = st2084_eotf(max_prop) * ST2084_PEAK_LUMINANCE
+            avg_prop = st2084_eotf(avg_prop) * ST2084_PEAK_LUMINANCE
+
+        fout.props["HDRMin"] = min_prop
+        fout.props["HDRMax"] = max_prop
+        fout.props["HDRAvg"] = avg_prop
+
+        if measurements is not None:
+            measurements.append(HdrMeasurement(
+                frame=n,
+                min=min_pq,
+                max=max_pq,
+                avg=avg_pq,
+            ))
+
+        return fout
+
+    if hlg:
+        clip = core.resize.Spline36(clip, transfer_in_s="std-b67", transfer_s="st2084")
+
+    if maxrgb:
+        scaled_format = vs.RGB48
+    else:
+        scaled_format = vs.YUV420P16
+
+    scaled = core.resize.Spline36(clip,
+                                  width=clip.width / 2,
+                                  height=clip.height / 2,
+                                  range_in_s="limited",
+                                  range_s="full",
+                                  transfer_in_s="st2084",
+                                  transfer_s="st2084",
+                                  primaries_in_s="2020",
+                                  primaries_s="xyz",
+                                  dither_type="none",
+                                  chromaloc_in_s="top_left",
+                                  format=scaled_format)
+
+    if maxrgb:
+        r_props = core.std.PlaneStats(scaled, plane=0, prop='pq')
+        g_props = core.std.PlaneStats(scaled, plane=1, prop='pq')
+        b_props = core.std.PlaneStats(scaled, plane=2, prop='pq')
+        prop_src = [r_props, g_props, b_props]
+    else:
+        y_props = core.std.PlaneStats(scaled, plane=0, prop='pq')
+        prop_src = [y_props]
+
+    return core.std.ModifyFrame(clip,
+                                clips=[clip] + prop_src,
+                                selector=partial(pq_props, maxrgb=maxrgb, as_nits=as_nits, measurements=measurements))
+
+
 #####################
 #      Aliases      #
 #####################
@@ -2130,6 +2230,7 @@ borderresize = BorderResize
 
 __all__ = [
     "AddBordersMod",
+    "add_hdr_measurement_props",
     "BorderResize",
     "DebandReader",
     "Depth",
