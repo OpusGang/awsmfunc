@@ -55,17 +55,13 @@ def _detect(clip: vs.VideoNode,
             name: str,
             func: Callable[[Set[int]], vs.VideoNode],
             options: Optional[Dict] = None,
-            quit_after: bool = True) -> Union[None, List[int]]:
+            quit_after: bool = True) -> Optional[List[int]]:
     total_frames = clip.num_frames
     detections: Set[int] = set([])
 
-    output = None
-    if 'output' in options:
-        output = options['output']
-
-    merge = False
-    if 'merge' in options:
-        merge = options['merge']
+    output = options.get('output', None)
+    merge = options.get('merge', False)
+    filter_consecutives = options.get('filter_consecutives', False)
 
     print(f"Running {name} detection...")
 
@@ -79,12 +75,19 @@ def _detect(clip: vs.VideoNode,
     detections_list = list(detections)
     detections_list.sort()
 
+    if filter_consecutives:
+        detections_list = merge_detections(detections_list,
+                                           cycle=options.get('cycle', 1),
+                                           min_zone_len=options.get('min_zone_len', 1),
+                                           tolerance=options.get('tolerance', 0),
+                                           start_only=True)
+
     start = state["start_time"]
     end = time.monotonic()
     print("\nElapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
     print("Detected frames: {}".format(len(detections_list)))
 
-    if detections_list:
+    if detections_list is not None:
         if output:
             with open(output, 'w') as out_file:
                 for d in detections_list:
@@ -93,10 +96,10 @@ def _detect(clip: vs.VideoNode,
             if merge:
                 merged_output = "merged-{}".format(output)
                 merge_detections(output,
-                                 merged_output,
-                                 cycle=options['cycle'],
-                                 min_zone_len=options['min_zone_len'],
-                                 tolerance=options['tolerance'])
+                                 output=merged_output,
+                                 cycle=options.get('cycle', 1),
+                                 min_zone_len=options.get('min_zone_len', 1),
+                                 tolerance=options.get('tolerance', 0))
 
         if quit_after:
             quit("Finished detecting, output file: {}".format(output))
@@ -180,41 +183,57 @@ def bandmask(clip: vs.VideoNode,
         return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
 
 
-def merge_detections(input: Union[str, PathLike],
-                     output: Union[str, PathLike],
+def get_min_diff_consecutives(input: Union[str, PathLike, List[int]], cycle: int = 1, tolerance: int = 0) -> List[int]:
+    import numpy as np
+
+    def consecutive(data: Iterable[int], cycle: int, tolerance: int):
+        return np.split(data, np.where(np.diff(data) > cycle + tolerance)[0] + 1)
+
+    if isinstance(input, list):
+        return consecutive(input, cycle, tolerance)
+    else:
+        with open(input, 'r') as in_f:
+            a = np.array(in_f.read().splitlines(), dtype=np.uint)
+            return consecutive(a, cycle, tolerance)
+
+
+def merge_detections(input: Union[str, PathLike, List[int]],
+                     output: Optional[Union[str, PathLike]] = None,
                      cycle: int = 1,
                      min_zone_len: int = 1,
                      delim: str = ' ',
-                     tolerance: int = 0) -> None:
-    import numpy as np
+                     tolerance: int = 0,
+                     start_only: bool = False) -> Optional[List[int]]:
+    c = get_min_diff_consecutives(input, cycle=cycle, tolerance=tolerance)
 
-    def consecutive(data: Iterable[int], cycle: int = cycle):
-        return np.split(data, np.where(np.diff(data) > cycle + tolerance)[0] + 1)
+    zones = []
+    actual_cycle = cycle - 1
 
-    with open(input, 'r') as in_f:
-        a = np.array(in_f.read().splitlines(), dtype=np.uint)
-        c = consecutive(a, cycle=cycle)
+    if min_zone_len >= cycle:
+        min_zone = min_zone_len - 1 if min_zone_len % cycle == 0 else min_zone_len
+    else:
+        min_zone = min_zone_len - 1 if cycle % min_zone_len == 0 else min_zone_len
 
-        zones = []
-        actual_cycle = cycle - 1
+    for dtc in c:
+        if len(dtc) == 0:
+            continue
 
-        if min_zone_len >= cycle:
-            min_zone = min_zone_len - 1 if min_zone_len % cycle == 0 else min_zone_len
-        else:
-            min_zone = min_zone_len - 1 if cycle % min_zone_len == 0 else min_zone_len
+        start = int(dtc[0])
+        end = int(dtc[-1] + actual_cycle)
 
-        for dtc in c:
-            start = int(dtc[0])
-            end = int(dtc[-1] + actual_cycle)
-
-            if end - start >= min_zone and start != end:
+        if end - start >= min_zone and start != end:
+            if start_only:
+                zones.append(start)
+            else:
                 zone = "{}{delim}{}\n".format(start, end, delim=delim)
                 zones.append(zone)
 
-        if zones:
-            with open(output, 'w') as out_f:
-                out_f.writelines(zones)
-                print("Merged frames into zonefile: {}".format(output))
+    if output and zones:
+        with open(output, 'w') as out_f:
+            out_f.writelines(zones)
+            print("Merged frames into zonefile: {}".format(output))
+
+    return zones
 
 
 def banddtct(clip: vs.VideoNode,
@@ -613,6 +632,7 @@ class SceneChangeDetector(str, Enum):
             return scene_changes
         else:
             prop = "_SceneChangePrev"
+            options = dict(output=output)
 
             if self == SceneChangeDetector.WWXD:
                 prop = "Scenechange"
@@ -623,8 +643,10 @@ class SceneChangeDetector(str, Enum):
                 scd_clip = clip.scxvid.Scxvid()
             elif self == SceneChangeDetector.MVTools:
                 sup = core.mv.Super(clip)
-                bw = core.mv.Analyse(sup)
-                scd_clip = core.mv.SCDetection(clip, bw)
+                vectors = core.mv.Analyse(sup)
+                scd_clip = core.mv.SCDetection(clip, vectors)
+
+                options = options | dict(filter_consecutives=True, cycle=12, min_zone_len=12)
 
             def props_scenechange_detect(detections: Set[int]):
 
@@ -635,8 +657,6 @@ class SceneChangeDetector(str, Enum):
                     return clip
 
                 return core.std.FrameEval(clip, partial(get_scd_prop, clip=clip), prop_src=scd_clip)
-
-            options = dict(output=output)
 
             return _detect(scd_clip,
                            f"Scene changes {self}",
@@ -666,7 +686,7 @@ def run_scenechange_detect(clip: vs.VideoNode,
 
 
     The input clip is expected to be limited range.
-    It is scaled down to 270px width for scene change detection.
+    It is scaled down to 270px max width for scene change detection.
 
     :param tonemap: Tonemap the input clip using libplacebo
         The input clip is expected to be PQ, BT.2020, limited range
@@ -679,7 +699,9 @@ def run_scenechange_detect(clip: vs.VideoNode,
     """
     from .base import zresize, DynamicTonemap
 
-    clip = zresize(clip, preset=1080 / 4, kernel="point")
+    # Motion vectors work better at higher res
+    if detector != SceneChangeDetector.MVTools:
+        clip = zresize(clip, preset=1080 / 4, kernel="point")
 
     if tonemap:
         pl_opts = placebo.PlaceboTonemapOpts(source_colorspace=placebo.PlaceboColorSpace.HDR10,
