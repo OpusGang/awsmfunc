@@ -4,15 +4,16 @@ from vapoursynth import core
 import os
 import time
 from os import PathLike
+from functools import partial
+
+from enum import Enum
 from typing import Callable, Dict, List, Set, Union, Optional, Any, Iterable
 
-from functools import partial
-from vsutil import iterate, get_y
-from vsutil import plane as fplane
-from vsutil import depth as Depth
+import vsutil
 
 from .base import SUBTITLE_DEFAULT_STYLE
 from .types.misc import DetectProgressState
+from .types import placebo
 
 
 def awf_init_progress_state() -> DetectProgressState:
@@ -50,12 +51,23 @@ def awf_vs_out_updated(current: int, total: int, state: Optional[DetectProgressS
         print(progress, end="\r")
 
 
-def __detect(clip: vs.VideoNode, func: Callable[[Set[int]], vs.VideoNode], options: Dict):
+def _detect(clip: vs.VideoNode,
+            name: str,
+            func: Callable[[Set[int]], vs.VideoNode],
+            options: Optional[Dict] = None,
+            quit_after: bool = True) -> Union[None, List[int]]:
     total_frames = clip.num_frames
     detections: Set[int] = set([])
 
-    output = options['output']
-    merge = options['merge']
+    output = None
+    if 'output' in options:
+        output = options['output']
+
+    merge = False
+    if 'merge' in options:
+        merge = options['merge']
+
+    print(f"Running {name} detection...")
 
     with open(os.devnull, 'wb') as f:
         processed = func(detections)
@@ -73,19 +85,23 @@ def __detect(clip: vs.VideoNode, func: Callable[[Set[int]], vs.VideoNode], optio
     print("Detected frames: {}".format(len(detections_list)))
 
     if detections_list:
-        with open(output, 'w') as out_file:
-            for d in detections_list:
-                out_file.write(f"{d}\n")
+        if output:
+            with open(output, 'w') as out_file:
+                for d in detections_list:
+                    out_file.write(f"{d}\n")
 
-        if merge:
-            merged_output = "merged-{}".format(output)
-            merge_detections(output,
-                             merged_output,
-                             cycle=options['cycle'],
-                             min_zone_len=options['min_zone_len'],
-                             tolerance=options['tolerance'])
+            if merge:
+                merged_output = "merged-{}".format(output)
+                merge_detections(output,
+                                 merged_output,
+                                 cycle=options['cycle'],
+                                 min_zone_len=options['min_zone_len'],
+                                 tolerance=options['tolerance'])
 
-        quit("Finished detecting, output file: {}".format(output))
+        if quit_after:
+            quit("Finished detecting, output file: {}".format(output))
+        else:
+            return detections_list
 
 
 def bandmask(clip: vs.VideoNode,
@@ -122,7 +138,7 @@ def bandmask(clip: vs.VideoNode,
     hi = 65535
 
     if depth < 16:
-        clip = Depth(clip, 16)
+        clip = vsutil.depth(clip, 16)
     elif depth == 32:
         hi = 1
         if thr >= 1:
@@ -131,7 +147,7 @@ def bandmask(clip: vs.VideoNode,
     if exp is None:
         exp = dec + pix
 
-    pln = fplane(clip, plane)
+    pln = vsutil.plane(clip, plane)
 
     if not darkthr and brightthr:
         darkthr = 4096
@@ -150,8 +166,8 @@ def bandmask(clip: vs.VideoNode,
             diff = core.std.Expr([orig, c], "x y - abs").std.Binarize(thr, hi, 0)
         else:
             diff = core.std.Expr([orig, c], "x y - abs").std.Expr("x {} > x {} < thr {} 0 ?".format(blankthr, thr, hi))
-        decreased = iterate(diff, core.std.Minimum, dec)
-        return iterate(decreased, core.std.Maximum, exp)
+        decreased = vsutil.iterate(diff, core.std.Minimum, dec)
+        return vsutil.iterate(decreased, core.std.Maximum, exp)
 
     v1 = comp(pln, 6 * [0] + [left, mid, right])
     v2 = comp(pln, [left, mid, right] + 6 * [0])
@@ -229,23 +245,23 @@ def banddtct(clip: vs.VideoNode,
                raising thr.
     :param trim: If True and cycle > 1, adds a SelectEvery call.
     :param cycle: Allows setting SelectEvery(cycle=cycle, offsets=0). This can speed things up, but beware that because
-                  frames need to be decoded, this isn’t that insanely helpful.
+                  frames need to be decoded, this isn't that insanely helpful.
                   If you want to use your own SelectRangeEvery call or whatever, still set cycle, but set trim=False!
     :param merge: Whether to merge the detected frames into zones (start end) in a separate file.
     :param min_zone_len: Minimum number of consecutive frames for a zone.
     :param tolerance: Sets additional tolerance for zone detection; if detected frames are cycle + tolerance apart,
-                      they’ll be merged into a zone.
+                      they'll be merged into a zone.
     :param check_next: Whether to check the next frame with more lenient settings
                         to make sure zones are picked up properly.
     :param diff: Difference from previous frame for check_next. This is a budget scene change detection. If the next
-                 frame is too different from the previous one, it won’t use the lenient detection settings.
+                 frame is too different from the previous one, it won't use the lenient detection settings.
     :param darkthr: Threshold under which pixels will be ignored. If you want use an 8-bit value, shift it to 16-bit via
                     e.g. 16 << 8.
     :param brightthr: Threshold above which pixels will be ignored.
-    :param blankthr: Threshold under which changes will be ignored. I haven’t tested it yet, but this with a higher pix
+    :param blankthr: Threshold under which changes will be ignored. I haven't tested it yet, but this with a higher pix
                      could be useful for anime.
-    :param debug: Setting this to True will output the currently used bandmask in the input clip’s format
-                  with the current frame’s value printed in the top left corner.
+    :param debug: Setting this to True will output the currently used bandmask in the input clip's format
+                  with the current frame's value printed in the top left corner.
                   If it falls between the thresholds, the text will turn from green to red.
     :return: None
     """
@@ -274,7 +290,7 @@ def banddtct(clip: vs.VideoNode,
 
     if debug:
         clip = clip.resize.Point(format=original_format)
-        return clip.std.FrameEval(partial(debug_detect, clip=clip, hi=hi, lo=lo), clip.std.PlaneStats())
+        return core.std.FrameEval(clip, partial(debug_detect, clip=clip, hi=hi, lo=lo), clip.std.PlaneStats())
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
@@ -287,7 +303,7 @@ def banddtct(clip: vs.VideoNode,
 
     prop_src = [clip, clip_diff, next_frame]
 
-    def detect_func(detections):
+    def detect_func(detections: Set[int]):
 
         def banding_detect(n, f, clip, detections, hi, lo, diff, check_next):
             if f[0].props.PlaneStatsAverage >= lo and f[0].props.PlaneStatsAverage <= hi:
@@ -310,7 +326,7 @@ def banddtct(clip: vs.VideoNode,
                                           check_next=check_next),
                                   prop_src=prop_src)
 
-    __detect(clip, detect_func, options)
+    _detect(clip, "Banding", detect_func, options=options)
 
 
 def cambidtct(clip: vs.VideoNode,
@@ -341,7 +357,7 @@ def cambidtct(clip: vs.VideoNode,
     clip = core.akarin.Cambi(clip, **cambi_dict)
 
     if debug:
-        return clip.std.FrameEval(partial(debug_detect, clip=clip), clip.std.PlaneStats())
+        return core.std.FrameEval(clip, partial(debug_detect, clip=clip), prop_src=clip.std.PlaneStats())
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
@@ -374,23 +390,23 @@ def cambidtct(clip: vs.VideoNode,
                                           check_next=check_next),
                                   prop_src=prop_src)
 
-    __detect(clip, detect_func, options)
+    _detect(clip, "CAMBI", detect_func, options=options)
 
 
-def __detect_dirty_lines(clip: vs.VideoNode,
-                         output: Union[str, PathLike],
-                         left: Optional[Union[int, List[int]]],
-                         top: Optional[Union[int, List[int]]],
-                         right: Optional[Union[int, List[int]]],
-                         bottom: Optional[Union[int, List[int]]],
-                         thr: float,
-                         cycle: int,
-                         merge: bool = True,
-                         min_zone_len: int = 1,
-                         tolerance: int = 0) -> None:
+def detect_dirty_lines(clip: vs.VideoNode,
+                       output: Union[str, PathLike],
+                       left: Optional[Union[int, List[int]]],
+                       top: Optional[Union[int, List[int]]],
+                       right: Optional[Union[int, List[int]]],
+                       bottom: Optional[Union[int, List[int]]],
+                       thr: float,
+                       cycle: int,
+                       merge: bool = True,
+                       min_zone_len: int = 1,
+                       tolerance: int = 0) -> None:
     options = locals()
 
-    luma = get_y(clip)
+    luma = vsutil.get_y(clip)
 
     column_list = []
     if left:
@@ -440,7 +456,7 @@ def __detect_dirty_lines(clip: vs.VideoNode,
                                                prop_src=clip_diff)
         return processed
 
-    __detect(clip, detect_func, options)
+    _detect(clip, "Dirty lines", detect_func, options=options)
 
 
 def dirtdtct(clip: vs.VideoNode,
@@ -463,11 +479,11 @@ def dirtdtct(clip: vs.VideoNode,
                 like .01 for weak dirty lines, around .05 for stronger ones). Lower means more gets picked up.
     :param trim: If True and cycle > 1, adds a SelectEvery call.
     :param cycle: Allows setting SelectEvery(cycle=cycle, offsets=0). This can speed things up, but beware that because
-                  frames need to be decoded, this isn’t that insanely helpful.
+                  frames need to be decoded, this isn't that insanely helpful.
                   If you want to use your own SelectRangeEvery call or whatever, still set cycle, but set trim=False!
     :param merge: Whether to merge the detected frames into zones (start end) in a separate file.
     :param tolerance: Sets additional tolerance for zone detection; if detected frames are cycle + tolerance apart,
-                      they’ll be merged into a zone.
+                      they'll be merged into a zone.
     :return: None
     """
     if isinstance(left, int):
@@ -488,7 +504,7 @@ def dirtdtct(clip: vs.VideoNode,
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
 
-    __detect_dirty_lines(clip, output, left, top, right, bottom, thr, cycle, merge, min_zone_len, tolerance)
+    detect_dirty_lines(clip, output, left, top, right, bottom, thr, cycle, merge, min_zone_len, tolerance)
 
 
 def brdrdtct(clip: vs.VideoNode,
@@ -512,12 +528,12 @@ def brdrdtct(clip: vs.VideoNode,
         https://github.com/Irrational-Encoding-Wizardry/vapoursynth-autocrop/wiki/CropValues
     :param trim: If True and cycle > 1, adds a SelectEvery call.
     :param cycle: Allows setting SelectEvery(cycle=cycle, offsets=0). This can speed things up, but beware that because
-                  frames need to be decoded, this isn’t that insanely helpful.
+                  frames need to be decoded, this isn't that insanely helpful.
                   If you want to use your own SelectRangeEvery call or whatever, still set cycle, but set trim=False!
     :param merge: Whether to merge the detected frames into zones (start end) in a separate file.
     :param min_zone_len: Minimum number of consecutive frames for a zone.
     :param tolerance: Sets additional tolerance for zone detection; if detected frames are cycle + tolerance apart,
-                      they’ll be merged into a zone.
+                      they'll be merged into a zone.
     :return: None
     """
 
@@ -547,7 +563,144 @@ def brdrdtct(clip: vs.VideoNode,
 
         return processed
 
-    __detect(clip, detect_func, options)
+    _detect(clip, "Borders", detect_func, options=options)
+
+
+def _av_scenechange_detect(command: List[str], clip: vs.VideoNode) -> List[int]:
+    import json
+    from subprocess import PIPE, Popen
+
+    with Popen(command, stdin=PIPE, stdout=PIPE, stderr=PIPE) as proc:
+        state = awf_init_progress_state()
+        clip.output(proc.stdin, y4m=True, progress_update=partial(awf_vs_out_updated, state=state))
+
+        start = state["start_time"]
+        end = time.monotonic()
+        print("\nElapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, clip.num_frames / float(end - start)))
+
+        stdout, stderr = proc.communicate()
+        if stderr:
+            print(stderr)
+
+        result_json = json.loads(stdout.decode("utf-8"))
+        scene_changes = result_json["scene_changes"]
+
+        print(f"Scene changes detected: {len(scene_changes)}, speed: {result_json['speed']:.2f} fps")
+
+        return scene_changes
+
+
+class SceneChangeDetector(str, Enum):
+    AvScenechange = 'av-scenechange'
+    WWXD = 'wwxd'
+    SCXVID = 'scxvid'
+    MVTools = 'mvtools'
+
+    def run_detection(self,
+                      clip: vs.VideoNode,
+                      av_sc_cli: Optional[str] = None,
+                      output: Optional[Union[str, PathLike]] = None) -> List[int]:
+        if self == SceneChangeDetector.AvScenechange:
+            scenechange_cli = [av_sc_cli, "-s", "0", "--min-scenecut", "12", "-"]
+
+            scene_changes = _av_scenechange_detect(scenechange_cli, clip)
+
+            if output:
+                with open(output, 'w') as out_file:
+                    for sc in scene_changes:
+                        out_file.write(f"{sc}\n")
+
+            return scene_changes
+        else:
+            prop = "_SceneChangePrev"
+
+            if self == SceneChangeDetector.WWXD:
+                prop = "Scenechange"
+                scd_clip = clip.wwxd.WWXD()
+            elif self == SceneChangeDetector.SCXVID:
+                clip = core.resize.Spline36(clip, format=vs.YUV420P8, dither_type="error_diffusion")
+
+                scd_clip = clip.scxvid.Scxvid()
+            elif self == SceneChangeDetector.MVTools:
+                sup = core.mv.Super(clip)
+                bw = core.mv.Analyse(sup)
+                scd_clip = core.mv.SCDetection(clip, bw)
+
+            def props_scenechange_detect(detections: Set[int]):
+
+                def get_scd_prop(n: int, f: vs.VideoFrame, clip: vs.VideoNode):
+                    if prop in f.props and f.props[prop] == 1:
+                        detections.add(n)
+
+                    return clip
+
+                return core.std.FrameEval(clip, partial(get_scd_prop, clip=clip), prop_src=scd_clip)
+
+            options = dict(output=output)
+
+            return _detect(scd_clip,
+                           f"Scene changes {self}",
+                           props_scenechange_detect,
+                           options=options,
+                           quit_after=False)
+
+
+def run_scenechange_detect(clip: vs.VideoNode,
+                           detector: SceneChangeDetector = SceneChangeDetector.AvScenechange,
+                           tonemap: bool = True,
+                           brighten: bool = True,
+                           preview: bool = False,
+                           av_sc_cli: str = "av-scenechange",
+                           output: Optional[Union[str, PathLike]] = None) -> Union[List[int], vs.VideoNode]:
+    """
+    Run scene change detection using `av-scenechange`.
+
+    Dependencies:
+      - vs-placebo: https://github.com/Lypheo/vs-placebo (tonemapping)
+
+      - Detectors (chosen must be available):
+            - av-scenechange: https://github.com/rust-av/av-scenechange
+            - vapoursynth-wwxd: https://github.com/dubhater/vapoursynth-wwxd
+            - vapoursynth-scxvid: https://github.com/dubhater/vapoursynth-scxvid
+            - vapoursynth-mvtools: https://github.com/dubhater/vapoursynth-mvtools
+
+
+    The input clip is expected to be limited range.
+    It is scaled down to 270px width for scene change detection.
+
+    :param tonemap: Tonemap the input clip using libplacebo
+        The input clip is expected to be PQ, BT.2020, limited range
+    :param brighten: Brighten the clip's gamma
+    :param preview: Return the final detection clip
+    :param av_sc_cli: Path to `av-scenechange` executable
+    :param output: Output file to store the scene change frames
+
+    The output is a list of the scene change frames.
+    """
+    from .base import zresize, DynamicTonemap
+
+    clip = zresize(clip, preset=1080 / 4, kernel="point")
+
+    if tonemap:
+        pl_opts = placebo.PlaceboTonemapOpts(source_colorspace=placebo.PlaceboColorSpace.HDR10,
+                                             target_colorspace=placebo.PlaceboColorSpace.SDR,
+                                             peak_detect=True,
+                                             gamut_mode=placebo.PlaceboGamutMode.Clip,
+                                             tone_map_function=placebo.PlaceboTonemapFunction.BT2390,
+                                             tone_map_param=2.0,
+                                             tone_map_mode=placebo.PlaceboTonemapMode.Hybrid,
+                                             use_dovi=False).with_static_peak_detect()
+        clip = DynamicTonemap(clip, src_fmt=True, libplacebo=True, target_nits=203, placebo_opts=pl_opts)
+
+    clip = vsutil.depth(clip, 10)
+
+    if brighten:
+        clip = clip.std.Levels(gamma=1.50, min_in=64, max_in=940, min_out=64, max_out=940, planes=0)
+
+    if not preview:
+        return detector.run_detection(clip, av_sc_cli=av_sc_cli, output=output)
+
+    return clip
 
 
 #####################
@@ -563,4 +716,6 @@ __all__ = [
     "cambidtct",
     "dirtdtct",
     "merge_detections",
+    "run_scenechange_detect",
+    "SceneChangeDetector",
 ]

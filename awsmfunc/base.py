@@ -2139,7 +2139,7 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
     :param measurements: List to store the measurements
     """
 
-    def pq_props(n: int, f: list, maxrgb: bool, as_nits: bool, measurements: List[HdrMeasurement]):
+    def pq_props(n: int, f: list[vs.VideoFrame], maxrgb: bool, as_nits: bool, measurements: List[HdrMeasurement]):
         fout = f[0].copy()
         prop_src = f[1:]
 
