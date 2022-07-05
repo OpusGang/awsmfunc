@@ -30,6 +30,10 @@ def generate_dovi_config(clip: vs.VideoNode,
     """
 
     shots = []
+
+    if scene_changes and scene_changes[0] != 0:
+        scene_changes.insert(0, 0)
+
     for i, scene_change in enumerate(scene_changes):
         shot = {
             "start": scene_change,
