@@ -732,7 +732,8 @@ def run_scenechange_detect(clip: vs.VideoNode,
 def measure_hdr10_content_light_level(clip: vs.VideoNode,
                                       outlier_rejection: bool = True,
                                       downscale: bool = False,
-                                      hlg: bool = False) -> List[HdrMeasurement]:
+                                      hlg: bool = False,
+                                      max_percentile: Optional[float] = None) -> List[HdrMeasurement]:
     """
     Measure the clip to extract the global MaxCLL and MaxFALL brightness values.
     The input clip is expected to be PQ or HLG, BT.2020, limited range
@@ -749,6 +750,10 @@ def measure_hdr10_content_light_level(clip: vs.VideoNode,
     percentile = 100.0
     if outlier_rejection:
         percentile = 99.99
+
+    # Allow overriding frame max percentile
+    if max_percentile is not None:
+        percentile = max_percentile
 
     clip = add_hdr_measurement_props(clip,
                                      measurements=measurements,
