@@ -9,13 +9,16 @@ from .types.dovi import HdrMeasurement
 def generate_dovi_config(clip: vs.VideoNode,
                          measurements: List[HdrMeasurement],
                          scene_changes: List[int],
-                         hlg: bool = False) -> dict:
+                         hlg: bool = False,
+                         normalized: bool = False) -> dict:
     """
     Generates a Dolby Vision metadata generation config for `dovi_tool`.
 
     :param measurements: List of the measured frame brightness info
     :param scene_changes: List of the scene change frames
     :param hlg: Whether the metadata should be generated for an HLG video
+    :param normalized: Whether the measurements are already normalized to [0-1]
+         - The average is always assumed to be normalized.
 
     The output is a regular dictionary, it can be dumped to JSON.
 
@@ -49,9 +52,14 @@ def generate_dovi_config(clip: vs.VideoNode,
         measurements_for_scene = [m for m in measurements if m.frame >= shot["start"] and m.frame <= end]
         max_measurement = max(measurements_for_scene, key=lambda m: m.max)
 
-        min_pq = int(round((max_measurement.min / 65535) * 4095.0))
-        max_pq = int(round((max_measurement.max / 65535) * 4095.0))
-        avg_pq = int(round(max_measurement.avg * 4095.0))
+        if normalized:
+            min_pq = int(round((max_measurement.min / 65535) * 4095.0))
+            max_pq = int(round((max_measurement.max / 65535) * 4095.0))
+            avg_pq = int(round(max_measurement.avg * 4095.0))
+        else:
+            min_pq = int(round(max_measurement.min * 4095.0))
+            max_pq = int(round(max_measurement.max * 4095.0))
+            avg_pq = int(round(max_measurement.avg * 4095.0))
 
         shot["metadata_blocks"] = [{
             "Level1": {
