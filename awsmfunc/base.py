@@ -2117,7 +2117,9 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                               maxrgb: bool = True,
                               hlg: bool = False,
                               as_nits: bool = True,
-                              measurements: Optional[List[HdrMeasurement]] = None):
+                              measurements: Optional[List[HdrMeasurement]] = None,
+                              downscale: bool = True,
+                              percentile: float = 100.0):
     """
     Measures the brightness of the frame using PlaneStats.
     Adds the info into props, and a list if available.
@@ -2129,6 +2131,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
         - `HDRMin`: Min brightness
         - `HDRMax`: Max brightness
         - `HDRAvg`: Average brightness
+        - `HDRFALL`: Average of the frame's MaxRGB.
+            - Only available when using `percentile` < 100 and `maxrgb=True`
 
         The values are PQ code by default.
         Can be converted to nits (cd/m^2) using `as_nits`.
@@ -2137,35 +2141,77 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
     :param hlg: Whether the input clip is HLG
     :param as_nits: Set the prop to nits values instead of PQ codes
     :param measurements: List to store the measurements
+    :param downscale: Downscale input by 2x both horizontally and vertically
+    :param percentile: Compute percentile of the frame's max brightness (defaults to 100.0, actual max)
     """
+    import math
+    import numpy as np
 
-    def pq_props(n: int, f: list[vs.VideoFrame], maxrgb: bool, as_nits: bool, measurements: List[HdrMeasurement]):
+    def pq_props(n: int, f: list[vs.VideoFrame], maxrgb: bool, as_nits: bool, measurements: List[HdrMeasurement],
+                 percentile: float):
         fout = f[0].copy()
         prop_src = f[1:]
 
-        if maxrgb:
-            min_pq = max([cmp.props["pqMin"] for cmp in prop_src])
-            max_pq = max([cmp.props["pqMax"] for cmp in prop_src])
-            avg_pq = max([cmp.props["pqAverage"] for cmp in prop_src])
+        fall_prop = None
+        if math.isclose(percentile, 100.0):
+            # Using PlaneStats
+            if maxrgb:
+                min_pq = min([cmp.props["pqMin"] for cmp in prop_src])
+                max_pq = max([cmp.props["pqMax"] for cmp in prop_src])
+                avg_pq = max([cmp.props["pqAverage"] for cmp in prop_src])
+            else:
+                prop_src = prop_src[0]
+
+                min_pq = prop_src.props["pqMin"]
+                max_pq = prop_src.props["pqMax"]
+                avg_pq = prop_src.props["pqAverage"]
+
+            min_prop = min_pq / 65535.0
+            max_prop = max_pq / 65535.0
+            avg_prop = avg_pq
         else:
             prop_src = prop_src[0]
 
-            min_pq = prop_src.props["pqMin"]
-            max_pq = prop_src.props["pqMax"]
-            avg_pq = prop_src.props["pqAverage"]
+            if maxrgb:
+                r_pixels = np.asarray(prop_src[0])
+                g_pixels = np.asarray(prop_src[1])
+                b_pixels = np.asarray(prop_src[2])
 
-        min_prop = min_pq / 65535.0
-        max_prop = max_pq / 65535.0
-        avg_prop = avg_pq
+                rgb_pixels = [r_pixels, g_pixels, b_pixels]
+                minrgb_pixels = np.minimum.reduce(rgb_pixels)
+                maxrgb_pixels = np.maximum.reduce(rgb_pixels)
+
+                min_pq = np.min(minrgb_pixels)
+                max_pq = np.percentile(maxrgb_pixels, percentile)
+                avg_pq = np.mean(rgb_pixels)
+
+                fall_pq = np.mean(maxrgb_pixels)
+                fall_prop = fall_pq / 65535.0
+            else:
+                y_pixels = np.asarray(prop_src[0])
+
+                min_pq = np.min(y_pixels)
+                max_pq = np.percentile(y_pixels, percentile)
+                avg_pq = np.mean(y_pixels)
+
+            min_prop = min_pq / 65535.0
+            max_prop = max_pq / 65535.0
+            avg_prop = avg_pq / 65535.0
 
         if as_nits:
             min_prop = st2084_eotf(min_prop) * ST2084_PEAK_LUMINANCE
             max_prop = st2084_eotf(max_prop) * ST2084_PEAK_LUMINANCE
             avg_prop = st2084_eotf(avg_prop) * ST2084_PEAK_LUMINANCE
 
+            if fall_prop is not None:
+                fall_prop = st2084_eotf(fall_prop) * ST2084_PEAK_LUMINANCE
+
         fout.props["HDRMin"] = min_prop
         fout.props["HDRMax"] = max_prop
         fout.props["HDRAvg"] = avg_prop
+
+        if fall_prop is not None:
+            fout.props["HDRFALL"] = fall_prop
 
         if measurements is not None:
             measurements.append(HdrMeasurement(
@@ -2185,9 +2231,18 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
     else:
         scaled_format = vs.YUV420P16
 
+    final_w = clip.width
+    final_h = clip.height
+
+    if downscale:
+        final_w /= 2
+        final_h /= 2
+
+    percentile = np.clip(percentile, 0.0, 100.0)
+
     scaled = core.resize.Spline36(clip,
-                                  width=clip.width / 2,
-                                  height=clip.height / 2,
+                                  width=final_w,
+                                  height=final_h,
                                   range_in_s="limited",
                                   range_s="full",
                                   transfer_in_s="st2084",
@@ -2198,18 +2253,21 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                                   chromaloc_in_s="top_left",
                                   format=scaled_format)
 
-    if maxrgb:
-        r_props = core.std.PlaneStats(scaled, plane=0, prop='pq')
-        g_props = core.std.PlaneStats(scaled, plane=1, prop='pq')
-        b_props = core.std.PlaneStats(scaled, plane=2, prop='pq')
-        prop_src = [r_props, g_props, b_props]
+    if math.isclose(percentile, 100.0):
+        if maxrgb:
+            r_props = core.std.PlaneStats(scaled, plane=0, prop='pq')
+            g_props = core.std.PlaneStats(scaled, plane=1, prop='pq')
+            b_props = core.std.PlaneStats(scaled, plane=2, prop='pq')
+            prop_src = [r_props, g_props, b_props]
+        else:
+            y_props = core.std.PlaneStats(scaled, plane=0, prop='pq')
+            prop_src = [y_props]
     else:
-        y_props = core.std.PlaneStats(scaled, plane=0, prop='pq')
-        prop_src = [y_props]
+        prop_src = [scaled]
 
-    return core.std.ModifyFrame(clip,
-                                clips=[clip] + prop_src,
-                                selector=partial(pq_props, maxrgb=maxrgb, as_nits=as_nits, measurements=measurements))
+    fn_partial = partial(pq_props, maxrgb=maxrgb, as_nits=as_nits, measurements=measurements, percentile=percentile)
+
+    return core.std.ModifyFrame(clip, clips=[clip] + prop_src, selector=fn_partial)
 
 
 #####################
