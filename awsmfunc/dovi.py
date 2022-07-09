@@ -52,7 +52,7 @@ def generate_dovi_config(clip: vs.VideoNode,
         measurements_for_scene = [m for m in measurements if m.frame >= shot["start"] and m.frame <= end]
         max_measurement = max(measurements_for_scene, key=lambda m: m.max)
 
-        if normalized:
+        if not normalized:
             min_pq = int(round((max_measurement.min / 65535) * 4095.0))
             max_pq = int(round((max_measurement.max / 65535) * 4095.0))
             avg_pq = int(round(max_measurement.avg * 4095.0))
@@ -70,7 +70,11 @@ def generate_dovi_config(clip: vs.VideoNode,
         }]
         shots.append(shot)
 
-    maxcll = st2084_eotf(max(measurements, key=lambda m: m.max).max / 65535.0) * ST2084_PEAK_LUMINANCE
+    if not normalized:
+        maxcll = st2084_eotf(max(measurements, key=lambda m: m.max).max / 65535.0) * ST2084_PEAK_LUMINANCE
+    else:
+        maxcll = st2084_eotf(max(measurements, key=lambda m: m.max).max) * ST2084_PEAK_LUMINANCE
+
     maxfall = st2084_eotf(max(measurements, key=lambda m: m.avg).avg) * ST2084_PEAK_LUMINANCE
 
     shots = sorted(shots, key=lambda s: s["start"])
