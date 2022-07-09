@@ -1,4 +1,4 @@
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 
 class HdrMeasurement(NamedTuple):
@@ -11,3 +11,5 @@ class HdrMeasurement(NamedTuple):
     max: float
     """Average PQ value of the frame"""
     avg: float
+    """Frame average light level, mean of the pixels' MaxRGB"""
+    fall: Optional[float]

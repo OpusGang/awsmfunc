@@ -12,6 +12,7 @@ from typing import Callable, Dict, List, Set, Union, Optional, Any, Iterable
 import vsutil
 
 from .base import SUBTITLE_DEFAULT_STYLE
+from .types.dovi import HdrMeasurement
 from .types.misc import DetectProgressState
 from .types import placebo
 
@@ -54,8 +55,9 @@ def awf_vs_out_updated(current: int, total: int, state: Optional[DetectProgressS
 def _detect(clip: vs.VideoNode,
             name: str,
             func: Callable[[Set[int]], vs.VideoNode],
-            options: Optional[Dict] = None,
-            quit_after: bool = True) -> Optional[List[int]]:
+            options: Dict = {},
+            quit_after: bool = True,
+            print_detections: bool = True) -> Optional[List[int]]:
     total_frames = clip.num_frames
     detections: Set[int] = set([])
 
@@ -85,7 +87,9 @@ def _detect(clip: vs.VideoNode,
     start = state["start_time"]
     end = time.monotonic()
     print("\nElapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
-    print("Detected frames: {}".format(len(detections_list)))
+
+    if print_detections:
+        print("Detected frames: {}".format(len(detections_list)))
 
     if detections_list is not None:
         if output:
@@ -725,6 +729,66 @@ def run_scenechange_detect(clip: vs.VideoNode,
     return clip
 
 
+def measure_hdr10_content_light_level(clip: vs.VideoNode,
+                                      outlier_rejection: bool = True,
+                                      downscale: bool = False,
+                                      hlg: bool = False) -> List[HdrMeasurement]:
+    """
+    Measure the clip to extract the global MaxCLL and MaxFALL brightness values.
+    The input clip is expected to be PQ or HLG, BT.2020, limited range
+
+    :param outlier_rejection: Reject outlier pixels by using percentiles
+    :param kwargs: Arguments passed to `add_hdr_measurement_props`
+    """
+    import numpy as np
+
+    from .base import add_hdr_measurement_props, st2084_eotf, ST2084_PEAK_LUMINANCE
+
+    measurements: List[HdrMeasurement] = []
+
+    percentile = 100.0
+    if outlier_rejection:
+        percentile = 99.99
+
+    clip = add_hdr_measurement_props(clip,
+                                     measurements=measurements,
+                                     store_float=True,
+                                     as_nits=False,
+                                     percentile=percentile,
+                                     downscale=downscale,
+                                     hlg=hlg,
+                                     no_planestats=True)
+
+    def do_it(detections: Set[int]):
+        return clip
+
+    _detect(clip, "HDR10 content light level measurements", do_it, quit_after=False, print_detections=False)
+
+    maxcll_measurement = max(measurements, key=lambda m: m.max)
+    maxfall_measurement = max(measurements, key=lambda m: float(m.fall))
+
+    if outlier_rejection:
+        maxrgb_values = list(map(lambda m: m.max, measurements))
+        fall_values = list(map(lambda m: float(m.fall), measurements))
+
+        maxcll = np.percentile(maxrgb_values, 99.5)
+        maxfall = np.percentile(fall_values, 99.75)
+    else:
+        maxcll = maxcll_measurement.max
+        maxfall = maxfall_measurement.fall
+
+    maxcll_nits = st2084_eotf(maxcll) * ST2084_PEAK_LUMINANCE
+    maxfall_nits = st2084_eotf(maxfall) * ST2084_PEAK_LUMINANCE
+
+    print(f"\nMaxCLL: {maxcll_nits:0.2f} nits"
+          f"\n  Max brightness frame: {maxcll_measurement.frame}, PQ value: {maxcll_measurement.max}")
+    print(f"MaxFALL: {maxfall_nits:0.2f} nits"
+          f"\n  Frame: {maxfall_measurement.frame}, PQ value: {maxfall_measurement.fall}")
+    print(f"Note: Max PQ values according to {percentile}% percentile of the frame's MaxRGB values")
+
+    return measurements
+
+
 #####################
 #      Exports      #
 #####################
@@ -737,6 +801,7 @@ __all__ = [
     "brdrdtct",
     "cambidtct",
     "dirtdtct",
+    "measure_hdr10_content_light_level",
     "merge_detections",
     "run_scenechange_detect",
     "SceneChangeDetector",

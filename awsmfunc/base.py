@@ -2119,7 +2119,9 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                               as_nits: bool = True,
                               measurements: Optional[List[HdrMeasurement]] = None,
                               downscale: bool = True,
-                              percentile: float = 100.0):
+                              percentile: float = 100.0,
+                              store_float: bool = False,
+                              no_planestats: bool = False):
     """
     Measures the brightness of the frame using PlaneStats.
     Adds the info into props, and a list if available.
@@ -2133,6 +2135,7 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
         - `HDRAvg`: Average brightness
         - `HDRFALL`: Average of the frame's MaxRGB.
             - Only available when using `percentile` < 100 and `maxrgb=True`
+            - Also when using `no_planestats` with percentile at 100%
 
         The values are PQ code by default.
         Can be converted to nits (cd/m^2) using `as_nits`.
@@ -2143,17 +2146,23 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
     :param measurements: List to store the measurements
     :param downscale: Downscale input by 2x both horizontally and vertically
     :param percentile: Compute percentile of the frame's max brightness (defaults to 100.0, actual max)
+    :param store_float: If passing a list in `measurements`, whether to store the values as normalized float or int (16 bit)
+    :param no_planestats: Always use the frame pixels and numpy to measure
     """
     import math
     import numpy as np
+
+    no_numpy = math.isclose(percentile, 100.0) and not no_planestats
 
     def pq_props(n: int, f: list[vs.VideoFrame], maxrgb: bool, as_nits: bool, measurements: List[HdrMeasurement],
                  percentile: float):
         fout = f[0].copy()
         prop_src = f[1:]
 
+        fall_pq = None
         fall_prop = None
-        if math.isclose(percentile, 100.0):
+
+        if no_numpy:
             # Using PlaneStats
             if maxrgb:
                 min_pq = min([cmp.props["pqMin"] for cmp in prop_src])
@@ -2214,12 +2223,18 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
             fout.props["HDRFALL"] = fall_prop
 
         if measurements is not None:
-            measurements.append(HdrMeasurement(
-                frame=n,
-                min=min_pq,
-                max=max_pq,
-                avg=avg_pq,
-            ))
+            if store_float:
+                min_pq /= 65535.0
+                max_pq /= 65535.0
+
+                # PlaneStats avg is already normalized
+                if not no_numpy:
+                    avg_pq /= 65535.0
+                if fall_pq is not None:
+                    fall_pq /= 65535.0
+
+            measurement = HdrMeasurement(frame=n, min=min_pq, max=max_pq, avg=avg_pq, fall=fall_pq)
+            measurements.append(measurement)
 
         return fout
 
@@ -2253,7 +2268,7 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                                   chromaloc_in_s="top_left",
                                   format=scaled_format)
 
-    if math.isclose(percentile, 100.0):
+    if no_numpy:
         if maxrgb:
             r_props = core.std.PlaneStats(scaled, plane=0, prop='pq')
             g_props = core.std.PlaneStats(scaled, plane=1, prop='pq')
