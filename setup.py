@@ -13,7 +13,7 @@ setup(
     },
     install_requires=[
         'VapourSynth>=57',
-        'rekt @ git+https://github.com/OpusGang/rekt.git',
+        'vs-rekt>=1.0.0',
         'vsutil==0.7.0',
     ],
     zip_safe=False,
