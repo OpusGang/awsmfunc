@@ -926,10 +926,10 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
         1 - slow compression (Default)
         2 - uncompressed
     Usage:
-    ScreenGen(src, "Screenshots", "a")\n
-    ScreenGen(enc, "Screenshots", "b")
+    >>> ScreenGen(src, "Screenshots", "a")\n
+    >>> ScreenGen(enc, "Screenshots", "b")
     or
-    ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
+    >>> ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
     """
     from pathlib import Path
 
