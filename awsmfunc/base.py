@@ -1003,9 +1003,10 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
                 if prefix != ScreenGenPrefix.FrameNo:
                     log_str += f', frame: {num}'
 
-                print(end=log_str)
+                if callback is None:
+                    print(end=log_str)
 
-                if callback is not None:
+                elif callback is not None:
                     callback(log_str)
 
                 try:
