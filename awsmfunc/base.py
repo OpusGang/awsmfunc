@@ -926,10 +926,10 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
         2 - uncompressed
 
     Usage:
-    >>> ScreenGen(src, "Screenshots", "a")\n
-    >>> ScreenGen(enc, "Screenshots", "b")
+    ScreenGen(src, "Screenshots", "a")\n
+    ScreenGen(enc, "Screenshots", "b")
     or
-    >>> ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
+    ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
     """
     from pathlib import Path
 
@@ -1014,6 +1014,7 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
     else:
         raise ValueError('ScreenGen: No screenshots to write to disk')
 
+
 def ScreenGenGenerator(clip: Union[vs.VideoNode, List[vs.VideoNode]],
                        folder: Union[str, PathLike],
                        suffix: Optional[Union[str, List[str]]] = None,
@@ -1043,10 +1044,19 @@ def ScreenGenGenerator(clip: Union[vs.VideoNode, List[vs.VideoNode]],
         2 - uncompressed
 
     Usage:
-    >>> ScreenGen(src, "Screenshots", "a")\n
-    >>> ScreenGen(enc, "Screenshots", "b")
+    generate_src = ScreenGen(src, "Screenshots", "a")\n
+    for ss_src in generate_src:
+        print(ss_src)
+
+    generate_enc = ScreenGen(enc, "Screenshots", "b")
+    for ss_enc in generate_enc:
+        print(ss_enc)
+
     or
-    >>> ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
+
+    generate_screens = ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
+    for src_enc in generate_screens:
+        print(src_enc)
     """
     from pathlib import Path
 
