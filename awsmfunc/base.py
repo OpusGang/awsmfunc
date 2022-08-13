@@ -907,157 +907,39 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
               encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
               fpng_compression: int = 1) -> None:
     """
-    Generates screenshots from a list of frame numbers
-    clip: Clip or list of clips to generate screenshots from
-    folder: is the folder name that is created
-    suffix: str or list of str of the appended file name suffix(es).
-        - Optional, defaults to letters of the alphabet by order in the clip list
-    prefix: the unique identifier for every screenshot file generated
-        - Must match `ScreenGenPrefix` enum, or literals 'seq' or 'frame'
-    frame_numbers: the list of frames, defaults to a file named screens.txt. Either a list or a file
-    start: is the number at which the filenames start
-    encoder: plugin to use to write the PNG. Defaults to fpng if present.
-        - Must match `ScreenGenEncoder` enum.
-         - imwri: https://github.com/vapoursynth/vs-imwri
-         - fpng: https://github.com/Mikewando/vsfpng
-    fpng_compression: Compression level to use for fpng. imwri compresses by default
-        0 - fast compression
-        1 - slow compression (Default)
-        2 - uncompressed
+        Generates screenshots from a list of frame numbers
+        clip: Clip or list of clips to generate screenshots from
+        folder: is the folder name that is created
+        suffix: str or list of str of the appended file name suffix(es).
+            - Optional, defaults to letters of the alphabet by order in the clip list
+        prefix: the unique identifier for every screenshot file generated
+            - Must match `ScreenGenPrefix` enum, or literals 'seq' or 'frame'
+        frame_numbers: the list of frames, defaults to a file named screens.txt. Either a list or a file
+        start: is the number at which the filenames start
+        encoder: plugin to use to write the PNG. Defaults to fpng if present.
+            - Must match `ScreenGenEncoder` enum.
+             - imwri: https://github.com/vapoursynth/vs-imwri
+             - fpng: https://github.com/Mikewando/vsfpng
+        fpng_compression: Compression level to use for fpng. imwri compresses by default
+            0 - fast compression
+            1 - slow compression (Default)
+            2 - uncompressed
 
-    Usage:
-    ScreenGen(src, "Screenshots", "a")\n
-    ScreenGen(enc, "Screenshots", "b")
-    or
-    ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
-    """
-    from pathlib import Path
+        Usage:
+        generate_src = ScreenGen(src, "Screenshots", "a")
+        for ss_src in generate_src:
+            print(ss_src)
 
-    folder_path = Path(folder).resolve()
+        generate_enc = ScreenGen(enc, "Screenshots", "b")
+        for ss_enc in generate_enc:
+            print(ss_enc)
 
-    if isinstance(frame_numbers, str):
-        frame_num_path = Path(frame_numbers).resolve()
+        or
 
-        if frame_num_path.is_file():
-            with open(frame_num_path) as f:
-                screens = f.readlines()
-
-            # Keep value before first delim, so that we can parse default detect zones files
-            screens = [v.split(delim)[0] for v in screens]
-
-            # str to int
-            screens = [int(x.strip()) for x in screens]
-        else:
-            raise ValueError('ScreenGen: Path to frame numbers file does not exist')
-    elif isinstance(frame_numbers, list):
-        screens = frame_numbers
-    else:
-        raise TypeError('ScreenGen: frame_numbers must be a file path or a list of frame numbers')
-
-    clips = clip
-
-    if not isinstance(clip, list):
-        clips = [clip]
-
-    suffixes = suffix
-
-    if suffix is None:
-        import string
-
-        suffixes = list(string.ascii_lowercase)[:len(clips)]
-    elif not isinstance(suffix, list):
-        suffixes = [suffix]
-
-    if len(clips) != len(suffixes):
-        raise ValueError('ScreenGen: number of clips must be equal to number of suffixes')
-
-    clip_infos = [dict(clip=c, suffix=s) for (c, s) in zip(clips, suffixes)]
-
-    if screens:
-        if not folder_path.is_dir():
-            folder_path.mkdir()
-
-        encoder_final = encoder
-        has_vsfpng_plugin = HasLoadedPlugin("tools.mike.fpng")
-
-        if not has_vsfpng_plugin and encoder_final == ScreenGenEncoder.fpng:
-            encoder_final = ScreenGenEncoder.imwri
-
-        for info in clip_infos:
-            clip = info['clip']
-            suffix = info['suffix']
-
-            rgb_clip = clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion")
-
-            for i, num in enumerate(screens, start=start):
-                if prefix == ScreenGenPrefix.Sequential:
-                    filename = f'{i:02d}{suffix}.png'
-                elif prefix == ScreenGenPrefix.FrameNo:
-                    filename = f'{num}{suffix}.png'
-                else:
-                    raise ValueError('ScreenGen: invalid prefix enum value')
-
-                final_path = folder_path.joinpath(filename).resolve()
-
-                log_str = f'\rScreenGen: Writing file: {filename}'
-                if prefix != ScreenGenPrefix.FrameNo:
-                    log_str += f', frame: {num}'
-
-                print(end=log_str)
-
-                try:
-                    encoder_final.write_frame(rgb_clip, num, final_path, fpng_compression)
-                except vs.Error:
-                    new_path = folder_path.joinpath(f'%d{suffix}.png').resolve()
-                    encoder_final.write_frame(rgb_clip, num, new_path, fpng_compression)
-
-    else:
-        raise ValueError('ScreenGen: No screenshots to write to disk')
-
-
-def ScreenGenGenerator(clip: Union[vs.VideoNode, List[vs.VideoNode]],
-                       folder: Union[str, PathLike],
-                       suffix: Optional[Union[str, List[str]]] = None,
-                       prefix: Union[ScreenGenPrefix, str] = ScreenGenPrefix.Sequential,
-                       frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
-                       start: int = 1,
-                       delim: str = ' ',
-                       encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
-                       fpng_compression: int = 1) -> None:
-    """
-    Generates screenshots from a list of frame numbers
-    clip: Clip or list of clips to generate screenshots from
-    folder: is the folder name that is created
-    suffix: str or list of str of the appended file name suffix(es).
-        - Optional, defaults to letters of the alphabet by order in the clip list
-    prefix: the unique identifier for every screenshot file generated
-        - Must match `ScreenGenPrefix` enum, or literals 'seq' or 'frame'
-    frame_numbers: the list of frames, defaults to a file named screens.txt. Either a list or a file
-    start: is the number at which the filenames start
-    encoder: plugin to use to write the PNG. Defaults to fpng if present.
-        - Must match `ScreenGenEncoder` enum.
-         - imwri: https://github.com/vapoursynth/vs-imwri
-         - fpng: https://github.com/Mikewando/vsfpng
-    fpng_compression: Compression level to use for fpng. imwri compresses by default
-        0 - fast compression
-        1 - slow compression (Default)
-        2 - uncompressed
-
-    Usage:
-    generate_src = ScreenGen(src, "Screenshots", "a")
-    for ss_src in generate_src:
-        print(ss_src)
-
-    generate_enc = ScreenGen(enc, "Screenshots", "b")
-    for ss_enc in generate_enc:
-        print(ss_enc)
-
-    or
-
-    generate_screens = ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
-    for src_enc in generate_screens:
-        print(src_enc)
-    """
+        generate_screens = ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
+        for src_enc in generate_screens:
+            print(src_enc)
+        """
     from pathlib import Path
 
     folder_path = Path(folder).resolve()
@@ -2446,7 +2328,6 @@ __all__ = [
     "ReplaceFrames",
     "RescaleCheck",
     "ScreenGen",
-    "ScreenGenGenerator",
     "ScreenGenPrefix",
     "ScreenGenEncoder",
     "SelectRangeEvery",
