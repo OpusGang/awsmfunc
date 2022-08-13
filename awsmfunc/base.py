@@ -1044,7 +1044,7 @@ def ScreenGenGenerator(clip: Union[vs.VideoNode, List[vs.VideoNode]],
         2 - uncompressed
 
     Usage:
-    generate_src = ScreenGen(src, "Screenshots", "a")\n
+    generate_src = ScreenGen(src, "Screenshots", "a")
     for ss_src in generate_src:
         print(ss_src)
 
