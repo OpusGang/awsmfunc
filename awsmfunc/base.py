@@ -905,7 +905,8 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
               start: int = 1,
               delim: str = ' ',
               encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
-              fpng_compression: int = 1) -> None:
+              fpng_compression: int = 1,
+              callback=None) -> None:
     """
     Generates screenshots from a list of frame numbers
     clip: Clip or list of clips to generate screenshots from
@@ -924,7 +925,6 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
         0 - fast compression
         1 - slow compression (Default)
         2 - uncompressed
-
     Usage:
     >>> ScreenGen(src, "Screenshots", "a")\n
     >>> ScreenGen(enc, "Screenshots", "b")
@@ -1003,7 +1003,11 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
                 if prefix != ScreenGenPrefix.FrameNo:
                     log_str += f', frame: {num}'
 
-                print(end=log_str)
+                if callback is None:
+                    print(end=log_str)
+
+                elif callback is not None:
+                    callback(log_str)
 
                 try:
                     encoder_final.write_frame(rgb_clip, num, final_path, fpng_compression)
