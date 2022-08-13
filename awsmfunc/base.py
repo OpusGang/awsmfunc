@@ -906,25 +906,28 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
               delim: str = ' ',
               encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
               fpng_compression: int = 1,
-              callback=None) -> None:
+              callback: Optional[Callable[[str]]] = None) -> None:
     """
     Generates screenshots from a list of frame numbers
-    clip: Clip or list of clips to generate screenshots from
-    folder: is the folder name that is created
-    suffix: str or list of str of the appended file name suffix(es).
-        - Optional, defaults to letters of the alphabet by order in the clip list
-    prefix: the unique identifier for every screenshot file generated
-        - Must match `ScreenGenPrefix` enum, or literals 'seq' or 'frame'
-    frame_numbers: the list of frames, defaults to a file named screens.txt. Either a list or a file
-    start: is the number at which the filenames start
-    encoder: plugin to use to write the PNG. Defaults to fpng if present.
-        - Must match `ScreenGenEncoder` enum.
-         - imwri: https://github.com/vapoursynth/vs-imwri
-         - fpng: https://github.com/Mikewando/vsfpng
-    fpng_compression: Compression level to use for fpng. imwri compresses by default
+
+    :param clip: Clip or list of clips to generate screenshots from
+    :param folder: is the folder name that is created
+    :param suffix: str or list of str of the appended file name suffix(es).
+        Optional, defaults to letters of the alphabet by order in the clip list
+    :param prefix: the unique identifier for every screenshot file generated
+        Must match `ScreenGenPrefix` enum, or literals 'seq' or 'frame'
+    :param frame_numbers: the list of frames, defaults to a file named screens.txt. Either a list or a file
+    :param start: is the number at which the filenames start
+    :param encoder: plugin to use to write the PNG. Defaults to fpng if present.
+        Must match `ScreenGenEncoder` enum.
+          - imwri: https://github.com/vapoursynth/vs-imwri
+          - fpng: https://github.com/Mikewando/vsfpng
+    :param fpng_compression: Compression level to use for fpng. imwri compresses by default
         0 - fast compression
         1 - slow compression (Default)
         2 - uncompressed
+    :param callback: Log callback instead of printing
+
     Usage:
     >>> ScreenGen(src, "Screenshots", "a")\n
     >>> ScreenGen(enc, "Screenshots", "b")
@@ -1003,11 +1006,10 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
                 if prefix != ScreenGenPrefix.FrameNo:
                     log_str += f', frame: {num}'
 
-                if callback is None:
-                    print(end=log_str)
-
-                elif callback is not None:
+                if callable(callback):
                     callback(log_str)
+                else:
+                    print(end=log_str)
 
                 try:
                     encoder_final.write_frame(rgb_clip, num, final_path, fpng_compression)
