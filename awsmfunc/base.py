@@ -906,7 +906,7 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
               delim: str = ' ',
               encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
               fpng_compression: int = 1,
-              callback: Optional[Callable[[str]]] = None) -> None:
+              callback: Optional[Callable[[str], None]] = None) -> None:
     """
     Generates screenshots from a list of frame numbers
 
