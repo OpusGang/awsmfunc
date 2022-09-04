@@ -50,6 +50,10 @@ def generate_dovi_config(clip: vs.VideoNode,
         shot["duration"] = end - shot["start"] + 1
 
         measurements_for_scene = [m for m in measurements if m.frame >= shot["start"] and m.frame <= end]
+
+        if not measurements_for_scene:
+            continue
+
         max_measurement = max(measurements_for_scene, key=lambda m: m.max)
 
         if not normalized:

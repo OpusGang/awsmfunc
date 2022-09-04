@@ -12,18 +12,12 @@ from vsutil import get_depth, split, join, scale_value
 from vsutil import depth as vsuDepth
 from rekt import rektlvls
 
+from .types.misc import st2084_eotf, st2084_inverse_eotf, ST2084_PEAK_LUMINANCE
 from .types.dovi import HdrMeasurement
 from .types.placebo import PlaceboTonemapOpts
 
 SUBTITLE_DEFAULT_STYLE: str = ("sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
                                "0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1")
-
-ST2084_PEAK_LUMINANCE = 10000
-ST2084_M1 = 2610.0 / 16384.0
-ST2084_M2 = (2523.0 / 4096.0) * 128.0
-ST2084_C1 = 3424.0 / 4096.0
-ST2084_C2 = (2413.0 / 4096.0) * 32.0
-ST2084_C3 = (2392.0 / 4096.0) * 32.0
 
 
 def Depth(clip: vs.VideoNode, bits: int, **kwargs) -> vs.VideoNode:
@@ -2052,24 +2046,6 @@ def RandomFrameNumbers(clip: vs.VideoNode,
             txt.writelines(found_frames_lines)
 
     return found_frames
-
-
-def st2084_eotf(x: float) -> float:
-    y = float(0.0)
-    if (x > 0.0):
-        xpow = math.pow(x, float(1.0) / ST2084_M2)
-        num = max(xpow - ST2084_C1, float(0.0))
-        den = max(ST2084_C2 - ST2084_C3 * xpow, float('-inf'))
-        y = float(math.pow(num / den, float(1.0) / ST2084_M1))
-
-    return y
-
-
-def st2084_inverse_eotf(x: float) -> float:
-    y = x / ST2084_PEAK_LUMINANCE
-
-    return math.pow((ST2084_C1 + (ST2084_C2 * math.pow(y, ST2084_M1))) / (1 + (ST2084_C3 * math.pow(y, ST2084_M1))),
-                    ST2084_M2)
 
 
 def HasLoadedPlugin(identifier: str) -> bool:
