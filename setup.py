@@ -14,7 +14,7 @@ setup(
     install_requires=[
         'VapourSynth>=57',
         'vs-rekt>=1.0.0',
-        'vsutil==0.7.0',
+        'vsutil>=0.7.0',
     ],
     zip_safe=False,
     python_requires='>=3.8',
