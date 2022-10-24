@@ -15,6 +15,7 @@ from rekt import rektlvls
 from .types.misc import st2084_eotf, st2084_inverse_eotf, ST2084_PEAK_LUMINANCE
 from .types.dovi import HdrMeasurement
 from .types.placebo import PlaceboTonemapOpts
+from .types.vapoursynth import Matrix
 
 SUBTITLE_DEFAULT_STYLE: str = ("sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
                                "0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1")
@@ -896,6 +897,7 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
               suffix: Optional[Union[str, List[str]]] = None,
               prefix: Union[ScreenGenPrefix, str] = ScreenGenPrefix.Sequential,
               frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
+              matrix: Union[Matrix, int] = Matrix.BT709,
               start: int = 1,
               delim: str = ' ',
               encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
@@ -912,6 +914,7 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
         Must match `ScreenGenPrefix` enum, or literals 'seq' or 'frame'
     :param frame_numbers: the list of frames, defaults to a file named screens.txt. Either a list or a file
     :param start: is the number at which the filenames start
+    :param matrix: matrix assigned for RGB conversion
     :param encoder: plugin to use to write the PNG. Defaults to fpng if present.
         Must match `ScreenGenEncoder` enum.
           - imwri: https://github.com/vapoursynth/vs-imwri
@@ -968,6 +971,9 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
     if len(clips) != len(suffixes):
         raise ValueError('ScreenGen: number of clips must be equal to number of suffixes')
 
+    if not isinstance(matrix, int):
+        raise ValueError('ScreenGen: matrix must be integer or equivalent enum')
+    
     clip_infos = [dict(clip=c, suffix=s) for (c, s) in zip(clips, suffixes)]
 
     if screens:
@@ -983,8 +989,12 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
         for info in clip_infos:
             clip = info['clip']
             suffix = info['suffix']
-
-            rgb_clip = clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion")
+            
+            if clip.format.color_family != vs.RGB:
+                clip = clip.std.SetFrameProp(prop='_Matrix', intval=matrix)
+            
+            rgb_clip = clip.resize.Spline36(
+                format=vs.RGB24, dither_type="error_diffusion")
 
             for i, num in enumerate(screens, start=start):
                 if prefix == ScreenGenPrefix.Sequential:
