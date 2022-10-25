@@ -32,3 +32,21 @@ def st2084_inverse_eotf(x: float) -> float:
 
     return math.pow((ST2084_C1 + (ST2084_C2 * math.pow(y, ST2084_M1))) / (1 + (ST2084_C3 * math.pow(y, ST2084_M1))),
                     ST2084_M2)
+
+
+class Matrix(IntEnum):
+    RGB = 0
+    GBR = RGB
+    BT709 = 1
+    UNKNOWN = 2
+    FCC = 4
+    BT470BG = 5
+    BT601 = BT470BG
+    SMPTE170M = 6
+    SMPTE240M = 7
+    BT2020NC = 9
+    BT2020C = 10
+    SMPTE2085 = 11
+    CHROMA_DERIVED_NC = 12
+    CHROMA_DERIVED_C = 13
+    ICTCP = 14

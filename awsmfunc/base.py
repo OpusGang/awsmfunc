@@ -11,9 +11,8 @@ from typing import Callable, Dict, List, Union, Optional, Any
 from vsutil import get_depth, split, join, scale_value
 from vsutil import depth as vsuDepth
 from rekt import rektlvls
-from vstools import Matrix
 
-from .types.misc import st2084_eotf, st2084_inverse_eotf, ST2084_PEAK_LUMINANCE
+from .types.misc import st2084_eotf, st2084_inverse_eotf, ST2084_PEAK_LUMINANCE, Matrix
 from .types.dovi import HdrMeasurement
 from .types.placebo import PlaceboTonemapOpts
 
