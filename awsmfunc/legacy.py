@@ -1,13 +1,13 @@
 from functools import partial
+from typing import List, Optional, Union
+
 import vapoursynth as vs
 from vapoursynth import core
+from vsutil import plane, scale_value
+
+from rekt import rekt_fast, rektlvls
 
 from .base import Depth
-
-from typing import List, Union, Optional
-
-from rekt import rektlvls, rekt_fast
-from vsutil import scale_value, plane
 
 
 def LumaMaskMerge(clipa: vs.VideoNode,
@@ -127,20 +127,20 @@ def autogma(clip: vs.VideoNode, adj: float = 1.3, thr: float = 0.40) -> vs.Video
     luma = core.std.ShufflePlanes(clip, 0, vs.GRAY)
     s = luma.std.PlaneStats()
 
-    def hilo(n: int, f: vs.VideoFrame, clip: vs.VideoNode, adj: float, thr: int) -> vs.VideoNode:
+    def hilo(_n: int, f: vs.VideoFrame, clip: vs.VideoNode, adj: float, thr: int) -> vs.VideoNode:
         g = core.std.Levels(clip, gamma=adj)
 
         if f.props.PlaneStatsAverage > thr:
-            return g.std.Invert().sub.Subtitle("Current average: {}".format(str(f.props.PlaneStatsAverage)))
-        else:
-            return g.sub.Subtitle("Current average: {}".format(str(f.props.PlaneStatsAverage)))
+            return g.std.Invert().sub.Subtitle(f"Current average: {str(f.props.PlaneStatsAverage)}")
+
+        return g.sub.Subtitle(f"Current average: {str(f.props.PlaneStatsAverage)}")
 
     prc = core.std.FrameEval(luma, partial(hilo, clip=luma, adj=adj, thr=thr), prop_src=s)
 
     if clip.format.color_family == vs.YUV:
         return core.std.ShufflePlanes([prc, clip], [0, 1, 2], vs.YUV)
-    else:
-        return prc
+
+    return prc
 
 
 def FixColumnBrightnessProtect2(clip: vs.VideoNode, column: int, adj_val: int = 0, prot_val: int = 20) -> vs.VideoNode:

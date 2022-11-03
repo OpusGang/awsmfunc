@@ -1,8 +1,8 @@
-import vapoursynth as vs
-
 from typing import List
 
-from .base import st2084_eotf, ST2084_PEAK_LUMINANCE
+import vapoursynth as vs
+
+from .base import ST2084_PEAK_LUMINANCE, st2084_eotf
 from .types.dovi import HdrMeasurement
 
 

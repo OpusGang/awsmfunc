@@ -1,20 +1,18 @@
-import vapoursynth as vs
-from vapoursynth import core
-
 import os
 import time
-from os import PathLike
-from functools import partial
-
 from enum import Enum
-from typing import Callable, Dict, List, Set, Union, Optional, Any, Iterable
+from functools import partial
+from os import PathLike
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Union
 
+import vapoursynth as vs
 import vsutil
+from vapoursynth import core
 
 from .base import SUBTITLE_DEFAULT_STYLE
+from .types import placebo
 from .types.dovi import HdrMeasurement
 from .types.misc import DetectProgressState
-from .types import placebo
 
 
 def awf_init_progress_state() -> DetectProgressState:
@@ -55,11 +53,14 @@ def awf_vs_out_updated(current: int, total: int, state: Optional[DetectProgressS
 def _detect(clip: vs.VideoNode,
             name: str,
             func: Callable[[Set[int]], vs.VideoNode],
-            options: Dict = {},
+            options: Optional[Dict] = None,
             quit_after: bool = True,
             print_detections: bool = True) -> Optional[List[int]]:
     total_frames = clip.num_frames
     detections: Set[int] = set([])
+
+    if options is None:
+        options = {}
 
     output = options.get('output', None)
     merge = options.get('merge', False)
@@ -86,10 +87,10 @@ def _detect(clip: vs.VideoNode,
 
     start = state["start_time"]
     end = time.monotonic()
-    print("\nElapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, total_frames / float(end - start)))
+    print(f"\nElapsed: {end - start:0.2f} seconds ({total_frames / float(end - start):0.2f} fps)")
 
     if print_detections:
-        print("Detected frames: {}".format(len(detections_list)))
+        print(f"Detected frames: {detections_list}")
 
     if detections_list is not None:
         if output:
@@ -98,7 +99,7 @@ def _detect(clip: vs.VideoNode,
                     out_file.write(f"{d}\n")
 
             if merge:
-                merged_output = "merged-{}".format(output)
+                merged_output = f"merged-{output}"
                 merge_detections(output,
                                  output=merged_output,
                                  cycle=options.get('cycle', 1),
@@ -106,9 +107,9 @@ def _detect(clip: vs.VideoNode,
                                  tolerance=options.get('tolerance', 0))
 
         if quit_after:
-            quit("Finished detecting, output file: {}".format(output))
-        else:
-            return detections_list
+            quit(f"Finished detecting, output file: {output}")
+
+        return detections_list
 
 
 def bandmask(clip: vs.VideoNode,
@@ -172,7 +173,7 @@ def bandmask(clip: vs.VideoNode,
         if not blankthr:
             diff = core.std.Expr([orig, c], "x y - abs").std.Binarize(thr, hi, 0)
         else:
-            diff = core.std.Expr([orig, c], "x y - abs").std.Expr("x {} > x {} < thr {} 0 ?".format(blankthr, thr, hi))
+            diff = core.std.Expr([orig, c], "x y - abs").std.Expr(f"x {blankthr} > x {thr} < thr {hi} 0 ?")
         decreased = vsutil.iterate(diff, core.std.Minimum, dec)
         return vsutil.iterate(decreased, core.std.Maximum, exp)
 
@@ -182,33 +183,35 @@ def bandmask(clip: vs.VideoNode,
     h2 = comp(pln, 2 * [0] + [left] + 2 * [0] + [mid] + 2 * [0] + [right])
 
     if darkthr:
-        return core.std.Expr([v1, v2, h1, h2, pln], "b {} > b {} < and x y + z + a + 0 ?".format(darkthr, brightthr))
-    else:
-        return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
+        return core.std.Expr([v1, v2, h1, h2, pln], f"b {darkthr} > b {brightthr} < and x y + z + a + 0 ?")
+
+    return core.std.Expr([v1, v2, h1, h2], "x y + z + a +")
 
 
-def get_min_diff_consecutives(input: Union[str, PathLike, List[int]], cycle: int = 1, tolerance: int = 0) -> List[int]:
+def get_min_diff_consecutives(input_arg: Union[str, PathLike, List[int]],
+                              cycle: int = 1,
+                              tolerance: int = 0) -> List[int]:
     import numpy as np
 
     def consecutive(data: Iterable[int], cycle: int, tolerance: int):
         return np.split(data, np.where(np.diff(data) > cycle + tolerance)[0] + 1)
 
-    if isinstance(input, list):
-        return consecutive(input, cycle, tolerance)
-    else:
-        with open(input, 'r') as in_f:
-            a = np.array(in_f.read().splitlines(), dtype=np.uint)
-            return consecutive(a, cycle, tolerance)
+    if isinstance(input_arg, list):
+        return consecutive(input_arg, cycle, tolerance)
+
+    with open(input_arg, 'r') as in_f:
+        a = np.array(in_f.read().splitlines(), dtype=np.uint)
+        return consecutive(a, cycle, tolerance)
 
 
-def merge_detections(input: Union[str, PathLike, List[int]],
+def merge_detections(input_arg: Union[str, PathLike, List[int]],
                      output: Optional[Union[str, PathLike]] = None,
                      cycle: int = 1,
                      min_zone_len: int = 1,
                      delim: str = ' ',
                      tolerance: int = 0,
                      start_only: bool = False) -> Optional[List[int]]:
-    c = get_min_diff_consecutives(input, cycle=cycle, tolerance=tolerance)
+    c = get_min_diff_consecutives(input_arg, cycle=cycle, tolerance=tolerance)
 
     zones = []
     actual_cycle = cycle - 1
@@ -229,33 +232,34 @@ def merge_detections(input: Union[str, PathLike, List[int]],
             if start_only:
                 zones.append(start)
             else:
-                zone = "{}{delim}{}\n".format(start, end, delim=delim)
+                zone = f"{start}{delim}{end}\n"
                 zones.append(zone)
 
     if output and zones:
         with open(output, 'w') as out_f:
             out_f.writelines(zones)
-            print("Merged frames into zonefile: {}".format(output))
+            print(f"Merged frames into zonefile: {output}")
 
     return zones
 
 
-def banddtct(clip: vs.VideoNode,
-             output: Union[str, PathLike] = "banding-frames.txt",
-             thr: int = 150,
-             hi: float = 0.90,
-             lo: float = 0.10,
-             trim: bool = False,
-             cycle: int = 1,
-             merge: bool = True,
-             min_zone_len: int = 1,
-             tolerance: int = 0,
-             check_next: bool = True,
-             diff: float = 0.10,
-             darkthr: int = 5632,
-             brightthr: int = 60160,
-             blankthr: Optional[int] = None,
-             debug: bool = False) -> None:
+def banddtct(
+        clip: vs.VideoNode,
+        output: Union[str, PathLike] = "banding-frames.txt",  # pylint: disable=unused-argument
+        thr: int = 150,
+        hi: float = 0.90,
+        lo: float = 0.10,
+        trim: bool = False,
+        cycle: int = 1,
+        merge: bool = True,  # pylint: disable=unused-argument
+        min_zone_len: int = 1,  # pylint: disable=unused-argument
+        tolerance: int = 0,  # pylint: disable=unused-argument
+        check_next: bool = True,
+        diff: float = 0.10,
+        darkthr: int = 5632,
+        brightthr: int = 60160,
+        blankthr: Optional[int] = None,
+        debug: bool = False) -> None:
     """
     :param clip: Input clip cropped to disclude black bars.  Can resize beforehand as an easy speed-up.
     :param output: Output text file.
@@ -291,11 +295,11 @@ def banddtct(clip: vs.VideoNode,
 
     options = locals()
 
-    def debug_detect(n, f, clip, hi, lo):
+    def debug_detect(_n, f, clip, hi, lo):
         if f.props.PlaneStatsAverage >= lo and f.props.PlaneStatsAverage <= hi:
             return clip.sub.Subtitle(f"{f.props.PlaneStatsAverage}\nDetected banding!", style=SUBTITLE_DEFAULT_STYLE)
-        else:
-            return clip.sub.Subtitle(f.props.PlaneStatsAverage, style=SUBTITLE_DEFAULT_STYLE)
+
+        return clip.sub.Subtitle(f.props.PlaneStatsAverage, style=SUBTITLE_DEFAULT_STYLE)
 
     original_format = clip.format
     clip = bandmask(clip,
@@ -352,27 +356,28 @@ def banddtct(clip: vs.VideoNode,
     _detect(clip, "Banding", detect_func, options=options)
 
 
-def cambidtct(clip: vs.VideoNode,
-              output: Union[str, PathLike] = "banding-frames.txt",
-              thr: float = 5.0,
-              thr_next: float = 4.5,
-              cambi_args: Union[None, dict] = None,
-              trim: bool = False,
-              cycle: int = 1,
-              merge: bool = True,
-              min_zone_len: int = 1,
-              tolerance: int = 0,
-              check_next: bool = True,
-              diff: float = 0.10,
-              debug: bool = False) -> None:
+def cambidtct(
+        clip: vs.VideoNode,
+        output: Union[str, PathLike] = "banding-frames.txt",  # pylint: disable=unused-argument
+        thr: float = 5.0,
+        thr_next: float = 4.5,
+        cambi_args: Union[None, dict] = None,
+        trim: bool = False,
+        cycle: int = 1,
+        merge: bool = True,  # pylint: disable=unused-argument
+        min_zone_len: int = 1,  # pylint: disable=unused-argument
+        tolerance: int = 0,  # pylint: disable=unused-argument
+        check_next: bool = True,
+        diff: float = 0.10,
+        debug: bool = False) -> None:
 
     options = locals()
 
-    def debug_detect(n, f, clip):
+    def debug_detect(_n, f, clip):
         if f.props['CAMBI'] >= thr:
             return clip.sub.Subtitle(f"{f.props['CAMBI']}\nDetected banding!", style=SUBTITLE_DEFAULT_STYLE)
-        else:
-            return clip.sub.Subtitle(f.props['CAMBI'], style=SUBTITLE_DEFAULT_STYLE)
+
+        return clip.sub.Subtitle(f.props['CAMBI'], style=SUBTITLE_DEFAULT_STYLE)
 
     cambi_dict: Dict[str, Any] = dict(topk=0.1, tvi_threshold=0.012)
     if cambi_args is not None:
@@ -416,17 +421,18 @@ def cambidtct(clip: vs.VideoNode,
     _detect(clip, "CAMBI", detect_func, options=options)
 
 
-def detect_dirty_lines(clip: vs.VideoNode,
-                       output: Union[str, PathLike],
-                       left: Optional[Union[int, List[int]]],
-                       top: Optional[Union[int, List[int]]],
-                       right: Optional[Union[int, List[int]]],
-                       bottom: Optional[Union[int, List[int]]],
-                       thr: float,
-                       cycle: int,
-                       merge: bool = True,
-                       min_zone_len: int = 1,
-                       tolerance: int = 0) -> None:
+def detect_dirty_lines(
+        clip: vs.VideoNode,
+        output: Union[str, PathLike],  # pylint: disable=unused-argument
+        left: Optional[Union[int, List[int]]],
+        top: Optional[Union[int, List[int]]],
+        right: Optional[Union[int, List[int]]],
+        bottom: Optional[Union[int, List[int]]],
+        thr: float,
+        cycle: int,
+        merge: bool = True,  # pylint: disable=unused-argument
+        min_zone_len: int = 1,  # pylint: disable=unused-argument
+        tolerance: int = 0) -> None:  # pylint: disable=unused-argument
     options = locals()
 
     luma = vsutil.get_y(clip)
@@ -452,7 +458,7 @@ def detect_dirty_lines(clip: vs.VideoNode,
                     clip_b = luma.std.Crop(top=num + 1, bottom=luma.height - num - 2)
                 else:
                     clip_b = luma.std.Crop(top=num - 1, bottom=1)
-            elif ori == "column" or ori == "col":
+            elif ori in ("column", "col"):
                 clip_a = luma.std.Crop(left=num, right=luma.width - num - 1)
                 if num + 1 < luma.width:
                     clip_b = luma.std.Crop(left=num + 1, right=luma.width - num - 2)
@@ -516,13 +522,13 @@ def dirtdtct(clip: vs.VideoNode,
     if isinstance(right, int):
         right = [clip.width - right - 1]
     elif isinstance(right, list):
-        for _ in range(len(right)):
-            right[_] = clip.width - right[_] - 1
+        for (i, _) in enumerate(right):
+            right[i] = clip.width - right[i] - 1
     if isinstance(bottom, int):
         bottom = [clip.height - bottom - 1]
     elif isinstance(bottom, list):
-        for _ in range(len(bottom)):
-            bottom[_] = clip.height - bottom[_] - 1
+        for (i, _) in enumerate(bottom):
+            bottom[i] = clip.height - bottom[i] - 1
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
@@ -530,24 +536,25 @@ def dirtdtct(clip: vs.VideoNode,
     detect_dirty_lines(clip, output, left, top, right, bottom, thr, cycle, merge, min_zone_len, tolerance)
 
 
-def brdrdtct(clip: vs.VideoNode,
-             output: Union[str, PathLike] = "bordered-frames.txt",
-             range: int = 4,
-             left: int = 0,
-             right: int = 0,
-             top: int = 0,
-             bottom: int = 0,
-             color: List[int] = [0, 123, 123],
-             color_second: List[int] = [21, 133, 133],
-             trim: bool = False,
-             cycle: int = 1,
-             merge: bool = True,
-             min_zone_len: int = 1,
-             tolerance: int = 0) -> None:
+def brdrdtct(
+        clip: vs.VideoNode,
+        output: Union[str, PathLike] = "bordered-frames.txt",  # pylint: disable=unused-argument
+        ac_range: int = 4,
+        left: int = 0,
+        right: int = 0,
+        top: int = 0,
+        bottom: int = 0,
+        color: Optional[List[int]] = None,
+        color_second: Optional[List[int]] = None,
+        trim: bool = False,
+        cycle: int = 1,
+        merge: bool = True,  # pylint: disable=unused-argument
+        min_zone_len: int = 1,  # pylint: disable=unused-argument
+        tolerance: int = 0) -> None:  # pylint: disable=unused-argument
     """
     :param clip: Input clip cropped to disclude black bars.
     :param output: Output text file.
-    :param range, left, right, top, bottom, color, color_second:
+    :param ac_range, left, right, top, bottom, color, color_second:
         https://github.com/Irrational-Encoding-Wizardry/vapoursynth-autocrop/wiki/CropValues
     :param trim: If True and cycle > 1, adds a SelectEvery call.
     :param cycle: Allows setting SelectEvery(cycle=cycle, offsets=0). This can speed things up, but beware that because
@@ -560,12 +567,17 @@ def brdrdtct(clip: vs.VideoNode,
     :return: None
     """
 
+    if color is None:
+        color = [0, 123, 123]
+    if color_second is None:
+        color_second = [21, 133, 133]
+
     options = locals()
 
     if trim and cycle > 1:
         clip = clip.std.SelectEvery(cycle=cycle, offsets=0)
 
-    clip = clip.acrop.CropValues(range=range,
+    clip = clip.acrop.CropValues(range=ac_range,
                                  left=left,
                                  right=right,
                                  top=top,
@@ -599,7 +611,7 @@ def _av_scenechange_detect(command: List[str], clip: vs.VideoNode) -> List[int]:
 
         start = state["start_time"]
         end = time.monotonic()
-        print("\nElapsed: {:0.2f} seconds ({:0.2f} fps)".format(end - start, clip.num_frames / float(end - start)))
+        print(f"\nElapsed: {end - start:0.2f} seconds ({clip.num_frames / float(end - start):0.2f} fps)")
 
         stdout, stderr = proc.communicate()
         if stderr:
@@ -634,39 +646,35 @@ class SceneChangeDetector(str, Enum):
                         out_file.write(f"{sc}\n")
 
             return scene_changes
-        else:
-            prop = "_SceneChangePrev"
-            options = dict(output=output)
 
-            if self == SceneChangeDetector.WWXD:
-                prop = "Scenechange"
-                scd_clip = clip.wwxd.WWXD()
-            elif self == SceneChangeDetector.SCXVID:
-                clip = core.resize.Spline36(clip, format=vs.YUV420P8, dither_type="error_diffusion")
+        prop = "_SceneChangePrev"
+        options = dict(output=output)
 
-                scd_clip = clip.scxvid.Scxvid()
-            elif self == SceneChangeDetector.MVTools:
-                sup = core.mv.Super(clip)
-                vectors = core.mv.Analyse(sup)
-                scd_clip = core.mv.SCDetection(clip, vectors)
+        if self == SceneChangeDetector.WWXD:
+            prop = "Scenechange"
+            scd_clip = clip.wwxd.WWXD()
+        elif self == SceneChangeDetector.SCXVID:
+            clip = core.resize.Spline36(clip, format=vs.YUV420P8, dither_type="error_diffusion")
 
-                options = options | dict(filter_consecutives=True, cycle=12, min_zone_len=12)
+            scd_clip = clip.scxvid.Scxvid()
+        elif self == SceneChangeDetector.MVTools:
+            sup = core.mv.Super(clip)
+            vectors = core.mv.Analyse(sup)
+            scd_clip = core.mv.SCDetection(clip, vectors)
 
-            def props_scenechange_detect(detections: Set[int]):
+            options = options | dict(filter_consecutives=True, cycle=12, min_zone_len=12)
 
-                def get_scd_prop(n: int, f: vs.VideoFrame, clip: vs.VideoNode):
-                    if prop in f.props and f.props[prop] == 1:
-                        detections.add(n)
+        def props_scenechange_detect(detections: Set[int]):
 
-                    return clip
+            def get_scd_prop(n: int, f: vs.VideoFrame, clip: vs.VideoNode):
+                if prop in f.props and f.props[prop] == 1:
+                    detections.add(n)
 
-                return core.std.FrameEval(clip, partial(get_scd_prop, clip=clip), prop_src=scd_clip)
+                return clip
 
-            return _detect(scd_clip,
-                           f"Scene changes {self}",
-                           props_scenechange_detect,
-                           options=options,
-                           quit_after=False)
+            return core.std.FrameEval(clip, partial(get_scd_prop, clip=clip), prop_src=scd_clip)
+
+        return _detect(scd_clip, f"Scene changes {self}", props_scenechange_detect, options=options, quit_after=False)
 
 
 def run_scenechange_detect(clip: vs.VideoNode,
@@ -701,7 +709,7 @@ def run_scenechange_detect(clip: vs.VideoNode,
 
     The output is a list of the scene change frames.
     """
-    from .base import zresize, DynamicTonemap
+    from .base import DynamicTonemap, zresize
 
     # Motion vectors work better at higher res
     if detector != SceneChangeDetector.MVTools:
@@ -743,7 +751,7 @@ def measure_hdr10_content_light_level(clip: vs.VideoNode,
     """
     import numpy as np
 
-    from .base import add_hdr_measurement_props, st2084_eotf, ST2084_PEAK_LUMINANCE
+    from .base import (ST2084_PEAK_LUMINANCE, add_hdr_measurement_props, st2084_eotf)
 
     measurements: List[HdrMeasurement] = []
 
@@ -764,7 +772,7 @@ def measure_hdr10_content_light_level(clip: vs.VideoNode,
                                      hlg=hlg,
                                      no_planestats=True)
 
-    def do_it(detections: Set[int]):
+    def do_it(_detections: Set[int]):
         return clip
 
     _detect(clip, "HDR10 content light level measurements", do_it, quit_after=False, print_detections=False)
