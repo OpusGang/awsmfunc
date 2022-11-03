@@ -88,6 +88,7 @@ class PlaceboTonemapOpts(NamedTuple):
 
     def with_static_peak_detect(self):
         """Ignore peak detect smoothing and scene detection"""
+        # pylint: disable-next=no-member
         return self._replace(smoothing_period=-1, scene_threshold_low=-1, scene_threshold_high=-1)
 
     def vsplacebo_dict(self) -> Dict:

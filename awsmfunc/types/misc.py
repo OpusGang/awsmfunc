@@ -18,7 +18,7 @@ class DetectProgressState(TypedDict):
 
 def st2084_eotf(x: float) -> float:
     y = float(0.0)
-    if (x > 0.0):
+    if x > 0.0:
         xpow = math.pow(x, float(1.0) / ST2084_M2)
         num = max(xpow - ST2084_C1, float(0.0))
         den = max(ST2084_C2 - ST2084_C3 * xpow, float('-inf'))

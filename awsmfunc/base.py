@@ -1,19 +1,18 @@
+import math
+from enum import Enum
+from functools import partial
+from os import PathLike
+from typing import Any, Callable, Dict, List, Optional, Union
+
 import vapoursynth as vs
 from vapoursynth import core
-
-import math
-from os import PathLike
-from functools import partial
-
-from enum import Enum
-from typing import Callable, Dict, List, Union, Optional, Any
-
-from vsutil import get_depth, split, join, scale_value
 from vsutil import depth as vsuDepth
+from vsutil import get_depth, join, scale_value, split
+
 from rekt import rektlvls
 
-from .types.misc import st2084_eotf, st2084_inverse_eotf, ST2084_PEAK_LUMINANCE
 from .types.dovi import HdrMeasurement
+from .types.misc import ST2084_PEAK_LUMINANCE, st2084_eotf, st2084_inverse_eotf
 from .types.placebo import PlaceboTonemapOpts
 
 SUBTITLE_DEFAULT_STYLE: str = ("sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
@@ -28,8 +27,8 @@ def Depth(clip: vs.VideoNode, bits: int, **kwargs) -> vs.VideoNode:
     """
     if bits < 16:
         return vsuDepth(clip, bits, dither_type="error_diffusion", **kwargs)
-    else:
-        return vsuDepth(clip, bits, dither_type="none", **kwargs)
+
+    return vsuDepth(clip, bits, dither_type="none", **kwargs)
 
 
 def ReplaceFrames(clipa: vs.VideoNode,
@@ -54,7 +53,7 @@ def ReplaceFrames(clipa: vs.VideoNode,
             import re
             if filename:
                 with open(filename, 'r') as mf:
-                    mappings += '\n{}'.format(mf.read())
+                    mappings += f'\n{mf.read()}'
             # Some people used this as separators and wondered why it wasn't working
             mappings = mappings.replace(',', ' ').replace(':', ' ')
 
@@ -135,7 +134,7 @@ def bbmod(clip: vs.VideoNode,
     :return: Clip with color offsets fixed.
     """
 
-    if clip.format.color_family != vs.YUV and clip.format.color_family != vs.GRAY:
+    if clip.format.color_family not in (vs.YUV, vs.GRAY):
         raise ValueError("bbmod: only YUV and GRAY clips are supported")
 
     if cTop is not None:
@@ -154,20 +153,9 @@ def bbmod(clip: vs.VideoNode,
         if isinstance(planes, int):
             planes = [planes]
 
-        if 0 in planes:
-            y = True
-        else:
-            y = False
-
-        if 1 in planes:
-            u = True
-        else:
-            u = False
-
-        if 2 in planes:
-            v = True
-        else:
-            v = False
+        y = bool(0 in planes)
+        u = bool(1 in planes)
+        v = bool(2 in planes)
     elif clip.format.color_family == vs.YUV:
         if y is None:
             y = True
@@ -399,7 +387,7 @@ def bbmoda(c: vs.VideoNode,
         Smaller values give a more accurate color match, larger values give a more accurate picture transfer.
         Recommended: 1~20 or 999
       Notes:
-        1) At default values ​​of thresh = 128 blur = 999:
+        1) At default values of thresh = 128 blur = 999:
            You will get a series of pixels that have been changed only by selecting
             the color for each row in its entirety, without local selection;
            The colors of neighboring pixels may be very different in some places
@@ -416,7 +404,7 @@ def bbmoda(c: vs.VideoNode,
     if not isinstance(c, vs.VideoNode):
         raise TypeError(funcName + ': \"c\" must be a clip!')
 
-    if isinstance(thresh, int) or isinstance(thresh, float):
+    if isinstance(thresh, (int, float)):
         # thresh needs to be lower for chroma for cpass2
         if cpass2:
             thresh = [thresh] + (2 * [round(thresh / 10)])
@@ -429,7 +417,7 @@ def bbmoda(c: vs.VideoNode,
         thresh[0] = scale_value(thresh[0], 8, c.format.bits_per_sample, scale_offsets=False)
         i = 1
 
-        for t in thresh[1:]:
+        for _ in thresh[1:]:
             thresh[i] = scale_value(thresh[i], 8, c.format.bits_per_sample, scale_offsets=False, chroma=False)
             i += 1
 
@@ -537,115 +525,110 @@ def bbmoda(c: vs.VideoNode,
                 [balancedLuma,
                  core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0,
                                   cTop * csize)]).resize.Point(cWidth, cHeight)
+
+        if c.format.color_family == vs.YUV:
+            yplane, uplane, vplane = split(c)
+        elif c.format.color_family == vs.GRAY:
+            yplane = c
         else:
-            if c.format.color_family == vs.YUV:
-                yplane, uplane, vplane = split(c)
-            elif c.format.color_family == vs.GRAY:
-                yplane = c
-            else:
-                raise ValueError("bbmod: only YUV and GRAY clips are supported")
-            if y:
-                c2 = core.resize.Point(yplane, cWidth * csize, cHeight * csize)
-                last = core.std.CropAbs(c2, cWidth * csize, csize, 0, cTop * csize)
-                last = core.resize.Point(last, cWidth * csize, cTop * csize)
+            raise ValueError("bbmod: only YUV and GRAY clips are supported")
+        if y:
+            c2 = core.resize.Point(yplane, cWidth * csize, cHeight * csize)
+            last = core.std.CropAbs(c2, cWidth * csize, csize, 0, cTop * csize)
+            last = core.resize.Point(last, cWidth * csize, cTop * csize)
 
-                referenceBlur = core.resize.Bicubic(last,
-                                                    blurWidth[0] * csize,
-                                                    cTop * csize,
-                                                    filter_param_a=1,
-                                                    filter_param_b=0).resize.Bicubic(cWidth * csize,
-                                                                                     cTop * csize,
-                                                                                     filter_param_a=1,
-                                                                                     filter_param_b=0)
+            referenceBlur = core.resize.Bicubic(last,
+                                                blurWidth[0] * csize,
+                                                cTop * csize,
+                                                filter_param_a=1,
+                                                filter_param_b=0).resize.Bicubic(cWidth * csize,
+                                                                                 cTop * csize,
+                                                                                 filter_param_a=1,
+                                                                                 filter_param_b=0)
 
-                original = core.std.CropAbs(c2, cWidth * csize, cTop * csize, 0, 0)
+            original = core.std.CropAbs(c2, cWidth * csize, cTop * csize, 0, 0)
 
-                last = core.resize.Bicubic(original,
-                                           blurWidth[0] * csize,
-                                           cTop * csize,
-                                           filter_param_a=1,
-                                           filter_param_b=0)
+            last = core.resize.Bicubic(original, blurWidth[0] * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
 
-                originalBlur = last.resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
-                balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=yexpr)
+            originalBlur = last.resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
+            balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=yexpr)
 
-                yplane = core.std.StackVertical(clips=[
-                    balancedLuma,
-                    core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)
-                ]).resize.Point(cWidth, cHeight)
-
-                if c.format.color_family == vs.GRAY:
-                    return yplane
-
-            def btbc(c2: vs.VideoNode, blurWidth: int, p: int, csize: int) -> vs.VideoNode:
-                c2 = core.resize.Point(c2, round(cWidth * csize / sw), round(cHeight * csize / sh))
-                last = core.std.CropAbs(c2, round(cWidth * csize / sw), round(csize / sh), 0, round(cTop * csize / sh))
-                last = core.resize.Point(last, round(cWidth * csize / sw), round(cTop * csize / sh))
-                if cpass2:
-                    referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(round(blurWidth * csize / sw),
-                                                                                   round(cTop * csize / sh),
-                                                                                   filter_param_a=1,
-                                                                                   filter_param_b=0)
-                    referenceBlurChroma = referenceBlurChroma.resize.Bicubic(round(cWidth * csize / sw),
-                                                                             round(cTop * csize / sh),
-                                                                             filter_param_a=1,
-                                                                             filter_param_b=0)
-
-                referenceBlur = core.resize.Bicubic(last,
-                                                    round(blurWidth * csize / sw),
-                                                    round(cTop * csize / sh),
-                                                    filter_param_a=1,
-                                                    filter_param_b=0).resize.Bicubic(round(cWidth * csize / sw),
-                                                                                     round(cTop * csize / sh),
-                                                                                     filter_param_a=1,
-                                                                                     filter_param_b=0)
-
-                original = core.std.CropAbs(c2, round(cWidth * csize / sw), round(cTop * csize / sh), 0, 0)
-
-                last = core.resize.Bicubic(original,
-                                           round(blurWidth * csize / sw),
-                                           round(cTop * csize / sh),
-                                           filter_param_a=1,
-                                           filter_param_b=0)
-
-                originalBlur = last.resize.Bicubic(round(cWidth * csize / sw),
-                                                   round(cTop * csize / sh),
-                                                   filter_param_a=1,
-                                                   filter_param_b=0)
-
-                if cpass2:
-                    originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(round(blurWidth * csize / sw),
-                                                                                  round(cTop * csize / sh),
-                                                                                  filter_param_a=1,
-                                                                                  filter_param_b=0)
-                    originalBlurChroma = originalBlurChroma.resize.Bicubic(round(cWidth * csize / sw),
-                                                                           round(cTop * csize / sh),
-                                                                           filter_param_a=1,
-                                                                           filter_param_b=0)
-
-                    balancedChroma = core.std.Expr(clips=[original, originalBlurChroma, referenceBlurChroma],
-                                                   expr=expruv)
-                    balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur], expr=expruv)
-                else:
-                    balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=uvexpr[p - 1])
-
-                return core.std.StackVertical([
-                    balancedLuma,
-                    c2.std.CropAbs(left=0,
-                                   top=round(cTop * csize / sh),
-                                   width=round(cWidth * csize / sw),
-                                   height=round(cHeight * csize / sh) - round(cTop * csize / sh))
-                ]).resize.Point(round(cWidth / sw), round(cHeight / sh))
+            yplane = core.std.StackVertical(
+                clips=[balancedLuma,
+                       core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]).resize.Point(
+                           cWidth, cHeight)
 
             if c.format.color_family == vs.GRAY:
-                return btbc(yplane, blurWidth[1], 1, csize)
+                return yplane
 
-            if u:
-                uplane = btbc(uplane, blurWidth[1], 1, csize * max(sw, sh))
-            if v:
-                vplane = btbc(vplane, blurWidth[2], 2, csize * max(sw, sh))
+        def btbc(c2: vs.VideoNode, blurWidth: int, p: int, csize: int) -> vs.VideoNode:
+            c2 = core.resize.Point(c2, round(cWidth * csize / sw), round(cHeight * csize / sh))
+            last = core.std.CropAbs(c2, round(cWidth * csize / sw), round(csize / sh), 0, round(cTop * csize / sh))
+            last = core.resize.Point(last, round(cWidth * csize / sw), round(cTop * csize / sh))
+            if cpass2:
+                referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(round(blurWidth * csize / sw),
+                                                                               round(cTop * csize / sh),
+                                                                               filter_param_a=1,
+                                                                               filter_param_b=0)
+                referenceBlurChroma = referenceBlurChroma.resize.Bicubic(round(cWidth * csize / sw),
+                                                                         round(cTop * csize / sh),
+                                                                         filter_param_a=1,
+                                                                         filter_param_b=0)
 
-            return core.std.ShufflePlanes([yplane, uplane, vplane], [0, 0, 0], vs.YUV)
+            referenceBlur = core.resize.Bicubic(last,
+                                                round(blurWidth * csize / sw),
+                                                round(cTop * csize / sh),
+                                                filter_param_a=1,
+                                                filter_param_b=0).resize.Bicubic(round(cWidth * csize / sw),
+                                                                                 round(cTop * csize / sh),
+                                                                                 filter_param_a=1,
+                                                                                 filter_param_b=0)
+
+            original = core.std.CropAbs(c2, round(cWidth * csize / sw), round(cTop * csize / sh), 0, 0)
+
+            last = core.resize.Bicubic(original,
+                                       round(blurWidth * csize / sw),
+                                       round(cTop * csize / sh),
+                                       filter_param_a=1,
+                                       filter_param_b=0)
+
+            originalBlur = last.resize.Bicubic(round(cWidth * csize / sw),
+                                               round(cTop * csize / sh),
+                                               filter_param_a=1,
+                                               filter_param_b=0)
+
+            if cpass2:
+                originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(round(blurWidth * csize / sw),
+                                                                              round(cTop * csize / sh),
+                                                                              filter_param_a=1,
+                                                                              filter_param_b=0)
+                originalBlurChroma = originalBlurChroma.resize.Bicubic(round(cWidth * csize / sw),
+                                                                       round(cTop * csize / sh),
+                                                                       filter_param_a=1,
+                                                                       filter_param_b=0)
+
+                balancedChroma = core.std.Expr(clips=[original, originalBlurChroma, referenceBlurChroma], expr=expruv)
+                balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur], expr=expruv)
+            else:
+                balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=uvexpr[p - 1])
+
+            return core.std.StackVertical([
+                balancedLuma,
+                c2.std.CropAbs(left=0,
+                               top=round(cTop * csize / sh),
+                               width=round(cWidth * csize / sw),
+                               height=round(cHeight * csize / sh) - round(cTop * csize / sh))
+            ]).resize.Point(round(cWidth / sw), round(cHeight / sh))
+
+        if c.format.color_family == vs.GRAY:
+            return btbc(yplane, blurWidth[1], 1, csize)
+
+        if u:
+            uplane = btbc(uplane, blurWidth[1], 1, csize * max(sw, sh))
+        if v:
+            vplane = btbc(vplane, blurWidth[2], 2, csize * max(sw, sh))
+
+        return core.std.ShufflePlanes([yplane, uplane, vplane], [0, 0, 0], vs.YUV)
 
     if cTop > 0:
         c = btb(c, cTop, thresh, blur).std.Transpose().std.FlipHorizontal()
@@ -797,8 +780,8 @@ def zresize(clip: vs.VideoNode,
                            bottom=bottom,
                            kernel=kernel,
                            **kwargs)
-        else:
-            return zresize(clip, height=preset, left=left, right=right, top=top, bottom=bottom, kernel=kernel, **kwargs)
+
+        return zresize(clip, height=preset, left=left, right=right, top=top, bottom=bottom, kernel=kernel, **kwargs)
 
     if (width is None) and (height is None):
         width = orig_w
@@ -837,15 +820,15 @@ def zresize(clip: vs.VideoNode,
 def DebandReader(clip: vs.VideoNode,
                  csvfile: Union[str, PathLike],
                  grain: int = 64,
-                 range: int = 30,
+                 f3kdb_range: int = 30,
                  delimiter: str = ' ',
                  mask: Optional[vs.VideoNode] = None) -> vs.VideoNode:
     """
     DebandReader, read a csv file to apply a f3kdb filter for given strengths and frames.
-    > Usage: DebandReader(clip, csvfile, grain, range)
+    > Usage: DebandReader(clip, csvfile, grain, f3kdb_range)
       * csvfile is the path to a csv file containing in each row: <startframe> <endframe> <strength>
       * grain is passed as grainy and grainc in the f3kdb filter
-      * range is passed as range in the f3kdb filter
+      * f3kdb_range is passed as range in the f3kdb filter
     """
     import csv
 
@@ -864,7 +847,7 @@ def DebandReader(clip: vs.VideoNode,
                                    grainy=grain,
                                    grainc=grain,
                                    dynamic_grain=True,
-                                   range=range,
+                                   range=f3kdb_range,
                                    output_depth=depth)
 
             filtered = ReplaceFrames(filtered, db, mappings="[" + row[0] + " " + row[1] + "]")
@@ -1096,11 +1079,11 @@ def DynamicTonemap(clip: vs.VideoNode,
     def __calculate_max_rgb(n: int,
                             f: vs.VideoFrame,
                             targets: Optional[List[int]] = None,
-                            range: Optional[str] = None) -> vs.VideoNode:
+                            levels: Optional[str] = None) -> vs.VideoNode:
         max_value = 65535.0
 
-        if range:
-            if range == 'limited':
+        if levels is None:
+            if levels == 'limited':
                 max_value = 60395
 
         if not targets:
@@ -1126,12 +1109,12 @@ def DynamicTonemap(clip: vs.VideoNode,
                         gamma_adjust: float = None,
                         luma_scaling: float = None) -> vs.VideoNode:
         if not targets:
-            string = "Max RGB: {:.04f}, target: {} nits".format(max_rgb, nits)
+            string = f"Max RGB: {max_rgb:.04f}, target: {nits} nits"
         else:
             string = f"Predetermined target: {nits} nits"
 
         if adjusted:
-            string += "\ngamma_adjust: {:.04f}, luma_scaling: {:.04f}".format(gamma_adjust, luma_scaling)
+            string += f"\ngamma_adjust: {gamma_adjust:.04f}, luma_scaling: {luma_scaling:.04f}"
 
         return core.sub.Subtitle(clip, string)
 
@@ -1201,8 +1184,8 @@ def DynamicTonemap(clip: vs.VideoNode,
                 placebo_opts: PlaceboTonemapOpts,
                 pl_tm_params: Dict,
                 targets: Optional[List[int]] = None,
-                range: Optional[str] = None) -> vs.VideoNode:
-        max_rgb, frame_nits = __calculate_max_rgb(n, f, targets, range=range)
+                levels: Optional[str] = None) -> vs.VideoNode:
+        max_rgb, frame_nits = __calculate_max_rgb(n, f, targets, levels=levels)
 
         fprops = f.props if targets else f[0].props
 
@@ -1343,7 +1326,7 @@ def FillBorders(clip: vs.VideoNode,
                 right: int = 0,
                 top: int = 0,
                 bottom: int = 0,
-                planes: Union[int, List[int]] = [0, 1, 2],
+                planes: Optional[Union[int, List[int]]] = None,
                 mode: str = 'fixborders') -> vs.VideoNode:
     """
     FillBorders wrapper that automatically sets fixborders mode.
@@ -1351,6 +1334,9 @@ def FillBorders(clip: vs.VideoNode,
     This means that for 4:2:0 with left=1 1px luma and chroma is filled, 2px luma and 1px chroma for left=2,
     3px luma and 2px chroma for left=3 etc.
     """
+    if planes is None:
+        planes = [0, 1, 2]
+
     if clip.format.num_planes == 3:
         if isinstance(planes, int):
             planes = [planes]
@@ -1371,8 +1357,8 @@ def FillBorders(clip: vs.VideoNode,
             v = v.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
 
         return join([y, u, v])
-    else:
-        return clip.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
+
+    return clip.fb.FillBorders(left=left, right=right, top=top, bottom=bottom, mode=mode)
 
 
 #####################
@@ -1383,7 +1369,7 @@ def FillBorders(clip: vs.VideoNode,
 def SelectRangeEvery(clip: vs.VideoNode,
                      every: int,
                      length: int,
-                     offset: Union[int, List[int]] = [0, 0]) -> vs.VideoNode:
+                     offset: Optional[Union[int, List[int]]] = None) -> vs.VideoNode:
     """
     SelectRangeEvery, port from Avisynth's function.
     Offset can be an array with the first entry being the offset from the start and the second from the end.
@@ -1392,6 +1378,8 @@ def SelectRangeEvery(clip: vs.VideoNode,
     >>> # select <length> frames every <every> frames, starting at frame <offset>
     >>> SelectRangeEvery(clip, every, length, offset)
     """
+    if offset is None:
+        offset = [0, 0]
     if isinstance(offset, int):
         offset = [offset, 0]
 
@@ -1477,10 +1465,10 @@ def InterleaveDir(folder: str,
         sources = []
         j = -1
 
-    for i in range(len(files)):
-        filename = files[i].name
+    for file in files:
+        filename = file.name
 
-        if files[i].is_file() and '.mkv' == files[i].suffix:
+        if file.is_file() and '.mkv' == file.suffix:
 
             j = j + 1
             sources.append(0)
@@ -1540,11 +1528,11 @@ def ExtractFramesReader(clip: vs.VideoNode, csvfile: Union[str, PathLike]) -> vs
 
 def fixlvls(clip: vs.VideoNode,
             gamma: float = 0.88,
-            min_in: Union[int, List[Union[int, float]]] = [16, 16],
-            max_in: Union[int, List[Union[int, float]]] = [235, 240],
-            min_out: Union[int, List[Union[int, float]]] = [16, 16],
-            max_out: Union[int, List[Union[int, float]]] = [235, 240],
-            planes: Union[int, List[Union[int, float]]] = [0],
+            min_in: Optional[Union[int, List[Union[int, float]]]] = None,
+            max_in: Optional[Union[int, List[Union[int, float]]]] = None,
+            min_out: Optional[Union[int, List[Union[int, float]]]] = None,
+            max_out: Optional[Union[int, List[Union[int, float]]]] = None,
+            planes: Optional[Union[int, List[Union[int, float]]]] = None,
             input_depth: int = 8) -> vs.VideoNode:
     """
     A wrapper around std.Levels to fix what's commonly known as the gamma bug.
@@ -1558,12 +1546,26 @@ def fixlvls(clip: vs.VideoNode,
     :param input_depth: Depth to scale values from.
     :return: Clip with gamma adjusted or levels fixed.
     """
+    default_min = [16, 16]
+    default_max = [235, 240]
+
+    if min_in is None:
+        min_in = default_min
+    if max_in is None:
+        max_in = default_max
+    if min_out is None:
+        min_out = default_min
+    if max_out is None:
+        max_out = default_max
+    if planes is None:
+        planes = [0]
+
     o_depth = clip.format.bits_per_sample
     clip = Depth(clip, 32)
 
     vals = [min_in.copy(), max_in.copy(), min_out.copy(), max_out.copy()]
 
-    for i in range(len(vals)):
+    for (i, _) in enumerate(vals):
         if not isinstance(vals[i], list):
             vals[i] = [vals[i], vals[i]]
         for j in range(2):
@@ -1594,7 +1596,7 @@ def fixlvls(clip: vs.VideoNode,
     return Depth(clip, o_depth)
 
 
-def mt_lut(clip: vs.VideoNode, expr: str, planes: List[int] = [0]) -> vs.VideoNode:
+def mt_lut(clip: vs.VideoNode, expr: str, planes: Optional[List[int]] = None) -> vs.VideoNode:
     """
     mt_lut, port from Avisynth's function.
 
@@ -1602,11 +1604,16 @@ def mt_lut(clip: vs.VideoNode, expr: str, planes: List[int] = [0]) -> vs.VideoNo
     >>> # expr is an infix expression, not like avisynth's mt_lut which takes a postfix one
     >>> mt_lut(clip, expr, planes)
     """
+    from ast import literal_eval
+
+    if planes is None:
+        planes = [0]
+
     minimum = 16 * ((1 << clip.format.bits_per_sample) - 1) // 256
     maximum = 235 * ((1 << clip.format.bits_per_sample) - 1) // 256
 
-    def clampexpr(x: float) -> int:
-        return int(max(minimum, min(round(eval(expr)), maximum)))
+    def clampexpr() -> int:
+        return int(max(minimum, min(round(literal_eval(expr)), maximum)))
 
     return core.std.Lut(clip=clip, function=clampexpr, planes=planes)
 
@@ -1641,8 +1648,8 @@ def UpscaleCheck(clip: vs.VideoNode, height: int = 720, kernel: str = 'spline36'
     if interleave:
         mix = core.std.Interleave([clip, resample])
         return Depth(mix, clip.format.bits_per_sample)
-    else:
-        return Depth(resample, clip.format.bits_per_sample)
+
+    return Depth(resample, clip.format.bits_per_sample)
 
 
 def RescaleCheck(clip: vs.VideoNode,
@@ -1679,8 +1686,8 @@ def RescaleCheck(clip: vs.VideoNode,
     # Generic error handling, YCOCG & COMPAT input not tested as such blocked by default
     if src.format.color_family not in [vs.YUV, vs.GRAY, vs.RGB]:
         raise TypeError("UpscaleCheck: Only supports YUV, GRAY or RGB input!")
-    elif src.format.color_family in [vs.GRAY, vs.RGB]:
-        clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s='709')
+
+    clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s='709')
 
     if src.format.color_family is vs.RGB and src.format.bits_per_sample == 8:
         bits = 8
@@ -1737,8 +1744,8 @@ def Import(file: str, output_key: int = 0) -> vs.VideoNode:
 
     TODO: Find a way of keeping this more in-line with expected VS behavior (no output unless specified)
     """
-    from importlib import util, machinery
     import inspect
+    from importlib import machinery, util
 
     if file.endswith('.vpy'):
         loader = machinery.SourceFileLoader('script', file)
@@ -1759,8 +1766,8 @@ def Import(file: str, output_key: int = 0) -> vs.VideoNode:
             try:
                 if isinstance(output, vs.VideoOutputTuple):
                     return output.clip
-                else:
-                    return output
+
+                return output
             except AttributeError:
                 return output
         else:
@@ -1788,7 +1795,7 @@ def BorderResize(clip: vs.VideoNode,
                  top: int = 0,
                  bottom: int = 0,
                  bb: List[int] = None,
-                 planes: List[int] = [0, 1, 2],
+                 planes: Optional[List[int]] = None,
                  sat: Optional[List[float]] = None) -> vs.VideoNode:
     """
     A wrapper to resize clips with borders.  This is meant for scenefiltering differing crops.
@@ -1798,6 +1805,9 @@ def BorderResize(clip: vs.VideoNode,
     :param planes: Planes to be filled.
     :param sat: Saturation adjustment in AddBordersMod.  If None, std.AddBorders is used.
     """
+    if planes is None:
+        planes = [0, 1, 2]
+
     # save original dimensions
     ow, oh = clip.width, clip.height
 
@@ -1875,8 +1885,8 @@ def BorderResize(clip: vs.VideoNode,
                              rsat=sat[1],
                              bsat=sat[2],
                              tsat=sat[3])
-    else:
-        return clip.std.AddBorders(left=borders[0], right=borders[1], top=borders[2], bottom=borders[3])
+
+    return clip.std.AddBorders(left=borders[0], right=borders[1], top=borders[2], bottom=borders[3])
 
 
 def RandomFrameNumbers(clip: vs.VideoNode,
@@ -1884,7 +1894,7 @@ def RandomFrameNumbers(clip: vs.VideoNode,
                        start_offset: int = 1000,
                        end_offset: int = 10000,
                        output_file: Union[str, PathLike] = "screens.txt",
-                       ftypes_first: Union[str, List[str]] = ["P", "B"],
+                       ftypes_first: Optional[Union[str, List[str]]] = None,
                        ftypes: Union[str, List[str]] = "B",
                        interleaved: Optional[int] = None,
                        clips: Optional[List[vs.VideoNode]] = None,
@@ -1908,14 +1918,17 @@ def RandomFrameNumbers(clip: vs.VideoNode,
     import os
     import random
 
+    if ftypes_first is None:
+        ftypes_first = ["P", "B"]
+
     def divisible_random(a: int, b: int, n: int) -> int:
         if not a % n:
             return random.choice(range(a, b, n))
-        else:
-            return random.choice(range(a + n - (a % n), b, n))
+
+        return random.choice(range(a + n - (a % n), b, n))
 
     # filter frame types function for frameeval
-    def filter_ftype(n: int, f: vs.VideoFrame, clip: vs.VideoNode, frame_num: int, block: Dict) -> vs.VideoNode:
+    def filter_ftype(_n: int, f: vs.VideoFrame, clip: vs.VideoNode, frame_num: int, block: Dict) -> vs.VideoNode:
         match = False
 
         if isinstance(f, list):
@@ -2128,10 +2141,10 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
     :param measurements: List to store the measurements
     :param downscale: Downscale input by 2x both horizontally and vertically
     :param percentile: Compute percentile of the frame's max brightness (defaults to 100.0, actual max)
-    :param store_float: If passing a list in `measurements`, whether to store the values as normalized float or int (16 bit)
+    :param store_float: If passing a list in `measurements`,
+        whether to store the values as normalized float or int (16 bit)
     :param no_planestats: Always use the frame pixels and numpy to measure
     """
-    import math
     import numpy as np
 
     no_numpy = math.isclose(percentile, 100.0) and not no_planestats
@@ -2147,9 +2160,9 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
         if no_numpy:
             # Using PlaneStats
             if maxrgb:
-                min_pq = min([cmp.props["pqMin"] for cmp in prop_src])
-                max_pq = max([cmp.props["pqMax"] for cmp in prop_src])
-                avg_pq = max([cmp.props["pqAverage"] for cmp in prop_src])
+                min_pq = min(cmp.props["pqMin"] for cmp in prop_src)
+                max_pq = max(cmp.props["pqMax"] for cmp in prop_src)
+                avg_pq = max(cmp.props["pqAverage"] for cmp in prop_src)
             else:
                 prop_src = prop_src[0]
 
