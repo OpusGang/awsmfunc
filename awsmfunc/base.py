@@ -25,10 +25,9 @@ def Depth(clip: vs.VideoNode, bits: int, **kwargs) -> vs.VideoNode:
     The reason for this is that repeated error diffusion can be destructive, so if we assume most filtering is done at
     high bit depth (which it should), this should keep that from happening while still performing it before outputting.
     """
-    if bits < 16:
-        return vsuDepth(clip, bits, dither_type="error_diffusion", **kwargs)
+    dither_type = "error_diffusion" if bits < 16 else "none"
 
-    return vsuDepth(clip, bits, dither_type="none", **kwargs)
+    return vsuDepth(clip, bits, dither_type=dither_type, **kwargs)
 
 
 def ReplaceFrames(clipa: vs.VideoNode,
