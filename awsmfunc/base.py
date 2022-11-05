@@ -2130,6 +2130,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
         - `HDRFALL`: Average of the frame's MaxRGB.
             - Only available when using `percentile` < 100 and `maxrgb=True`
             - Also when using `no_planestats` with percentile at 100%
+        - `HDRMaxStd`: Standard deviation of the frame's MaxRGB
+            - Only available when MaxFALL is calculated
 
         The values are PQ code by default.
         Can be converted to nits (cd/m^2) using `as_nits`.
@@ -2155,6 +2157,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
 
         fall_pq = None
         fall_prop = None
+        max_stdev_pq = None
+        max_stdev_prop = None
 
         if no_numpy:
             # Using PlaneStats
@@ -2190,6 +2194,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
 
                 fall_pq = np.mean(maxrgb_pixels)
                 fall_prop = fall_pq / 65535.0
+                max_stdev_pq = np.std(maxrgb_pixels)
+                max_stdev_prop = max_stdev_pq / 65535.0
             else:
                 y_pixels = np.asarray(prop_src[0])
 
@@ -2208,6 +2214,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
 
             if fall_prop is not None:
                 fall_prop = st2084_eotf(fall_prop) * ST2084_PEAK_LUMINANCE
+            if max_stdev_prop is not None:
+                max_stdev_prop = st2084_eotf(max_stdev_prop) * ST2084_PEAK_LUMINANCE
 
         fout.props["HDRMin"] = min_prop
         fout.props["HDRMax"] = max_prop
@@ -2215,6 +2223,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
 
         if fall_prop is not None:
             fout.props["HDRFALL"] = fall_prop
+        if max_stdev_prop is not None:
+            fout.props["HDRMaxStd"] = max_stdev_prop
 
         if measurements is not None:
             if store_float:
@@ -2226,8 +2236,15 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                     avg_pq /= 65535.0
                 if fall_pq is not None:
                     fall_pq /= 65535.0
+                if max_stdev_pq is not None:
+                    max_stdev_pq /= 65535.0
 
-            measurement = HdrMeasurement(frame=n, min=min_pq, max=max_pq, avg=avg_pq, fall=fall_pq)
+            measurement = HdrMeasurement(frame=n,
+                                         min=min_pq,
+                                         max=max_pq,
+                                         avg=avg_pq,
+                                         fall=fall_pq,
+                                         max_stdev=max_stdev_pq)
             measurements.append(measurement)
 
         return fout
