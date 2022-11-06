@@ -1927,7 +1927,7 @@ def RandomFrameNumbers(clip: vs.VideoNode,
         return random.choice(range(a + n - (a % n), b, n))
 
     # filter frame types function for frameeval
-    def filter_ftype(_n: int, f: vs.VideoFrame, clip: vs.VideoNode, frame_num: int, block: Dict) -> vs.VideoNode:
+    def filter_ftype(n: int, f: vs.VideoFrame, clip: vs.VideoNode, frame_num: int, block: Dict) -> vs.VideoNode:
         match = False
 
         if isinstance(f, list):
