@@ -17,5 +17,5 @@ setup(
         'vsutil>=0.7.0',
     ],
     zip_safe=False,
-    python_requires='>=3.8',
+    python_requires='>=3.9',
 )

@@ -1,7 +1,7 @@
 # awsmfunc
 
 ### Requirements
-* Python 3.8 minimum
+* Python 3.9 minimum
 * [vapoursynth](http://www.vapoursynth.com/)
 * [numpy](https://numpy.org/)
 * [RemapFrames](https://github.com/Irrational-Encoding-Wizardry/Vapoursynth-RemapFrames)
