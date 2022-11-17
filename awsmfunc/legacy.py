@@ -127,7 +127,12 @@ def autogma(clip: vs.VideoNode, adj: float = 1.3, thr: float = 0.40) -> vs.Video
     luma = core.std.ShufflePlanes(clip, 0, vs.GRAY)
     s = luma.std.PlaneStats()
 
-    def hilo(n: int, f: vs.VideoFrame, clip: vs.VideoNode, adj: float, thr: int) -> vs.VideoNode:
+    def hilo(
+            n: int,  # pylint: disable=unused-argument
+            f: vs.VideoFrame,
+            clip: vs.VideoNode,
+            adj: float,
+            thr: int) -> vs.VideoNode:
         g = core.std.Levels(clip, gamma=adj)
 
         if f.props.PlaneStatsAverage > thr:
