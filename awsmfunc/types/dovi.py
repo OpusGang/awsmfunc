@@ -22,7 +22,8 @@ class HdrMeasurement(NamedTuple):
     """Standard deviation of the frame's MaxRGB"""
 
     def human_readable_str(self, precision=6):
-        formatted_str = f'{self.frame}, min: {self.min:0.{precision}f}, max: {self.max:0.{precision}f}, avg: {self.avg:0.{precision}f}'
+        formatted_str = (f'{self.frame}, min: {self.min:0.{precision}f}, max: {self.max:0.{precision}f}, '
+                         f'avg: {self.avg:0.{precision}f}')
 
         if self.fall is not None:
             formatted_str += f', MaxFALL: {self.fall:0.{precision}f}'
