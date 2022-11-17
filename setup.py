@@ -13,6 +13,7 @@ setup(
     },
     install_requires=[
         'VapourSynth>=57',
+        'numpy',
         'vs-rekt>=1.0.0',
         'vsutil>=0.7.0',
     ],
