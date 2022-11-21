@@ -1,9 +1,15 @@
+from pathlib import Path
+
 from setuptools import setup
+
+long_description = Path('README.md').read_text()
 
 setup(
     name='awsmfunc',
     version='1.3.3',
     description='awesome VapourSynth functions',
+    long_description_content_type="text/markdown",
+    long_description=long_description,
     url='https://github.com/OpusGang/awsmfunc',
     license='MIT',
     author='OpusGang',
