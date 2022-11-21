@@ -685,7 +685,7 @@ def run_scenechange_detect(clip: vs.VideoNode,
                            av_sc_cli: str = "av-scenechange",
                            output: Optional[Union[str, PathLike]] = None) -> Union[List[int], vs.VideoNode]:
     """
-    Run scene change detection using `av-scenechange`.
+    Run scene change detection using specified detector.
 
     Dependencies:
       - vs-placebo: https://github.com/Lypheo/vs-placebo (tonemapping)
