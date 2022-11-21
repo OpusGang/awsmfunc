@@ -14,8 +14,15 @@ Optional plugins:
 * [vsfpng](https://github.com/Mikewando/vsfpng)
 
 ### Setting up
+```console
+pip install --user awsmfunc
+```
+From `git`
+```console
+pip install --user git+https://github.com/OpusGang/awsmfunc.git
+```
 
-	pip install --user git+https://github.com/OpusGang/awsmfunc.git
+&nbsp;
 
 ### Updating everything
 
