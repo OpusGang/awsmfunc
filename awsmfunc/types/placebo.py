@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import Dict, NamedTuple, Optional
 
 
@@ -13,14 +13,31 @@ class PlaceboColorSpace(IntEnum):
 class PlaceboTonemapFunction(IntEnum):
     Auto = 0
     Clip = 1
-    BT2390 = 2
-    BT2446a = 3
-    Spline = 4
-    Reinhard = 5
-    Mobius = 6
-    Hable = 7
-    Gamma = 8
-    Linear = 9
+    ST2094_40 = 2
+    ST2094_10 = 3
+    BT2390 = 4
+    BT2446a = 5
+    Spline = 6
+    Reinhard = 7
+    Mobius = 8
+    Hable = 9
+    Gamma = 10
+    Linear = 11
+
+
+class PlaceboTonemapFunctionName(str, Enum):
+    Auto = "auto"
+    Clip = "clip"
+    ST2094_40 = "st2094-40"
+    ST2094_10 = "st2094-10"
+    BT2390 = "bt2390"
+    BT2446a = "bt2446a"
+    Spline = "spline"
+    Reinhard = "reinhard"
+    Mobius = "mobius"
+    Hable = "hable"
+    Gamma = "gamma"
+    Linear = "linear"
 
 
 class PlaceboGamutMode(IntEnum):
@@ -44,6 +61,8 @@ class PlaceboTonemapOpts(NamedTuple):
     Attributes:
         `source_colorspace`: Input clip colorpsace. Defaults to HDR10 (PQ + BT.2020)
         `target_colorspace`: Output clip colorpsace. Defaults to SDR (BT.1886 + BT.709)
+        `dst_max`: Output maximum brightness. Defaults to 203 nits.
+        `dst_min`: Output minimum brightness. Defaults to 1000:1 contrast.
         `peak_detect`: Use libplacebo's dynamic peak detection instead of FrameEval
         `gamut_mode`: How to handle out-of-gamut colors when changing the content primaries
         `tone_map_function`: Tone map function to use for luma
@@ -61,12 +80,19 @@ class PlaceboTonemapOpts(NamedTuple):
     target_colorspace: PlaceboColorSpace = PlaceboColorSpace.SDR
     """Output clip colorpsace. Defaults to SDR (BT.1886 + BT.709)"""
 
+    dst_max: float = 203.0
+    """Target peak brightness, in nits"""
+    dst_min: float = dst_max / 1000
+    """Target black point, in nits"""
+
     peak_detect: bool = True
     """Use libplacebo's dynamic peak detection instead of FrameEval"""
     gamut_mode: Optional[PlaceboGamutMode] = None
     """How to handle out-of-gamut colors when changing the content primaries"""
     tone_map_function: Optional[PlaceboTonemapFunction] = None
     """Tone map function to use for luma"""
+    tone_map_function_s: Optional[PlaceboTonemapFunctionName] = None
+    """Tone map function to use for luma, string name version"""
     tone_map_param: Optional[float] = None
     """Parameter for the tone map function"""
     tone_map_mode: Optional[PlaceboTonemapMode] = None
@@ -95,9 +121,12 @@ class PlaceboTonemapOpts(NamedTuple):
         return {
             'src_csp': self.source_colorspace,
             'dst_csp': self.target_colorspace,
+            'dst_max': self.dst_max,
+            'dst_min': self.dst_min,
             'dynamic_peak_detection': self.peak_detect,
             'gamut_mode': self.gamut_mode,
             'tone_mapping_function': self.tone_map_function,
+            'tone_mapping_function_s': self.tone_map_function_s,
             'tone_mapping_param': self.tone_map_param,
             'tone_mapping_mode': self.tone_map_mode,
             'tone_mapping_crosstalk': self.tone_map_crosstalk,
