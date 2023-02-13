@@ -379,7 +379,7 @@ def cambidtct(
 
         return clip.sub.Subtitle(f.props['CAMBI'], style=SUBTITLE_DEFAULT_STYLE)
 
-    cambi_dict: Dict[str, Any] = dict(topk=0.1, tvi_threshold=0.012)
+    cambi_dict: Dict[str, Any] = {'topk': 0.1, 'tvi_threshold': 0.012}
     if cambi_args is not None:
         cambi_dict |= cambi_args
     clip = core.akarin.Cambi(clip, **cambi_dict)
@@ -648,7 +648,7 @@ class SceneChangeDetector(str, Enum):
             return scene_changes
 
         prop = "_SceneChangePrev"
-        options = dict(output=output)
+        options = {'output': output}
 
         if self == SceneChangeDetector.WWXD:
             prop = "Scenechange"
@@ -662,7 +662,7 @@ class SceneChangeDetector(str, Enum):
             vectors = core.mv.Analyse(sup)
             scd_clip = core.mv.SCDetection(clip, vectors)
 
-            options = options | dict(filter_consecutives=True, cycle=12, min_zone_len=12)
+            options = options | {'filter_consecutives': True, 'cycle': 12, 'min_zone_len': 12}
 
         def props_scenechange_detect(detections: Set[int]):
 

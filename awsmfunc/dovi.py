@@ -159,7 +159,7 @@ def __calc_dovi_l4(clip: vs.VideoNode,
                 cur_max_stdev /= 65535.0
 
             mean_diff = sc * abs(cur_maxfall - prev_maxfall) * 8.0 + 0.1
-            alpha = min(1, min(1, mean_diff * 24.0 / framerate))
+            alpha = min(1, mean_diff * 24.0 / framerate)
 
             tf_pq_norm_mean = prev_tf_pq_norm_mean * (1.0 - alpha) + cur_maxfall * alpha
             tf_pq_norm_stdev = prev_tf_pq_norm_stdev * (1.0 - alpha) + cur_max_stdev * alpha

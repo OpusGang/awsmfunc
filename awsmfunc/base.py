@@ -803,15 +803,17 @@ def zresize(clip: vs.VideoNode,
 
     resizer = RESIZEDICT[kernel.lower()]
 
-    fun = dict(clip=clip,
-               width=w,
-               height=h,
-               src_left=left,
-               src_top=top,
-               src_width=orig_cropped_w,
-               src_height=orig_cropped_h,
-               dither_type=dither_type,
-               **kwargs)
+    fun = {
+        'clip': clip,
+        'width': w,
+        'height': h,
+        'src_left': left,
+        'src_top': top,
+        'src_width': orig_cropped_w,
+        'src_height': orig_cropped_h,
+        'dither_type': dither_type,
+        **kwargs
+    }
 
     return resizer(**fun)
 
@@ -950,7 +952,7 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
     if len(clips) != len(suffixes):
         raise ValueError('ScreenGen: number of clips must be equal to number of suffixes')
 
-    clip_infos = [dict(clip=c, suffix=s) for (c, s) in zip(clips, suffixes)]
+    clip_infos = [{'clip': c, 'suffix': s} for (c, s) in zip(clips, suffixes)]
 
     if screens:
         if not folder_path.is_dir():
