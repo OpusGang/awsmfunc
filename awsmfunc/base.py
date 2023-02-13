@@ -1000,132 +1000,41 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
 
 
 def DynamicTonemap(clip: vs.VideoNode,
-                   show: bool = False,
                    src_fmt: bool = False,
                    adjust_gamma: bool = False,
                    chromaloc_in_s: str = "top_left",
                    chromaloc_s: str = "left",
                    reference: Optional[vs.VideoNode] = None,
-                   predetermined_targets: Optional[Union[str, List[Union[int, float]]]] = None,
-                   target_nits: int = 203.0,
+                   target_nits: float = 203.0,
                    libplacebo: bool = True,
                    placebo_opts: Optional[PlaceboTonemapOpts] = None) -> vs.VideoNode:
     """
     Without libplacebo:
-        The clip (or reference) is blurred, then plane stats are measured.
+        The clip (or reference) is measured using `add_hdr_measurement_props`.
         The tonemapping is then done according to the max RGB value.
 
     :param clip: HDR clip. PQ only if not using libplacebo.
-    :param show: Whether to show nits values as Subtitle.
     :param src_fmt: Whether to output source bit depth instead of 8-bit 4:4:4.
     :param adjust_gamma: Adjusts gamma/saturation dynamically on low brightness areas when target nits are high.
         Requires `adaptivegrain-rs` plugin.
     :param chromaloc_in_s: Chromaloc of input
     :param chromaloc_s: Chromaloc of output
-    :param reference: Reference clip to calculate target brightness with.
+    :param reference: Reference clip to use to measure brightness
         Use cases include source/encode comparisons
-        Does not work when using libplacebo with `peak_detect=True`.
-    :param predetermined_targets: List of target nits per frame.
-        List of numbers or file containing a target per line
-        Must be equal to clip length.
         Does not work when using libplacebo with `peak_detect=True`.
     :param target_nits: Target peak white brightness, in nits
     :param libplacebo: Whether to use libplacebo as tonemapper
         Requires `vs-placebo` plugin.
     :param placebo_opts: See `PlaceboTonemapOpts`, for use with `libplacebo=True`
-    :return: SDR YUV444P16 clip by default.
+    :return: SDR YUV444P8 clip by default.
     """
 
-    from pathlib import Path
-
-    def __get_rgb_prop_src(clip: vs.VideoNode, reference: Optional[vs.VideoNode],
-                           target_list: Optional[List[int]]) -> vs.VideoNode:
-        if reference is not None:
-            if not libplacebo:
-                clip_to_blur = core.resize.Spline36(reference,
-                                                    format=vs.RGB48,
-                                                    range_in_s="limited",
-                                                    range_s="full",
-                                                    matrix_in_s="2020ncl",
-                                                    matrix_s="rgb",
-                                                    primaries_in_s="2020",
-                                                    primaries_s="xyz",
-                                                    dither_type="none",
-                                                    chromaloc_in_s=chromaloc_in_s,
-                                                    chromaloc_s=chromaloc_in_s)
-            else:
-                clip_to_blur = clip = core.resize.Spline36(reference,
-                                                           format=vs.RGB48,
-                                                           chromaloc_in_s=chromaloc_in_s,
-                                                           chromaloc_s=chromaloc_in_s)
-        else:
-            clip_to_blur = clip
-
-        try:
-            blurred_clip = core.bilateral.Bilateral(clip_to_blur, sigmaS=1)
-        except Exception:
-            blurred_clip = core.std.Convolution(clip_to_blur, matrix=[1, 2, 1, 2, 4, 2, 1, 2, 1])
-
-        if not target_list:
-            r_props = core.std.PlaneStats(blurred_clip, plane=0)
-            g_props = core.std.PlaneStats(blurred_clip, plane=1)
-            b_props = core.std.PlaneStats(blurred_clip, plane=2)
-
-            prop_src = [r_props, g_props, b_props]
-        else:
-            prop_src = core.std.PlaneStats(blurred_clip, plane=0)
-
-        return prop_src
-
-    def __calculate_max_rgb(n: int,
-                            f: vs.VideoFrame,
-                            targets: Optional[List[int]] = None,
-                            levels: Optional[str] = None) -> vs.VideoNode:
-        max_value = 65535.0
-
-        if levels is None:
-            if levels == 'limited':
-                max_value = 60395
-
-        if not targets:
-            r_max = st2084_eotf((f[0].props['PlaneStatsMax'] / max_value)) * ST2084_PEAK_LUMINANCE
-            g_max = st2084_eotf((f[1].props['PlaneStatsMax'] / max_value)) * ST2084_PEAK_LUMINANCE
-            b_max = st2084_eotf((f[2].props['PlaneStatsMax'] / max_value)) * ST2084_PEAK_LUMINANCE
-
-            max_rgb = round(max([r_max, g_max, b_max]))
-        else:
-            max_rgb = round(targets[n])
-
-        # Don't go below 100 or over 10 000 nits
-        peak = max(max_rgb, target_nits)
-        peak = min(peak, ST2084_PEAK_LUMINANCE)
-
-        return (max_rgb, peak)
-
-    def __add_show_info(clip: vs.VideoNode,
-                        max_rgb: int,
-                        nits: int,
-                        targets: Optional[List[int]],
-                        adjusted: bool = False,
-                        gamma_adjust: float = None,
-                        luma_scaling: float = None) -> vs.VideoNode:
-        if not targets:
-            string = f"Max RGB: {max_rgb:.04f}, target: {nits} nits"
-        else:
-            string = f"Predetermined target: {nits} nits"
-
-        if adjusted:
-            string += f"\ngamma_adjust: {gamma_adjust:.04f}, luma_scaling: {luma_scaling:.04f}"
-
-        return core.sub.Subtitle(clip, string)
-
-    def __dt(n: int,
-             f: vs.VideoFrame,
-             clip: vs.VideoNode,
-             show: bool,
-             adjust_gamma: bool,
-             targets: Optional[List[int]] = None) -> vs.VideoNode:
-        max_rgb, peak = __calculate_max_rgb(n, f, targets)
+    def __dt(
+            n: int,  # pylint: disable=unused-argument
+            f: vs.VideoFrame,
+            clip: vs.VideoNode,
+            adjust_gamma: bool) -> vs.VideoNode:
+        peak = f.props['HDRMax']
 
         # Tonemap
         clip = core.resize.Spline36(clip,
@@ -1165,78 +1074,11 @@ def DynamicTonemap(clip: vs.VideoNode,
             saturated = saturation(clip, 1.0 + (abs(1.0 - gamma_adjust) * 0.5))
             clip = core.std.MaskedMerge(clip, saturated, mask)
 
-        if show:
-            clip = __add_show_info(clip,
-                                   max_rgb,
-                                   peak,
-                                   targets,
-                                   adjusted=do_adjust,
-                                   gamma_adjust=gamma_adjust,
-                                   luma_scaling=luma_scaling)
-
         clip = core.resize.Spline36(clip, format=vs.RGB48)
 
         return clip
 
-    def __pl_dt(n: int,
-                f: vs.VideoFrame,
-                clip: vs.VideoNode,
-                show: bool,
-                placebo_opts: PlaceboTonemapOpts,
-                pl_tm_params: Dict,
-                targets: Optional[List[int]] = None,
-                levels: Optional[str] = None) -> vs.VideoNode:
-        max_rgb, frame_nits = __calculate_max_rgb(n, f, targets, levels=levels)
-
-        fprops = f.props if targets else f[0].props
-
-        src_max = frame_nits
-        src_min = None
-
-        if 'MasteringDisplayMinLuminance' in fprops:
-            src_min = fprops['MasteringDisplayMinLuminance']
-
-        is_full_range = fprops['_ColorRange'] == 0
-
-        final_tm_params = pl_tm_params
-        if placebo_opts.use_planestats:
-            final_tm_params = {'src_max': src_max, 'src_min': src_min, **pl_tm_params}
-
-        clip = core.placebo.Tonemap(clip, **final_tm_params)
-
-        if show and clip.format.color_family != vs.YUV:
-            show_clip = core.resize.Spline36(clip, format=vs.YUV444P16, matrix_s="709")
-            clip = __add_show_info(show_clip, max_rgb, frame_nits, targets)
-            clip = core.resize.Spline36(clip, format=vs.RGB48)
-        elif show:
-            if is_full_range:
-                clip = clip.resize.Spline36(range_in_s="full", range_s="limited")
-
-            clip = __add_show_info(clip, max_rgb, frame_nits, targets)
-
-        return clip
-
     clip_orig_format = clip.format
-
-    target_list: Optional[List] = None
-    if predetermined_targets:
-        if isinstance(predetermined_targets, list):
-            target_list = predetermined_targets
-        elif isinstance(predetermined_targets, str):
-            targets_path = Path(predetermined_targets)
-
-            if targets_path.is_file():
-                with open(targets_path) as f:
-                    target_list = f.readlines()
-                    target_list = [float(x.strip()) for x in target_list]
-
-        if target_list:
-            target_list = [int(round(x)) for x in target_list]
-
-            if len(target_list) != clip.num_frames:
-                raise ValueError('Number of targets != clip length')
-        else:
-            raise ValueError('No predetermined target list found')
 
     # Make sure libplacebo is properly loaded
     use_placebo = libplacebo and HasLoadedPlugin("com.vs.placebo")
@@ -1246,17 +1088,13 @@ def DynamicTonemap(clip: vs.VideoNode,
         if not placebo_opts_final:
             placebo_opts_final = PlaceboTonemapOpts()
 
-        dst_fmt = vs.YUV444P16 if placebo_opts_final.is_dovi_src() else vs.RGB48
+        clip = core.resize.Spline36(clip,
+                                    format=vs.YUV444P16,
+                                    chromaloc_in_s=chromaloc_in_s,
+                                    chromaloc_s=chromaloc_in_s)
 
-        clip = core.resize.Spline36(clip, format=dst_fmt, chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_in_s)
-
-        dst_max = target_nits
-        dst_min = None
-
-        if placebo_opts_final.is_sdr_target():
-            dst_min = dst_max / 1000.0  # 1000:1 default
-
-        pl_tm_params = {'dst_max': dst_max, 'dst_min': dst_min, **placebo_opts_final.vsplacebo_dict()}
+        pl_tm_params = placebo_opts_final.vsplacebo_dict()
+        pl_tm_params['dst_max'] = target_nits
 
         if placebo_opts_final.peak_detect:
             # Tonemap
@@ -1265,16 +1103,13 @@ def DynamicTonemap(clip: vs.VideoNode,
             if not placebo_opts_final.is_hdr10_src():
                 raise ValueError('Dynamic tonemapping using PlaneStats only supports HDR10 input clips')
 
-            prop_src = __get_rgb_prop_src(clip, reference, target_list)
+            rename_measure_props = {'HDRMax': 'PLSceneMax', 'HDRFALL': 'PLSceneAvg'}
+            measured_clip = add_hdr_measurement_props(clip,
+                                                      percentile=99.9999,
+                                                      rename_props=rename_measure_props,
+                                                      reference=reference)
 
-            tonemapped_clip = core.std.FrameEval(clip,
-                                                 partial(__pl_dt,
-                                                         clip=clip,
-                                                         placebo_opts=placebo_opts_final,
-                                                         pl_tm_params=pl_tm_params,
-                                                         targets=target_list,
-                                                         show=show),
-                                                 prop_src=prop_src)
+            tonemapped_clip = core.placebo.Tonemap(measured_clip, **pl_tm_params)
 
         if tonemapped_clip.format.color_family == vs.YUV:
             tonemapped_clip = core.std.SetFrameProps(tonemapped_clip, _Matrix=1, _Primaries=1, _Transfer=1)
@@ -1291,15 +1126,11 @@ def DynamicTonemap(clip: vs.VideoNode,
                                     chromaloc_in_s=chromaloc_in_s,
                                     chromaloc_s=chromaloc_in_s)
 
-        prop_src = __get_rgb_prop_src(clip, reference, target_list)
+        measured_clip = add_hdr_measurement_props(clip, percentile=99.9999, reference=reference)
 
         tonemapped_clip = core.std.FrameEval(clip,
-                                             partial(__dt,
-                                                     clip=clip,
-                                                     show=show,
-                                                     adjust_gamma=adjust_gamma,
-                                                     targets=target_list),
-                                             prop_src=prop_src)
+                                             partial(__dt, clip=clip, adjust_gamma=adjust_gamma),
+                                             prop_src=measured_clip)
 
     tonemapped_clip = core.resize.Spline36(tonemapped_clip,
                                            format=vs.YUV444P16,
@@ -2122,7 +1953,9 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                               downscale: bool = True,
                               percentile: float = 100.0,
                               store_float: bool = False,
-                              no_planestats: bool = False):
+                              no_planestats: bool = False,
+                              rename_props: Optional[Dict[str, str]] = None,
+                              reference: Optional[vs.VideoNode] = None):
     """
     Measures the brightness of the frame using PlaneStats.
     Adds the info into props, and a list if available.
@@ -2152,10 +1985,21 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
     :param store_float: If passing a list in `measurements`,
         whether to store the values as normalized float or int (16 bit)
     :param no_planestats: Always use the frame pixels and numpy to measure
+    :param rename_props: Dict of desired prop names to use instead of `HDR` prefixed ones.
+        - Must be a mapping of original name -> desired name, i.e {'HDRMax': 'MaxProp'}
+    :param reference: Reference clip to use to measure brightness
     """
     import numpy as np
 
     no_numpy = math.isclose(percentile, 100.0) and not no_planestats
+
+    prop_names: Dict[str, str] = rename_props if isinstance(rename_props, dict) else {}
+
+    min_prop_name = prop_names.get('HDRMin', 'HDRMin')
+    max_prop_name = prop_names.get('HDRMax', 'HDRMax')
+    avg_prop_name = prop_names.get('HDRAvg', 'HDRAvg')
+    fall_prop_name = prop_names.get('HDRFALL', 'HDRFALL')
+    max_stdev_prop_name = prop_names.get('HDRMaxStd', 'HDRMaxStd')
 
     def pq_props(n: int, f: list[vs.VideoFrame], maxrgb: bool, as_nits: bool, measurements: List[HdrMeasurement],
                  percentile: float):
@@ -2224,14 +2068,14 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
             if max_stdev_prop is not None:
                 max_stdev_prop = st2084_eotf(max_stdev_prop) * ST2084_PEAK_LUMINANCE
 
-        fout.props["HDRMin"] = min_prop
-        fout.props["HDRMax"] = max_prop
-        fout.props["HDRAvg"] = avg_prop
+        fout.props[min_prop_name] = min_prop
+        fout.props[max_prop_name] = max_prop
+        fout.props[avg_prop_name] = avg_prop
 
         if fall_prop is not None:
-            fout.props["HDRFALL"] = fall_prop
+            fout.props[fall_prop_name] = fall_prop
         if max_stdev_prop is not None:
-            fout.props["HDRMaxStd"] = max_stdev_prop
+            fout.props[max_stdev_prop_name] = max_stdev_prop
 
         if measurements is not None:
             if store_float:
@@ -2264,8 +2108,9 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
     else:
         scaled_format = vs.YUV420P16
 
-    final_w = clip.width
-    final_h = clip.height
+    measured_clip = reference if reference else clip
+    final_w = measured_clip.width
+    final_h = measured_clip.height
 
     if downscale:
         final_w /= 2
@@ -2273,7 +2118,7 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
 
     percentile = np.clip(percentile, 0.0, 100.0)
 
-    scaled = core.resize.Spline36(clip,
+    scaled = core.resize.Spline36(measured_clip,
                                   width=final_w,
                                   height=final_h,
                                   range_in_s="limited",
