@@ -1,6 +1,6 @@
-awsmfunc.egg-info/
+/src/awsmfunc.egg-info/
 build/
 dist/
 .vscode
 .mypy_cache
-/awsmfunc/__pycache__
+/src/awsmfunc/__pycache__
