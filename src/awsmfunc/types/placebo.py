@@ -79,7 +79,7 @@ class PlaceboTonemapOpts(NamedTuple):
     """Input clip colorpsace. Defaults to HDR10 (PQ + BT.2020)"""
     target_colorspace: PlaceboColorSpace = PlaceboColorSpace.SDR
     """Output clip colorpsace. Defaults to SDR (BT.1886 + BT.709)"""
-    
+
     target_primaries: Optional[int] = None
     """Target color primaries"""
 
