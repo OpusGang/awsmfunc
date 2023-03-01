@@ -79,6 +79,9 @@ class PlaceboTonemapOpts(NamedTuple):
     """Input clip colorpsace. Defaults to HDR10 (PQ + BT.2020)"""
     target_colorspace: PlaceboColorSpace = PlaceboColorSpace.SDR
     """Output clip colorpsace. Defaults to SDR (BT.1886 + BT.709)"""
+    
+    target_primaries: Optional[int] = None
+    """Target color primaries"""
 
     dst_max: float = 203.0
     """Target peak brightness, in nits"""
@@ -121,6 +124,7 @@ class PlaceboTonemapOpts(NamedTuple):
         return {
             'src_csp': self.source_colorspace,
             'dst_csp': self.target_colorspace,
+            'dst_prim': self.target_primaries,
             'dst_max': self.dst_max,
             'dst_min': self.dst_min,
             'dynamic_peak_detection': self.peak_detect,
