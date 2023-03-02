@@ -83,7 +83,6 @@ def generate_dovi_config(clip: vs.VideoNode,
         else:
             avg_pq = int(np.clip(round(avg_pq * 4095.0), 0.0, 4095.0))
 
-
         shot["metadata_blocks"] = [{
             "Level1": {
                 "min_pq": min_pq,
