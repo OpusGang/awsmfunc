@@ -15,12 +15,13 @@ def generate_dovi_config(clip: vs.VideoNode,
                          with_l4=False) -> dict:
     """
     Generates a Dolby Vision metadata generation config for `dovi_tool`.
+    For the average brightness, FALL is prioritized over regular Average
 
     :param measurements: List of the measured frame brightness info
     :param scene_changes: List of the scene change frames
     :param hlg: Whether the metadata should be generated for an HLG video
     :param normalized: Whether the measurements are already normalized to [0-1]
-         - The average is always assumed to be normalized.
+         - The average and FALL are always assumed to be normalized.
     :param with_l4: Compute L4 metadata for every frame.
          - Requires that the measurements have MaxFALL and MaxFALL stdev values.
 
@@ -66,7 +67,9 @@ def generate_dovi_config(clip: vs.VideoNode,
 
         min_pq = max_measurement.min
         max_pq = max_measurement.max
+        # Always assumed normalized
         avg_pq = max_measurement.avg
+        fall_pq = max_measurement.fall
 
         if not normalized:
             min_pq /= 65535.0
@@ -74,7 +77,12 @@ def generate_dovi_config(clip: vs.VideoNode,
 
         min_pq = int(np.clip(round(min_pq * 4095.0), 0.0, 4095.0))
         max_pq = int(np.clip(round(max_pq * 4095.0), 0.0, 4095.0))
-        avg_pq = int(np.clip(round(avg_pq * 4095.0), 0.0, 4095.0))
+
+        if fall_pq is not None:
+            avg_pq = int(np.clip(round(fall_pq * 4095.0), 0.0, 4095.0))
+        else:
+            avg_pq = int(np.clip(round(avg_pq * 4095.0), 0.0, 4095.0))
+
 
         shot["metadata_blocks"] = [{
             "Level1": {
