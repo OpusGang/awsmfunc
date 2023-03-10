@@ -55,6 +55,19 @@ class PlaceboTonemapMode(IntEnum):
     Luma = 4
 
 
+class PlaceboHdrMetadataType(IntEnum):
+    Any = 0
+    """Use any available metadata"""
+    PlNone = 1
+    """PL_HDR_METADATA_NONE"""
+    HDR10 = 2
+    """Static HDR10 metadata only"""
+    HDR10Plus = 3
+    """Dynamic HDR10+ metadata, scene_max and scene_avg"""
+    CIE_Y = 4
+    """Dynamic PQ luminance metadata, max_pq_y and avg_pq_y"""
+
+
 class PlaceboTonemapOpts(NamedTuple):
     """Options for vs-placebo Tonemap. For use with awsmfunc.DynamicTonemap.
 
@@ -102,6 +115,9 @@ class PlaceboTonemapOpts(NamedTuple):
     """Tone map mode to map colours/chroma"""
     tone_map_crosstalk: Optional[float] = None
     """Extra crosstalk factor to apply before tone mapping"""
+    hdr_metadata_type: Optional[PlaceboHdrMetadataType] = None
+    """HDR metadata type to use"""
+
     use_dovi: Optional[bool] = None
     """Whether to use the Dolby Vision RPU for ST2086 metadata
 
@@ -109,8 +125,16 @@ class PlaceboTonemapOpts(NamedTuple):
     """
 
     smoothing_period: Optional[float] = None
+    """Scene change smoothing period for peak detection"""
     scene_threshold_low: Optional[float] = None
     scene_threshold_high: Optional[float] = None
+
+    percentile: Optional[float] = None
+    """Percentile to use for detected peak"""
+    show_clipping: Optional[bool] = None
+    """Highlight hard-clipped pixels from tone-mapping"""
+    visualize_lut: Optional[bool] = None
+    """Display a (PQ-PQ) graph of the active tone-mapping LUT"""
 
     use_planestats: bool = True
     """When peak detection is disabled, whether to use the frame max RGB for tone mapping"""
@@ -121,7 +145,7 @@ class PlaceboTonemapOpts(NamedTuple):
         return self._replace(smoothing_period=-1, scene_threshold_low=-1, scene_threshold_high=-1)
 
     def vsplacebo_dict(self) -> Dict:
-        return {
+        all_args = {
             'src_csp': self.source_colorspace,
             'dst_csp': self.target_colorspace,
             'dst_prim': self.target_primaries,
@@ -138,7 +162,13 @@ class PlaceboTonemapOpts(NamedTuple):
             'smoothing_period': self.smoothing_period,
             'scene_threshold_low': self.scene_threshold_low,
             'scene_threshold_high': self.scene_threshold_high,
+            'show_clipping': self.show_clipping,
+            'percentile': self.percentile,
+            'metadata': self.hdr_metadata_type,
+            'visualize_lut': self.visualize_lut,
         }
+
+        return {k: v for k, v in all_args.items() if v is not None}
 
     def is_dovi_src(self) -> bool:
         """Whether the options process the clip as Dolby Vision"""
