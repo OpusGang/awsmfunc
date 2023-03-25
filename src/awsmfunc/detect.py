@@ -741,13 +741,17 @@ def measure_hdr10_content_light_level(clip: vs.VideoNode,
                                       outlier_rejection: bool = True,
                                       downscale: bool = False,
                                       hlg: bool = False,
-                                      max_percentile: Optional[float] = None) -> List[HdrMeasurement]:
+                                      max_percentile: Optional[float] = None,
+                                      max_luminance: bool = False) -> List[HdrMeasurement]:
     """
     Measure the clip to extract the global MaxCLL and MaxFALL brightness values.
     The input clip is expected to be PQ or HLG, BT.2020, limited range
 
     :param outlier_rejection: Reject outlier pixels by using percentiles
-    :param kwargs: Arguments passed to `add_hdr_measurement_props`
+    :param downscale: Same as `add_hdr_measurement_props`
+    :param hlg: Same as `add_hdr_measurement_props`
+    :param max_percentile: Same as `add_hdr_measurement_props` percentile
+    :param max_luminance: Same as `add_hdr_measurement_props`
     """
     import numpy as np
 
@@ -770,6 +774,7 @@ def measure_hdr10_content_light_level(clip: vs.VideoNode,
                                      percentile=percentile,
                                      downscale=downscale,
                                      hlg=hlg,
+                                     max_luminance=max_luminance,
                                      no_planestats=True)
 
     def do_it(_detections: Set[int]):

@@ -1955,7 +1955,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                               store_float: bool = False,
                               no_planestats: bool = False,
                               rename_props: Optional[Dict[str, str]] = None,
-                              reference: Optional[vs.VideoNode] = None):
+                              reference: Optional[vs.VideoNode] = None,
+                              max_luminance: bool = False):
     """
     Measures the brightness of the frame using PlaneStats.
     Adds the info into props, and a list if available.
@@ -1988,6 +1989,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
     :param rename_props: Dict of desired prop names to use instead of `HDR` prefixed ones.
         - Must be a mapping of original name -> desired name, i.e {'HDRMax': 'MaxProp'}
     :param reference: Reference clip to use to measure brightness
+    :param max_luminance: Use luminance for HDRMax instead of the max subpixel value.
+        - Equivalent to `maxrgb=False` except MaxFALL is available.
     """
     import numpy as np
 
@@ -2000,6 +2003,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
     avg_prop_name = prop_names.get('HDRAvg', 'HDRAvg')
     fall_prop_name = prop_names.get('HDRFALL', 'HDRFALL')
     max_stdev_prop_name = prop_names.get('HDRMaxStd', 'HDRMaxStd')
+
+    bt2020_coeffs = np.array([0.2627, 0.6780, 0.0593])
 
     def pq_props(n: int, f: list[vs.VideoFrame], maxrgb: bool, as_nits: bool, measurements: List[HdrMeasurement],
                  percentile: float):
@@ -2040,8 +2045,14 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                 maxrgb_pixels = np.maximum.reduce(rgb_pixels)
 
                 min_pq = np.min(minrgb_pixels)
-                max_pq = np.percentile(maxrgb_pixels, percentile)
                 avg_pq = np.mean(rgb_pixels)
+
+                if max_luminance:
+                    rgb_pixels = [r_pixels.flatten(), g_pixels.flatten(), b_pixels.flatten()]
+                    luminance_pixels = bt2020_coeffs.dot(rgb_pixels)
+                    max_pq = np.percentile(luminance_pixels, percentile)
+                else:
+                    max_pq = np.percentile(maxrgb_pixels, percentile)
 
                 fall_pq = np.mean(maxrgb_pixels)
                 fall_prop = fall_pq / 65535.0
@@ -2118,6 +2129,8 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
 
     percentile = np.clip(percentile, 0.0, 100.0)
 
+    target_prim = "2020" if max_luminance else "xyz"
+
     scaled = core.resize.Spline36(measured_clip,
                                   width=final_w,
                                   height=final_h,
@@ -2126,7 +2139,7 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                                   transfer_in_s="st2084",
                                   transfer_s="st2084",
                                   primaries_in_s="2020",
-                                  primaries_s="xyz",
+                                  primaries_s=target_prim,
                                   dither_type="none",
                                   chromaloc_in_s="top_left",
                                   format=scaled_format)
