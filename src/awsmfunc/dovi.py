@@ -80,8 +80,7 @@ def generate_dovi_config(clip: vs.VideoNode,
 
         # Use FALL if available
         if measurements_for_scene[0].fall is not None:
-            avg_pq = sum(m.fall if m.fall is not None else 0.0
-                         for m in measurements_for_scene) / measurements_len
+            avg_pq = sum(m.fall if m.fall is not None else 0.0 for m in measurements_for_scene) / measurements_len
         else:
             avg_pq = sum(m.avg for m in measurements_for_scene) / measurements_len
 
