@@ -63,13 +63,10 @@ def generate_dovi_config(clip: vs.VideoNode,
         if not measurements_for_scene:
             continue
 
-        max_measurement = max(measurements_for_scene, key=lambda m: m.max)
+        measurements_len = float(len(measurements_for_scene))
 
-        min_pq = max_measurement.min
-        max_pq = max_measurement.max
-        # Always assumed normalized
-        avg_pq = max_measurement.avg
-        fall_pq = max_measurement.fall
+        min_pq = max(m.min for m in measurements_for_scene)
+        max_pq = max(m.max for m in measurements_for_scene)
 
         if not normalized:
             min_pq /= 65535.0
@@ -78,10 +75,17 @@ def generate_dovi_config(clip: vs.VideoNode,
         min_pq = int(np.clip(round(min_pq * 4095.0), 0.0, 4095.0))
         max_pq = int(np.clip(round(max_pq * 4095.0), 0.0, 4095.0))
 
-        if fall_pq is not None:
-            avg_pq = int(np.clip(round(fall_pq * 4095.0), 0.0, 4095.0))
+        # Always assumed normalized
+        avg_pq = None
+
+        # Use FALL if available
+        if measurements_for_scene[0].fall is not None:
+            avg_pq = sum(m.fall if m.fall is not None else 0.0
+                         for m in measurements_for_scene) / measurements_len
         else:
-            avg_pq = int(np.clip(round(avg_pq * 4095.0), 0.0, 4095.0))
+            avg_pq = sum(m.avg for m in measurements_for_scene) / measurements_len
+
+        avg_pq = int(np.clip(round(avg_pq * 4095.0), 0.0, 4095.0))
 
         shot["metadata_blocks"] = [{
             "Level1": {
