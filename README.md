@@ -4,8 +4,9 @@
 * Python 3.9 minimum
 * [vapoursynth](http://www.vapoursynth.com/)
 * [numpy](https://numpy.org/)
-* [RemapFrames](https://github.com/Irrational-Encoding-Wizardry/Vapoursynth-RemapFrames)
-* [FillBorders](https://github.com/dubhater/vapoursynth-fillborders)
+* [subtext plugin](https://github.com/vapoursynth/subtext)
+* [RemapFrames plugin](https://github.com/Irrational-Encoding-Wizardry/Vapoursynth-RemapFrames)
+* [FillBorders plugin](https://github.com/dubhater/vapoursynth-fillborders)
 
 Optional plugins:
 * [vs-placebo](https://github.com/Lypheo/vs-placebo)
