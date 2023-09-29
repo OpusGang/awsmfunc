@@ -2131,18 +2131,18 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
 
     target_prim = "2020" if max_luminance else "xyz"
 
-    scaled = core.resize.Spline36(measured_clip,
-                                  width=final_w,
-                                  height=final_h,
-                                  range_in_s="limited",
-                                  range_s="full",
-                                  transfer_in_s="st2084",
-                                  transfer_s="st2084",
-                                  primaries_in_s="2020",
-                                  primaries_s=target_prim,
-                                  dither_type="none",
-                                  chromaloc_in_s="top_left",
-                                  format=scaled_format)
+    scaled = core.resize.Bicubic(measured_clip,
+                                 width=final_w,
+                                 height=final_h,
+                                 range_in_s="limited",
+                                 range_s="full",
+                                 transfer_in_s="st2084",
+                                 transfer_s="st2084",
+                                 primaries_in_s="2020",
+                                 primaries_s=target_prim,
+                                 dither_type="none",
+                                 chromaloc_in_s="top_left",
+                                 format=scaled_format)
 
     if no_numpy:
         if maxrgb:
