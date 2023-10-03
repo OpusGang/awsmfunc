@@ -1105,7 +1105,7 @@ def DynamicTonemap(clip: vs.VideoNode,
 
             rename_measure_props = {'HDRMax': 'PLSceneMax', 'HDRFALL': 'PLSceneAvg'}
             measured_clip = add_hdr_measurement_props(clip,
-                                                      percentile=99.9999,
+                                                      percentile=99.995,
                                                       rename_props=rename_measure_props,
                                                       reference=reference)
 
@@ -1126,7 +1126,7 @@ def DynamicTonemap(clip: vs.VideoNode,
                                     chromaloc_in_s=chromaloc_in_s,
                                     chromaloc_s=chromaloc_in_s)
 
-        measured_clip = add_hdr_measurement_props(clip, percentile=99.9999, reference=reference)
+        measured_clip = add_hdr_measurement_props(clip, percentile=99.995, reference=reference)
 
         tonemapped_clip = core.std.FrameEval(clip,
                                              partial(__dt, clip=clip, adjust_gamma=adjust_gamma),
