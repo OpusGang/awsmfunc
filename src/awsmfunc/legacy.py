@@ -2,20 +2,21 @@ from functools import partial
 from typing import List, Optional, Union
 
 import vapoursynth as vs
+from rekt import rekt_fast, rektlvls
 from vapoursynth import core
 from vsutil import plane, scale_value
-
-from rekt import rekt_fast, rektlvls
 
 from .base import Depth
 
 
-def LumaMaskMerge(clipa: vs.VideoNode,
-                  clipb: vs.VideoNode,
-                  threshold: Optional[Union[int, float]] = None,
-                  invert: bool = False,
-                  scale_inputs: bool = False,
-                  planes: Union[int, List[int]] = 0) -> vs.VideoNode:
+def LumaMaskMerge(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    threshold: Optional[Union[int, float]] = None,
+    invert: bool = False,
+    scale_inputs: bool = False,
+    planes: Union[int, List[int]] = 0,
+) -> vs.VideoNode:
     """
     LumaMaskMerge, merges clips using a binary mask defined by a brightness level.
     > Usage: LumaMaskMerge(clipa, clipb, threshold, invert, scale_inputs)
@@ -39,15 +40,17 @@ def LumaMaskMerge(clipa: vs.VideoNode,
     return core.std.MaskedMerge(clipa=clipa, clipb=clipb, mask=mask, planes=planes)
 
 
-def RGBMaskMerge(clipa: vs.VideoNode,
-                 clipb: vs.VideoNode,
-                 Rmin: int,
-                 Rmax: int,
-                 Gmin: int,
-                 Gmax: int,
-                 Bmin: int,
-                 Bmax: int,
-                 scale_inputs: bool = False) -> vs.VideoNode:
+def RGBMaskMerge(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    Rmin: int,
+    Rmax: int,
+    Gmin: int,
+    Gmax: int,
+    Bmin: int,
+    Bmax: int,
+    scale_inputs: bool = False,
+) -> vs.VideoNode:
     """
     RGBMaskMerge, merges clips using a binary mask defined by a RGB range.
     > Usage: RGBMaskMerge(clipa, clipb, Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, scale_inputs)
@@ -71,14 +74,15 @@ def RGBMaskMerge(clipa: vs.VideoNode,
     elif clipa.format.bits_per_sample == 16:
         rgb = core.resize.Point(clipa, format=vs.RGB48, matrix_in_s="709")
     else:
-        raise TypeError('RGBMaskMerge: only applicable to 8, 10 and 16 bits clips.')
+        raise TypeError("RGBMaskMerge: only applicable to 8, 10 and 16 bits clips.")
 
     R = plane(rgb, 0)
     G = plane(rgb, 1)
     B = plane(rgb, 2)
     rgbmask = core.std.Expr(
         clips=[R, G, B],
-        expr=[f"x {Rmin} > x {Rmax} < y {Gmin} > y {Gmax} < z {Bmin} > z {Bmax} < and and and and and {p} 0 ?"])
+        expr=[f"x {Rmin} > x {Rmax} < y {Gmin} > y {Gmax} < z {Bmin} > z {Bmax} < and and and and and {p} 0 ?"],
+    )
 
     merge = core.std.MaskedMerge(clipa=clipa, clipb=clipb, mask=rgbmask)
     clip = core.std.ShufflePlanes(clips=[merge, merge, clipb], planes=[0, 1, 2], colorfamily=vs.YUV)
@@ -86,10 +90,9 @@ def RGBMaskMerge(clipa: vs.VideoNode,
     return clip
 
 
-def DelFrameProp(clip: vs.VideoNode,
-                 primaries: bool = True,
-                 matrix: bool = True,
-                 transfer: bool = True) -> vs.VideoNode:
+def DelFrameProp(
+    clip: vs.VideoNode, primaries: bool = True, matrix: bool = True, transfer: bool = True
+) -> vs.VideoNode:
     """
     DelFrameProp, delete primaries, matrix or transfer frame properties.
       Avoids "Unrecognized transfer characteristics" or
@@ -128,11 +131,12 @@ def autogma(clip: vs.VideoNode, adj: float = 1.3, thr: float = 0.40) -> vs.Video
     s = luma.std.PlaneStats()
 
     def hilo(
-            n: int,  # pylint: disable=unused-argument
-            f: vs.VideoFrame,
-            clip: vs.VideoNode,
-            adj: float,
-            thr: int) -> vs.VideoNode:
+        n: int,
+        f: vs.VideoFrame,
+        clip: vs.VideoNode,
+        adj: float,
+        thr: int,
+    ) -> vs.VideoNode:
         g = core.std.Levels(clip, gamma=adj)
 
         if f.props.PlaneStatsAverage > thr:
@@ -156,31 +160,37 @@ def FixRowBrightnessProtect2(clip: vs.VideoNode, row: int, adj_val: int = 0, pro
     return FixBrightnessProtect2(clip, row=row, adj_row=adj_val, prot_val=prot_val)
 
 
-def FixBrightnessProtect2(clip: vs.VideoNode,
-                          row: Optional[Union[int, List[int]]] = None,
-                          adj_row: Optional[Union[int, List[int]]] = None,
-                          column: Optional[Union[int, List[int]]] = None,
-                          adj_column: Optional[Union[int, List[int]]] = None,
-                          prot_val: int = 20) -> vs.VideoNode:
+def FixBrightnessProtect2(
+    clip: vs.VideoNode,
+    row: Optional[Union[int, List[int]]] = None,
+    adj_row: Optional[Union[int, List[int]]] = None,
+    column: Optional[Union[int, List[int]]] = None,
+    adj_column: Optional[Union[int, List[int]]] = None,
+    prot_val: int = 20,
+) -> vs.VideoNode:
     return rektlvls(clip, rownum=row, rowval=adj_row, colnum=column, colval=adj_column, prot_val=prot_val)
 
 
-def FixColumnBrightness(clip: vs.VideoNode,
-                        column: int,
-                        input_low: int = 16,
-                        input_high: int = 235,
-                        output_low: int = 16,
-                        output_high: int = 235) -> vs.VideoNode:
+def FixColumnBrightness(
+    clip: vs.VideoNode,
+    column: int,
+    input_low: int = 16,
+    input_high: int = 235,
+    output_low: int = 16,
+    output_high: int = 235,
+) -> vs.VideoNode:
     hbd = Depth(clip, 32)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
 
     def adj(x):
-        return core.std.Levels(x,
-                               min_in=scale_value(input_low, 8, 32, scale_offsets=True),
-                               max_in=scale_value(input_high, 8, 32, scale_offsets=True),
-                               min_out=scale_value(output_low, 8, 32, scale_offsets=True),
-                               max_out=scale_value(output_high, 8, 32, scale_offsets=True),
-                               planes=0)
+        return core.std.Levels(
+            x,
+            min_in=scale_value(input_low, 8, 32, scale_offsets=True),
+            max_in=scale_value(input_high, 8, 32, scale_offsets=True),
+            min_out=scale_value(output_low, 8, 32, scale_offsets=True),
+            max_out=scale_value(output_high, 8, 32, scale_offsets=True),
+            planes=0,
+        )
 
     prc = rekt_fast(lma, adj, left=column, right=clip.width - column - 1)
 
@@ -190,22 +200,26 @@ def FixColumnBrightness(clip: vs.VideoNode,
     return Depth(prc, clip.format.bits_per_sample)
 
 
-def FixRowBrightness(clip: vs.VideoNode,
-                     row: int,
-                     input_low: int = 16,
-                     input_high: int = 235,
-                     output_low: int = 16,
-                     output_high: int = 235) -> vs.VideoNode:
+def FixRowBrightness(
+    clip: vs.VideoNode,
+    row: int,
+    input_low: int = 16,
+    input_high: int = 235,
+    output_low: int = 16,
+    output_high: int = 235,
+) -> vs.VideoNode:
     hbd = Depth(clip, 32)
     lma = hbd.std.ShufflePlanes(0, vs.GRAY)
 
     def adj(x):
-        return core.std.Levels(x,
-                               min_in=scale_value(input_low, 8, 32, scale_offsets=True),
-                               max_in=scale_value(input_high, 8, 32, scale_offsets=True),
-                               min_out=scale_value(output_low, 8, 32, scale_offsets=True),
-                               max_out=scale_value(output_high, 8, 32, scale_offsets=True),
-                               planes=0)
+        return core.std.Levels(
+            x,
+            min_in=scale_value(input_low, 8, 32, scale_offsets=True),
+            max_in=scale_value(input_high, 8, 32, scale_offsets=True),
+            min_out=scale_value(output_low, 8, 32, scale_offsets=True),
+            max_out=scale_value(output_high, 8, 32, scale_offsets=True),
+            planes=0,
+        )
 
     prc = rekt_fast(lma, adj, top=row, bottom=clip.height - row - 1)
 

@@ -1,6 +1,6 @@
 from typing import NamedTuple, Optional
 
-from .misc import st2084_eotf, ST2084_PEAK_LUMINANCE, st2084_inverse_eotf
+from .misc import ST2084_PEAK_LUMINANCE, st2084_eotf, st2084_inverse_eotf
 
 
 class HdrMeasurement(NamedTuple):
@@ -22,13 +22,15 @@ class HdrMeasurement(NamedTuple):
     """Standard deviation of the frame's MaxRGB"""
 
     def human_readable_str(self, precision=6):
-        formatted_str = (f'{self.frame}, min: {self.min:0.{precision}f}, max: {self.max:0.{precision}f}, '
-                         f'avg: {self.avg:0.{precision}f}')
+        formatted_str = (
+            f"{self.frame}, min: {self.min:0.{precision}f}, max: {self.max:0.{precision}f}, "
+            f"avg: {self.avg:0.{precision}f}"
+        )
 
         if self.fall is not None:
-            formatted_str += f', MaxFALL: {self.fall:0.{precision}f}'
+            formatted_str += f", MaxFALL: {self.fall:0.{precision}f}"
         if self.max_stdev is not None:
-            formatted_str += f', MaxStd: {self.max_stdev:0.{precision}f}'
+            formatted_str += f", MaxStd: {self.max_stdev:0.{precision}f}"
 
         return formatted_str
 
@@ -74,5 +76,4 @@ class HdrMeasurement(NamedTuple):
         if max_stdev is not None:
             max_stdev = _convert_fn(max_stdev)
 
-        # pylint: disable-next=no-member
         return self._replace(min=min_v, max=max_v, avg=avg, fall=fall, max_stdev=max_stdev)

@@ -141,31 +141,30 @@ class PlaceboTonemapOpts(NamedTuple):
 
     def with_static_peak_detect(self):
         """Ignore peak detect smoothing and scene detection"""
-        # pylint: disable-next=no-member
         return self._replace(smoothing_period=0, scene_threshold_low=0, scene_threshold_high=0)
 
     def vsplacebo_dict(self) -> Dict:
         all_args = {
-            'src_csp': self.source_colorspace,
-            'dst_csp': self.target_colorspace,
-            'dst_prim': self.target_primaries,
-            'dst_max': self.dst_max,
-            'dst_min': self.dst_min,
-            'dynamic_peak_detection': self.peak_detect,
-            'gamut_mode': self.gamut_mode,
-            'tone_mapping_function': self.tone_map_function,
-            'tone_mapping_function_s': self.tone_map_function_s,
-            'tone_mapping_param': self.tone_map_param,
-            'tone_mapping_mode': self.tone_map_mode,
-            'tone_mapping_crosstalk': self.tone_map_crosstalk,
-            'use_dovi': self.use_dovi,
-            'smoothing_period': self.smoothing_period,
-            'scene_threshold_low': self.scene_threshold_low,
-            'scene_threshold_high': self.scene_threshold_high,
-            'show_clipping': self.show_clipping,
-            'percentile': self.percentile,
-            'metadata': self.hdr_metadata_type,
-            'visualize_lut': self.visualize_lut,
+            "src_csp": self.source_colorspace,
+            "dst_csp": self.target_colorspace,
+            "dst_prim": self.target_primaries,
+            "dst_max": self.dst_max,
+            "dst_min": self.dst_min,
+            "dynamic_peak_detection": self.peak_detect,
+            "gamut_mode": self.gamut_mode,
+            "tone_mapping_function": self.tone_map_function,
+            "tone_mapping_function_s": self.tone_map_function_s,
+            "tone_mapping_param": self.tone_map_param,
+            "tone_mapping_mode": self.tone_map_mode,
+            "tone_mapping_crosstalk": self.tone_map_crosstalk,
+            "use_dovi": self.use_dovi,
+            "smoothing_period": self.smoothing_period,
+            "scene_threshold_low": self.scene_threshold_low,
+            "scene_threshold_high": self.scene_threshold_high,
+            "show_clipping": self.show_clipping,
+            "percentile": self.percentile,
+            "metadata": self.hdr_metadata_type,
+            "visualize_lut": self.visualize_lut,
         }
 
         return {k: v for k, v in all_args.items() if v is not None}

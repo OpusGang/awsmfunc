@@ -1,18 +1,20 @@
 from typing import Dict, List
-import numpy as np
 
+import numpy as np
 import vapoursynth as vs
 
 from .base import ST2084_PEAK_LUMINANCE, st2084_eotf
 from .types.dovi import HdrMeasurement
 
 
-def generate_dovi_config(clip: vs.VideoNode,
-                         measurements: List[HdrMeasurement],
-                         scene_changes: List[int],
-                         hlg: bool = False,
-                         normalized: bool = False,
-                         with_l4=False) -> dict:
+def generate_dovi_config(
+    clip: vs.VideoNode,
+    measurements: List[HdrMeasurement],
+    scene_changes: List[int],
+    hlg: bool = False,
+    normalized: bool = False,
+    with_l4=False,
+) -> dict:
     """
     Generates a Dolby Vision metadata generation config for `dovi_tool`.
     For the average brightness, FALL is prioritized over regular Average
@@ -86,27 +88,26 @@ def generate_dovi_config(clip: vs.VideoNode,
 
         avg_pq = int(np.clip(round(avg_pq * 4095.0), 0.0, 4095.0))
 
-        shot["metadata_blocks"] = [{
-            "Level1": {
-                "min_pq": min_pq,
-                "max_pq": max_pq,
-                "avg_pq": avg_pq,
+        shot["metadata_blocks"] = [
+            {
+                "Level1": {
+                    "min_pq": min_pq,
+                    "max_pq": max_pq,
+                    "avg_pq": avg_pq,
+                }
             }
-        }]
+        ]
 
         if l4_dict:
             l4_for_shot = {i: l4_dict.get(i) for i in range(shot["start"], end + 1)}
 
-            shot["frame_edits"] = [{
-                "edit_offset":
-                offset,
-                "metadata_blocks": [{
-                    "Level4": {
-                        "anchor_pq": l4["tf_pq_mean"],
-                        "anchor_power": l4["tf_pq_stdev"]
-                    }
-                }]
-            } for offset, (_, l4) in enumerate(l4_for_shot.items())]
+            shot["frame_edits"] = [
+                {
+                    "edit_offset": offset,
+                    "metadata_blocks": [{"Level4": {"anchor_pq": l4["tf_pq_mean"], "anchor_power": l4["tf_pq_stdev"]}}],
+                }
+                for offset, (_, l4) in enumerate(l4_for_shot.items())
+            ]
 
         shots.append(shot)
 
@@ -132,16 +133,15 @@ def generate_dovi_config(clip: vs.VideoNode,
             "max_display_mastering_luminance": 1000,
             "min_display_mastering_luminance": 1,
             "max_content_light_level": round(maxcll),
-            "max_frame_average_light_level": round(maxfall)
+            "max_frame_average_light_level": round(maxfall),
         },
         "shots": shots,
     }
 
 
-def __calc_dovi_l4(clip: vs.VideoNode,
-                   measurements: List[HdrMeasurement],
-                   scene_changes: List[int],
-                   normalized: bool = False) -> Dict:
+def __calc_dovi_l4(
+    clip: vs.VideoNode, measurements: List[HdrMeasurement], scene_changes: List[int], normalized: bool = False
+) -> Dict:
     framerate = clip.fps
 
     l4_norm_dict = {}
@@ -177,12 +177,12 @@ def __calc_dovi_l4(clip: vs.VideoNode,
             tf_pq_norm_mean = 0.0
             tf_pq_norm_stdev = 0.0
 
-        l4_norm_dict[i] = {'tf_pq_mean': tf_pq_norm_mean, 'tf_pq_stdev': tf_pq_norm_stdev}
+        l4_norm_dict[i] = {"tf_pq_mean": tf_pq_norm_mean, "tf_pq_stdev": tf_pq_norm_stdev}
 
     return {
         i: {
             "tf_pq_mean": int(np.clip(round(l4_norm["tf_pq_mean"] * 4095.0), 0.0, 4095.0)),
-            "tf_pq_stdev": int(np.clip(round(l4_norm["tf_pq_stdev"] * 4095.0), 0.0, 4095.0))
+            "tf_pq_stdev": int(np.clip(round(l4_norm["tf_pq_stdev"] * 4095.0), 0.0, 4095.0)),
         }
         for i, l4_norm in l4_norm_dict.items()
     }

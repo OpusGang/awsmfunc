@@ -5,18 +5,18 @@ from os import PathLike
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import vapoursynth as vs
+from rekt import rektlvls
 from vapoursynth import core
 from vsutil import depth as vsuDepth
 from vsutil import get_depth, join, scale_value, split
-
-from rekt import rektlvls
 
 from .types.dovi import HdrMeasurement
 from .types.misc import ST2084_PEAK_LUMINANCE, st2084_eotf, st2084_inverse_eotf
 from .types.placebo import PlaceboTonemapOpts
 
-SUBTITLE_DEFAULT_STYLE: str = ("sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
-                               "0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1")
+SUBTITLE_DEFAULT_STYLE: str = (
+    "sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000," "0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1"
+)
 
 
 def Depth(clip: vs.VideoNode, bits: int, **kwargs) -> vs.VideoNode:
@@ -30,10 +30,12 @@ def Depth(clip: vs.VideoNode, bits: int, **kwargs) -> vs.VideoNode:
     return vsuDepth(clip, bits, dither_type=dither_type, **kwargs)
 
 
-def ReplaceFrames(clipa: vs.VideoNode,
-                  clipb: vs.VideoNode,
-                  mappings: Optional[str] = None,
-                  filename: Optional[Union[str, PathLike]] = None) -> vs.VideoNode:
+def ReplaceFrames(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    mappings: Optional[str] = None,
+    filename: Optional[Union[str, PathLike]] = None,
+) -> vs.VideoNode:
     """
     ReplaceFramesSimple wrapper that uses the RemapFrames plugin and works for different length clips.
     https://github.com/Irrational-Encoding-Wizardry/Vapoursynth-RemapFrames
@@ -46,22 +48,22 @@ def ReplaceFrames(clipa: vs.VideoNode,
     try:
         return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
     except vs.Error:
-
         # copy-pasted from fvsfunc, sadly
         def __fvsfunc_remap(clipa: vs.VideoNode, clipb: vs.VideoNode, mappings, filename) -> vs.VideoNode:
             import re
-            if filename:
-                with open(filename, 'r') as mf:
-                    mappings += f'\n{mf.read()}'
-            # Some people used this as separators and wondered why it wasn't working
-            mappings = mappings.replace(',', ' ').replace(':', ' ')
 
-            frames = re.findall(r'\d+(?!\d*\s*\d*\s*\d*\])', mappings)
-            ranges = re.findall(r'\[\s*\d+\s+\d+\s*\]', mappings)
+            if filename:
+                with open(filename, "r") as mf:
+                    mappings += f"\n{mf.read()}"
+            # Some people used this as separators and wondered why it wasn't working
+            mappings = mappings.replace(",", " ").replace(":", " ")
+
+            frames = re.findall(r"\d+(?!\d*\s*\d*\s*\d*\])", mappings)
+            ranges = re.findall(r"\[\s*\d+\s+\d+\s*\]", mappings)
             maps = []
 
             for range_ in ranges:
-                maps.append([int(x) for x in range_.strip('[ ]').split()])
+                maps.append([int(x) for x in range_.strip("[ ]").split()])
 
             for frame in frames:
                 maps.append([int(frame), int(frame)])
@@ -85,25 +87,27 @@ def ReplaceFrames(clipa: vs.VideoNode,
         return core.remap.Rfs(baseclip=clipa, sourceclip=clipb, mappings=mappings, filename=filename)
 
 
-def bbmod(clip: vs.VideoNode,
-          top: int = 0,
-          bottom: int = 0,
-          left: int = 0,
-          right: int = 0,
-          thresh: Any = None,
-          blur: int = 20,
-          planes: Any = None,
-          y: Optional[bool] = None,
-          u: Optional[bool] = None,
-          v: Optional[bool] = None,
-          scale_thresh: Optional[bool] = None,
-          cpass2: bool = False,
-          csize: int = 2,
-          scale_offsets: bool = True,
-          cTop: Optional[int] = None,
-          cBottom: Optional[int] = None,
-          cLeft: Optional[int] = None,
-          cRight: Optional[int] = None) -> vs.VideoNode:
+def bbmod(
+    clip: vs.VideoNode,
+    top: int = 0,
+    bottom: int = 0,
+    left: int = 0,
+    right: int = 0,
+    thresh: Any = None,
+    blur: int = 20,
+    planes: Any = None,
+    y: Optional[bool] = None,
+    u: Optional[bool] = None,
+    v: Optional[bool] = None,
+    scale_thresh: Optional[bool] = None,
+    cpass2: bool = False,
+    csize: int = 2,
+    scale_offsets: bool = True,
+    cTop: Optional[int] = None,
+    cBottom: Optional[int] = None,
+    cLeft: Optional[int] = None,
+    cRight: Optional[int] = None,
+) -> vs.VideoNode:
     """
     bbmod helper for a significant speedup from cropping unnecessary pixels before processing.
     :param clip: Clip to be processed.
@@ -201,34 +205,38 @@ def bbmod(clip: vs.VideoNode,
         middle_clip = filtered.std.Crop(left=c_left, right=c_right, top=0, bottom=0)
         right_clip = filtered.std.Crop(left=f_width - c_right, right=0, top=0, bottom=0)
 
-        left_clip = bbmoda(left_clip,
-                           cTop=0,
-                           cBottom=0,
-                           cLeft=left,
-                           cRight=0,
-                           thresh=thresh,
-                           blur=blur,
-                           y=y,
-                           u=u,
-                           v=v,
-                           scale_thresh=scale_thresh,
-                           cpass2=cpass2,
-                           csize=csize,
-                           scale_offsets=scale_offsets)
-        right_clip = bbmoda(right_clip,
-                            cTop=0,
-                            cBottom=0,
-                            cLeft=0,
-                            cRight=right,
-                            thresh=thresh,
-                            blur=blur,
-                            y=y,
-                            u=u,
-                            v=v,
-                            scale_thresh=scale_thresh,
-                            cpass2=cpass2,
-                            csize=csize,
-                            scale_offsets=scale_offsets)
+        left_clip = bbmoda(
+            left_clip,
+            cTop=0,
+            cBottom=0,
+            cLeft=left,
+            cRight=0,
+            thresh=thresh,
+            blur=blur,
+            y=y,
+            u=u,
+            v=v,
+            scale_thresh=scale_thresh,
+            cpass2=cpass2,
+            csize=csize,
+            scale_offsets=scale_offsets,
+        )
+        right_clip = bbmoda(
+            right_clip,
+            cTop=0,
+            cBottom=0,
+            cLeft=0,
+            cRight=right,
+            thresh=thresh,
+            blur=blur,
+            y=y,
+            u=u,
+            v=v,
+            scale_thresh=scale_thresh,
+            cpass2=cpass2,
+            csize=csize,
+            scale_offsets=scale_offsets,
+        )
 
         filtered = core.std.StackHorizontal(clips=[left_clip, middle_clip, right_clip])
 
@@ -236,20 +244,22 @@ def bbmod(clip: vs.VideoNode,
         left_clip = filtered.std.Crop(left=0, right=f_width - c_left, top=0, bottom=0)
         middle_clip = filtered.std.Crop(left=c_left, right=0, top=0, bottom=0)
 
-        left_clip = bbmoda(left_clip,
-                           cTop=0,
-                           cBottom=0,
-                           cLeft=left,
-                           cRight=0,
-                           thresh=thresh,
-                           blur=blur,
-                           y=y,
-                           u=u,
-                           v=v,
-                           scale_thresh=scale_thresh,
-                           cpass2=cpass2,
-                           csize=csize,
-                           scale_offsets=scale_offsets)
+        left_clip = bbmoda(
+            left_clip,
+            cTop=0,
+            cBottom=0,
+            cLeft=left,
+            cRight=0,
+            thresh=thresh,
+            blur=blur,
+            y=y,
+            u=u,
+            v=v,
+            scale_thresh=scale_thresh,
+            cpass2=cpass2,
+            csize=csize,
+            scale_offsets=scale_offsets,
+        )
 
         filtered = core.std.StackHorizontal(clips=[left_clip, middle_clip])
 
@@ -257,20 +267,22 @@ def bbmod(clip: vs.VideoNode,
         right_clip = filtered.std.Crop(left=f_width - c_right, right=0, top=0, bottom=0)
         middle_clip = filtered.std.Crop(left=0, right=c_right, top=0, bottom=0)
 
-        right_clip = bbmoda(right_clip,
-                            cTop=0,
-                            cBottom=0,
-                            cLeft=0,
-                            cRight=right,
-                            thresh=thresh,
-                            blur=blur,
-                            y=y,
-                            u=u,
-                            v=v,
-                            scale_thresh=scale_thresh,
-                            cpass2=cpass2,
-                            csize=csize,
-                            scale_offsets=scale_offsets)
+        right_clip = bbmoda(
+            right_clip,
+            cTop=0,
+            cBottom=0,
+            cLeft=0,
+            cRight=right,
+            thresh=thresh,
+            blur=blur,
+            y=y,
+            u=u,
+            v=v,
+            scale_thresh=scale_thresh,
+            cpass2=cpass2,
+            csize=csize,
+            scale_offsets=scale_offsets,
+        )
 
         filtered = core.std.StackHorizontal(clips=[middle_clip, right_clip])
 
@@ -279,34 +291,38 @@ def bbmod(clip: vs.VideoNode,
         middle_clip = filtered.std.Crop(left=0, right=0, top=c_top, bottom=c_bottom)
         bottom_clip = filtered.std.Crop(left=0, right=0, top=f_height - c_bottom, bottom=0)
 
-        top_clip = bbmoda(top_clip,
-                          cTop=top,
-                          cBottom=0,
-                          cLeft=0,
-                          cRight=0,
-                          thresh=thresh,
-                          blur=blur,
-                          y=y,
-                          u=u,
-                          v=v,
-                          scale_thresh=scale_thresh,
-                          cpass2=cpass2,
-                          csize=csize,
-                          scale_offsets=scale_offsets)
-        bottom_clip = bbmoda(bottom_clip,
-                             cTop=0,
-                             cBottom=bottom,
-                             cLeft=0,
-                             cRight=0,
-                             thresh=thresh,
-                             blur=blur,
-                             y=y,
-                             u=u,
-                             v=v,
-                             scale_thresh=scale_thresh,
-                             cpass2=cpass2,
-                             csize=csize,
-                             scale_offsets=scale_offsets)
+        top_clip = bbmoda(
+            top_clip,
+            cTop=top,
+            cBottom=0,
+            cLeft=0,
+            cRight=0,
+            thresh=thresh,
+            blur=blur,
+            y=y,
+            u=u,
+            v=v,
+            scale_thresh=scale_thresh,
+            cpass2=cpass2,
+            csize=csize,
+            scale_offsets=scale_offsets,
+        )
+        bottom_clip = bbmoda(
+            bottom_clip,
+            cTop=0,
+            cBottom=bottom,
+            cLeft=0,
+            cRight=0,
+            thresh=thresh,
+            blur=blur,
+            y=y,
+            u=u,
+            v=v,
+            scale_thresh=scale_thresh,
+            cpass2=cpass2,
+            csize=csize,
+            scale_offsets=scale_offsets,
+        )
 
         filtered = core.std.StackVertical(clips=[top_clip, middle_clip, bottom_clip])
 
@@ -314,20 +330,22 @@ def bbmod(clip: vs.VideoNode,
         top_clip = filtered.std.Crop(left=0, right=0, top=0, bottom=f_height - c_top)
         middle_clip = filtered.std.Crop(left=0, right=0, top=c_top, bottom=0)
 
-        top_clip = bbmoda(top_clip,
-                          cTop=top,
-                          cBottom=0,
-                          cLeft=0,
-                          cRight=0,
-                          thresh=thresh,
-                          blur=blur,
-                          y=y,
-                          u=u,
-                          v=v,
-                          scale_thresh=scale_thresh,
-                          cpass2=cpass2,
-                          csize=csize,
-                          scale_offsets=scale_offsets)
+        top_clip = bbmoda(
+            top_clip,
+            cTop=top,
+            cBottom=0,
+            cLeft=0,
+            cRight=0,
+            thresh=thresh,
+            blur=blur,
+            y=y,
+            u=u,
+            v=v,
+            scale_thresh=scale_thresh,
+            cpass2=cpass2,
+            csize=csize,
+            scale_offsets=scale_offsets,
+        )
 
         filtered = core.std.StackVertical(clips=[top_clip, middle_clip])
 
@@ -335,40 +353,44 @@ def bbmod(clip: vs.VideoNode,
         bottom_clip = filtered.std.Crop(left=0, right=0, top=f_height - c_bottom, bottom=0)
         middle_clip = filtered.std.Crop(left=0, right=0, top=0, bottom=c_bottom)
 
-        bottom_clip = bbmoda(bottom_clip,
-                             cTop=0,
-                             cBottom=bottom,
-                             cLeft=0,
-                             cRight=0,
-                             thresh=thresh,
-                             blur=blur,
-                             y=y,
-                             u=u,
-                             v=v,
-                             scale_thresh=scale_thresh,
-                             cpass2=cpass2,
-                             csize=csize,
-                             scale_offsets=scale_offsets)
+        bottom_clip = bbmoda(
+            bottom_clip,
+            cTop=0,
+            cBottom=bottom,
+            cLeft=0,
+            cRight=0,
+            thresh=thresh,
+            blur=blur,
+            y=y,
+            u=u,
+            v=v,
+            scale_thresh=scale_thresh,
+            cpass2=cpass2,
+            csize=csize,
+            scale_offsets=scale_offsets,
+        )
 
         filtered = core.std.StackVertical(clips=[middle_clip, bottom_clip])
 
     return filtered
 
 
-def bbmoda(c: vs.VideoNode,
-           cTop: int = 0,
-           cBottom: int = 0,
-           cLeft: int = 0,
-           cRight: int = 0,
-           thresh: Any = 128,
-           blur: Any = 999,
-           y: bool = True,
-           u: bool = True,
-           v: bool = True,
-           scale_thresh: bool = True,
-           cpass2: bool = False,
-           csize: int = 2,
-           scale_offsets: bool = True) -> vs.VideoNode:
+def bbmoda(
+    c: vs.VideoNode,
+    cTop: int = 0,
+    cBottom: int = 0,
+    cLeft: int = 0,
+    cRight: int = 0,
+    thresh: Any = 128,
+    blur: Any = 999,
+    y: bool = True,
+    u: bool = True,
+    v: bool = True,
+    scale_thresh: bool = True,
+    cpass2: bool = False,
+    csize: int = 2,
+    scale_offsets: bool = True,
+) -> vs.VideoNode:
     """
     bbmod, port from Avisynth's function, a mod of BalanceBorders
       The function changes the extreme pixels of the clip, to fix or attenuate dirty borders
@@ -401,7 +423,7 @@ def bbmoda(c: vs.VideoNode,
     funcName = "bbmoda"
 
     if not isinstance(c, vs.VideoNode):
-        raise TypeError(funcName + ': \"c\" must be a clip!')
+        raise TypeError(funcName + ': "c" must be a clip!')
 
     if isinstance(thresh, (int, float)):
         # thresh needs to be lower for chroma for cpass2
@@ -431,14 +453,13 @@ def bbmoda(c: vs.VideoNode,
 
     for _ in blur:
         if _ <= 0:
-            raise ValueError(funcName + ': \'blur\' has an incorrect value! (0 ~ inf]')
+            raise ValueError(funcName + ": 'blur' has an incorrect value! (0 ~ inf]")
 
     for _ in thresh:
         if _ <= 0 and c.format.sample_type == vs.INTEGER:
-            raise ValueError(funcName + ': \'thresh\' has an incorrect value! (0 ~ inf]')
+            raise ValueError(funcName + ": 'thresh' has an incorrect value! (0 ~ inf]")
 
     def btb(c: vs.VideoNode, cTop: int, thresh: Any, blur: Any) -> vs.VideoNode:
-
         cWidth = c.width
         cHeight = c.height
         sw, sh = c.format.subsampling_w + 1, c.format.subsampling_h + 1
@@ -447,7 +468,7 @@ def bbmoda(c: vs.VideoNode,
         blurWidth = [
             max(8, math.floor(cWidth / blur[0])),
             max(8, math.floor(cWidth / blur[1])),
-            max(8, math.floor(cWidth / blur[2]))
+            max(8, math.floor(cWidth / blur[2])),
         ]
 
         scale128 = str(scale_value(128, 8, c.format.bits_per_sample, scale_offsets=scale_offsets, chroma=True))
@@ -455,8 +476,12 @@ def bbmoda(c: vs.VideoNode,
         uvexpr = []
 
         for t in [1, 2]:
-            uvexpr.append((f"{uvexpr_} x - {thresh[t]} > x {thresh[t]} + {uvexpr_} x - "
-                           f"-{thresh[t]} < x {thresh[t]} - {uvexpr_} ? ?"))
+            uvexpr.append(
+                (
+                    f"{uvexpr_} x - {thresh[t]} > x {thresh[t]} + {uvexpr_} x - "
+                    f"-{thresh[t]} < x {thresh[t]} - {uvexpr_} ? ?"
+                )
+            )
         if c.format.sample_type == vs.INTEGER:
             exprchroma = f"x {scale128} - abs 2 *"
             expruv = f"z y / 8 min 0.4 max x {scale128} - * {scale128} + x - {scale128} +"
@@ -476,24 +501,18 @@ def bbmoda(c: vs.VideoNode,
             exprchroma = ["", exprchroma]
 
             if cpass2:
-                referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth[0] * csize,
-                                                                               cTop * csize,
-                                                                               filter_param_a=1,
-                                                                               filter_param_b=0).resize.Bicubic(
-                                                                                   cWidth * csize,
-                                                                                   cTop * csize,
-                                                                                   filter_param_a=1,
-                                                                                   filter_param_b=0)
+                referenceBlurChroma = (
+                    last.std.Expr(exprchroma)
+                    .resize.Bicubic(blurWidth[0] * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
+                    .resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
+                )
 
-            referenceBlur = core.resize.Bicubic(last,
-                                                blurWidth[0] * csize,
-                                                cTop * csize,
-                                                filter_param_a=1,
-                                                filter_param_b=0)
-            referenceBlur = referenceBlur.resize.Bicubic(cWidth * csize,
-                                                         cTop * csize,
-                                                         filter_param_a=1,
-                                                         filter_param_b=0)
+            referenceBlur = core.resize.Bicubic(
+                last, blurWidth[0] * csize, cTop * csize, filter_param_a=1, filter_param_b=0
+            )
+            referenceBlur = referenceBlur.resize.Bicubic(
+                cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0
+            )
 
             original = core.std.CropAbs(c2, cWidth * csize, cTop * csize, 0, 0)
 
@@ -502,28 +521,28 @@ def bbmoda(c: vs.VideoNode,
             originalBlur = last.resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
 
             if cpass2:
-                originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(blurWidth[0] * csize,
-                                                                              cTop * csize,
-                                                                              filter_param_a=1,
-                                                                              filter_param_b=0)
+                originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(
+                    blurWidth[0] * csize, cTop * csize, filter_param_a=1, filter_param_b=0
+                )
 
-                originalBlurChroma = originalBlurChroma.resize.Bicubic(cWidth * csize,
-                                                                       cTop * csize,
-                                                                       filter_param_a=1,
-                                                                       filter_param_b=0)
+                originalBlurChroma = originalBlurChroma.resize.Bicubic(
+                    cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0
+                )
 
-                balancedChroma = core.std.Expr(clips=[original, originalBlurChroma, referenceBlurChroma],
-                                               expr=["", expruv])
-                balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur],
-                                             expr=[yexpr, uvexpr[0], uvexpr[1]])
+                balancedChroma = core.std.Expr(
+                    clips=[original, originalBlurChroma, referenceBlurChroma], expr=["", expruv]
+                )
+                balancedLuma = core.std.Expr(
+                    clips=[balancedChroma, originalBlur, referenceBlur], expr=[yexpr, uvexpr[0], uvexpr[1]]
+                )
             else:
-                balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur],
-                                             expr=[yexpr, uvexpr[0], uvexpr[1]])
+                balancedLuma = core.std.Expr(
+                    clips=[original, originalBlur, referenceBlur], expr=[yexpr, uvexpr[0], uvexpr[1]]
+                )
 
             return core.std.StackVertical(
-                [balancedLuma,
-                 core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0,
-                                  cTop * csize)]).resize.Point(cWidth, cHeight)
+                [balancedLuma, core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]
+            ).resize.Point(cWidth, cHeight)
 
         if c.format.color_family == vs.YUV:
             yplane, uplane, vplane = split(c)
@@ -536,14 +555,9 @@ def bbmoda(c: vs.VideoNode,
             last = core.std.CropAbs(c2, cWidth * csize, csize, 0, cTop * csize)
             last = core.resize.Point(last, cWidth * csize, cTop * csize)
 
-            referenceBlur = core.resize.Bicubic(last,
-                                                blurWidth[0] * csize,
-                                                cTop * csize,
-                                                filter_param_a=1,
-                                                filter_param_b=0).resize.Bicubic(cWidth * csize,
-                                                                                 cTop * csize,
-                                                                                 filter_param_a=1,
-                                                                                 filter_param_b=0)
+            referenceBlur = core.resize.Bicubic(
+                last, blurWidth[0] * csize, cTop * csize, filter_param_a=1, filter_param_b=0
+            ).resize.Bicubic(cWidth * csize, cTop * csize, filter_param_a=1, filter_param_b=0)
 
             original = core.std.CropAbs(c2, cWidth * csize, cTop * csize, 0, 0)
 
@@ -553,9 +567,8 @@ def bbmoda(c: vs.VideoNode,
             balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=yexpr)
 
             yplane = core.std.StackVertical(
-                clips=[balancedLuma,
-                       core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]).resize.Point(
-                           cWidth, cHeight)
+                clips=[balancedLuma, core.std.CropAbs(c2, cWidth * csize, (cHeight - cTop) * csize, 0, cTop * csize)]
+            ).resize.Point(cWidth, cHeight)
 
             if c.format.color_family == vs.GRAY:
                 return yplane
@@ -565,59 +578,51 @@ def bbmoda(c: vs.VideoNode,
             last = core.std.CropAbs(c2, round(cWidth * csize / sw), round(csize / sh), 0, round(cTop * csize / sh))
             last = core.resize.Point(last, round(cWidth * csize / sw), round(cTop * csize / sh))
             if cpass2:
-                referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(round(blurWidth * csize / sw),
-                                                                               round(cTop * csize / sh),
-                                                                               filter_param_a=1,
-                                                                               filter_param_b=0)
-                referenceBlurChroma = referenceBlurChroma.resize.Bicubic(round(cWidth * csize / sw),
-                                                                         round(cTop * csize / sh),
-                                                                         filter_param_a=1,
-                                                                         filter_param_b=0)
+                referenceBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(
+                    round(blurWidth * csize / sw), round(cTop * csize / sh), filter_param_a=1, filter_param_b=0
+                )
+                referenceBlurChroma = referenceBlurChroma.resize.Bicubic(
+                    round(cWidth * csize / sw), round(cTop * csize / sh), filter_param_a=1, filter_param_b=0
+                )
 
-            referenceBlur = core.resize.Bicubic(last,
-                                                round(blurWidth * csize / sw),
-                                                round(cTop * csize / sh),
-                                                filter_param_a=1,
-                                                filter_param_b=0).resize.Bicubic(round(cWidth * csize / sw),
-                                                                                 round(cTop * csize / sh),
-                                                                                 filter_param_a=1,
-                                                                                 filter_param_b=0)
+            referenceBlur = core.resize.Bicubic(
+                last, round(blurWidth * csize / sw), round(cTop * csize / sh), filter_param_a=1, filter_param_b=0
+            ).resize.Bicubic(round(cWidth * csize / sw), round(cTop * csize / sh), filter_param_a=1, filter_param_b=0)
 
             original = core.std.CropAbs(c2, round(cWidth * csize / sw), round(cTop * csize / sh), 0, 0)
 
-            last = core.resize.Bicubic(original,
-                                       round(blurWidth * csize / sw),
-                                       round(cTop * csize / sh),
-                                       filter_param_a=1,
-                                       filter_param_b=0)
+            last = core.resize.Bicubic(
+                original, round(blurWidth * csize / sw), round(cTop * csize / sh), filter_param_a=1, filter_param_b=0
+            )
 
-            originalBlur = last.resize.Bicubic(round(cWidth * csize / sw),
-                                               round(cTop * csize / sh),
-                                               filter_param_a=1,
-                                               filter_param_b=0)
+            originalBlur = last.resize.Bicubic(
+                round(cWidth * csize / sw), round(cTop * csize / sh), filter_param_a=1, filter_param_b=0
+            )
 
             if cpass2:
-                originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(round(blurWidth * csize / sw),
-                                                                              round(cTop * csize / sh),
-                                                                              filter_param_a=1,
-                                                                              filter_param_b=0)
-                originalBlurChroma = originalBlurChroma.resize.Bicubic(round(cWidth * csize / sw),
-                                                                       round(cTop * csize / sh),
-                                                                       filter_param_a=1,
-                                                                       filter_param_b=0)
+                originalBlurChroma = last.std.Expr(exprchroma).resize.Bicubic(
+                    round(blurWidth * csize / sw), round(cTop * csize / sh), filter_param_a=1, filter_param_b=0
+                )
+                originalBlurChroma = originalBlurChroma.resize.Bicubic(
+                    round(cWidth * csize / sw), round(cTop * csize / sh), filter_param_a=1, filter_param_b=0
+                )
 
                 balancedChroma = core.std.Expr(clips=[original, originalBlurChroma, referenceBlurChroma], expr=expruv)
                 balancedLuma = core.std.Expr(clips=[balancedChroma, originalBlur, referenceBlur], expr=expruv)
             else:
                 balancedLuma = core.std.Expr(clips=[original, originalBlur, referenceBlur], expr=uvexpr[p - 1])
 
-            return core.std.StackVertical([
-                balancedLuma,
-                c2.std.CropAbs(left=0,
-                               top=round(cTop * csize / sh),
-                               width=round(cWidth * csize / sw),
-                               height=round(cHeight * csize / sh) - round(cTop * csize / sh))
-            ]).resize.Point(round(cWidth / sw), round(cHeight / sh))
+            return core.std.StackVertical(
+                [
+                    balancedLuma,
+                    c2.std.CropAbs(
+                        left=0,
+                        top=round(cTop * csize / sh),
+                        width=round(cWidth * csize / sw),
+                        height=round(cHeight * csize / sh) - round(cTop * csize / sh),
+                    ),
+                ]
+            ).resize.Point(round(cWidth / sw), round(cHeight / sh))
 
         if c.format.color_family == vs.GRAY:
             return btbc(yplane, blurWidth[1], 1, csize)
@@ -652,16 +657,18 @@ def bbmoda(c: vs.VideoNode,
     return c
 
 
-def AddBordersMod(clip: vs.VideoNode,
-                  left: int = 0,
-                  top: int = 0,
-                  right: int = 0,
-                  bottom: int = 0,
-                  lsat: float = 0.88,
-                  tsat: float = 0.2,
-                  rsat: Optional[float] = None,
-                  bsat: float = 0.2,
-                  color: Union[str, List[float]] = None) -> vs.VideoNode:
+def AddBordersMod(
+    clip: vs.VideoNode,
+    left: int = 0,
+    top: int = 0,
+    right: int = 0,
+    bottom: int = 0,
+    lsat: float = 0.88,
+    tsat: float = 0.2,
+    rsat: Optional[float] = None,
+    bsat: float = 0.2,
+    color: Union[str, List[float]] = None,
+) -> vs.VideoNode:
     """
     VapourSynth port of AddBordersMod.
     Fuck writing a proper docstring.
@@ -682,9 +689,9 @@ def AddBordersMod(clip: vs.VideoNode,
 
     if rsat is None:
         if right > 2:
-            rsat = .4
+            rsat = 0.4
         else:
-            rsat = .28
+            rsat = 0.28
 
     if left > 0:
         if lsat != 1:
@@ -739,28 +746,29 @@ def AddBordersMod(clip: vs.VideoNode,
     return clip
 
 
-def zresize(clip: vs.VideoNode,
-            preset: Optional[int] = None,
-            width: Optional[int] = None,
-            height: Optional[int] = None,
-            left: int = 0,
-            right: int = 0,
-            top: int = 0,
-            bottom: int = 0,
-            kernel: str = "spline36",
-            ar: float = 16 / 9,
-            dither_type="error_diffusion",
-            **kwargs) -> vs.VideoNode:
-
+def zresize(
+    clip: vs.VideoNode,
+    preset: Optional[int] = None,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    left: int = 0,
+    right: int = 0,
+    top: int = 0,
+    bottom: int = 0,
+    kernel: str = "spline36",
+    ar: float = 16 / 9,
+    dither_type="error_diffusion",
+    **kwargs,
+) -> vs.VideoNode:
     # VSEdit doesn't like the global dict
     RESIZEDICT: Dict = {
-        'bilinear': core.resize.Bilinear,
-        'bicubic': core.resize.Bicubic,
-        'point': core.resize.Point,
-        'lanczos': core.resize.Lanczos,
-        'spline16': core.resize.Spline16,
-        'spline36': core.resize.Spline36,
-        'spline64': core.resize.Spline64
+        "bilinear": core.resize.Bilinear,
+        "bicubic": core.resize.Bicubic,
+        "point": core.resize.Point,
+        "lanczos": core.resize.Lanczos,
+        "spline16": core.resize.Spline16,
+        "spline36": core.resize.Spline36,
+        "spline64": core.resize.Spline64,
     }
 
     orig_w = clip.width
@@ -771,14 +779,9 @@ def zresize(clip: vs.VideoNode,
 
     if preset:
         if orig_cropped_w / orig_cropped_h > ar:
-            return zresize(clip,
-                           width=int(ar * preset),
-                           left=left,
-                           right=right,
-                           top=top,
-                           bottom=bottom,
-                           kernel=kernel,
-                           **kwargs)
+            return zresize(
+                clip, width=int(ar * preset), left=left, right=right, top=top, bottom=bottom, kernel=kernel, **kwargs
+            )
 
         return zresize(clip, height=preset, left=left, right=right, top=top, bottom=bottom, kernel=kernel, **kwargs)
 
@@ -804,26 +807,28 @@ def zresize(clip: vs.VideoNode,
     resizer = RESIZEDICT[kernel.lower()]
 
     fun = {
-        'clip': clip,
-        'width': w,
-        'height': h,
-        'src_left': left,
-        'src_top': top,
-        'src_width': orig_cropped_w,
-        'src_height': orig_cropped_h,
-        'dither_type': dither_type,
-        **kwargs
+        "clip": clip,
+        "width": w,
+        "height": h,
+        "src_left": left,
+        "src_top": top,
+        "src_width": orig_cropped_w,
+        "src_height": orig_cropped_h,
+        "dither_type": dither_type,
+        **kwargs,
     }
 
     return resizer(**fun)
 
 
-def DebandReader(clip: vs.VideoNode,
-                 csvfile: Union[str, PathLike],
-                 grain: int = 64,
-                 f3kdb_range: int = 30,
-                 delimiter: str = ' ',
-                 mask: Optional[vs.VideoNode] = None) -> vs.VideoNode:
+def DebandReader(
+    clip: vs.VideoNode,
+    csvfile: Union[str, PathLike],
+    grain: int = 64,
+    f3kdb_range: int = 30,
+    delimiter: str = " ",
+    mask: Optional[vs.VideoNode] = None,
+) -> vs.VideoNode:
     """
     DebandReader, read a csv file to apply a f3kdb filter for given strengths and frames.
     > Usage: DebandReader(clip, csvfile, grain, f3kdb_range)
@@ -841,15 +846,17 @@ def DebandReader(clip: vs.VideoNode,
         for row in csvzones:
             strength = row[2]
 
-            db = core.f3kdb.Deband(clip,
-                                   y=strength,
-                                   cb=strength,
-                                   cr=strength,
-                                   grainy=grain,
-                                   grainc=grain,
-                                   dynamic_grain=True,
-                                   range=f3kdb_range,
-                                   output_depth=depth)
+            db = core.f3kdb.Deband(
+                clip,
+                y=strength,
+                cb=strength,
+                cr=strength,
+                grainy=grain,
+                grainc=grain,
+                dynamic_grain=True,
+                range=f3kdb_range,
+                output_depth=depth,
+            )
 
             filtered = ReplaceFrames(filtered, db, mappings="[" + row[0] + " " + row[1] + "]")
 
@@ -860,13 +867,13 @@ def DebandReader(clip: vs.VideoNode,
 
 
 class ScreenGenPrefix(str, Enum):
-    Sequential = 'seq'
-    FrameNo = 'frame'
+    Sequential = "seq"
+    FrameNo = "frame"
 
 
 class ScreenGenEncoder(str, Enum):
-    imwri = 'imwri'
-    fpng = 'fpng'
+    imwri = "imwri"
+    fpng = "fpng"
 
     def write_frame(self, clip: vs.VideoNode, frame_num: int, path: PathLike, compression: Optional[int] = None):
         if self == self.imwri:
@@ -875,16 +882,18 @@ class ScreenGenEncoder(str, Enum):
             core.fpng.Write(clip, filename=path, overwrite=True, compression=compression).get_frame(frame_num)
 
 
-def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
-              folder: Union[str, PathLike],
-              suffix: Optional[Union[str, List[str]]] = None,
-              prefix: Union[ScreenGenPrefix, str] = ScreenGenPrefix.Sequential,
-              frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
-              start: int = 1,
-              delim: str = ' ',
-              encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
-              fpng_compression: int = 1,
-              callback: Optional[Callable[[str], None]] = None) -> None:
+def ScreenGen(
+    clip: Union[vs.VideoNode, List[vs.VideoNode]],
+    folder: Union[str, PathLike],
+    suffix: Optional[Union[str, List[str]]] = None,
+    prefix: Union[ScreenGenPrefix, str] = ScreenGenPrefix.Sequential,
+    frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
+    start: int = 1,
+    delim: str = " ",
+    encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
+    fpng_compression: int = 1,
+    callback: Optional[Callable[[str], None]] = None,
+) -> None:
     """
     Generates screenshots from a list of frame numbers
 
@@ -929,11 +938,11 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
             # str to int
             screens = [int(x.strip()) for x in screens]
         else:
-            raise ValueError('ScreenGen: Path to frame numbers file does not exist')
+            raise ValueError("ScreenGen: Path to frame numbers file does not exist")
     elif isinstance(frame_numbers, list):
         screens = frame_numbers
     else:
-        raise TypeError('ScreenGen: frame_numbers must be a file path or a list of frame numbers')
+        raise TypeError("ScreenGen: frame_numbers must be a file path or a list of frame numbers")
 
     clips = clip
 
@@ -945,14 +954,14 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
     if suffix is None:
         import string
 
-        suffixes = list(string.ascii_lowercase)[:len(clips)]
+        suffixes = list(string.ascii_lowercase)[: len(clips)]
     elif not isinstance(suffix, list):
         suffixes = [suffix]
 
     if len(clips) != len(suffixes):
-        raise ValueError('ScreenGen: number of clips must be equal to number of suffixes')
+        raise ValueError("ScreenGen: number of clips must be equal to number of suffixes")
 
-    clip_infos = [{'clip': c, 'suffix': s} for (c, s) in zip(clips, suffixes)]
+    clip_infos = [{"clip": c, "suffix": s} for (c, s) in zip(clips, suffixes)]
 
     if screens:
         if not folder_path.is_dir():
@@ -965,24 +974,24 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
             encoder_final = ScreenGenEncoder.imwri
 
         for info in clip_infos:
-            clip = info['clip']
-            suffix = info['suffix']
+            clip = info["clip"]
+            suffix = info["suffix"]
 
             rgb_clip = clip.resize.Spline36(format=vs.RGB24, matrix_in_s="709", dither_type="error_diffusion")
 
             for i, num in enumerate(screens, start=start):
                 if prefix == ScreenGenPrefix.Sequential:
-                    filename = f'{i:02d}{suffix}.png'
+                    filename = f"{i:02d}{suffix}.png"
                 elif prefix == ScreenGenPrefix.FrameNo:
-                    filename = f'{num}{suffix}.png'
+                    filename = f"{num}{suffix}.png"
                 else:
-                    raise ValueError('ScreenGen: invalid prefix enum value')
+                    raise ValueError("ScreenGen: invalid prefix enum value")
 
                 final_path = folder_path.joinpath(filename).resolve()
 
-                log_str = f'\rScreenGen: Writing file: {filename}'
+                log_str = f"\rScreenGen: Writing file: {filename}"
                 if prefix != ScreenGenPrefix.FrameNo:
-                    log_str += f', frame: {num}'
+                    log_str += f", frame: {num}"
 
                 if callable(callback):
                     callback(log_str)
@@ -992,22 +1001,24 @@ def ScreenGen(clip: Union[vs.VideoNode, List[vs.VideoNode]],
                 try:
                     encoder_final.write_frame(rgb_clip, num, final_path, fpng_compression)
                 except vs.Error:
-                    new_path = folder_path.joinpath(f'%d{suffix}.png').resolve()
+                    new_path = folder_path.joinpath(f"%d{suffix}.png").resolve()
                     encoder_final.write_frame(rgb_clip, num, new_path, fpng_compression)
 
     else:
-        raise ValueError('ScreenGen: No screenshots to write to disk')
+        raise ValueError("ScreenGen: No screenshots to write to disk")
 
 
-def DynamicTonemap(clip: vs.VideoNode,
-                   src_fmt: bool = False,
-                   adjust_gamma: bool = False,
-                   chromaloc_in_s: str = "top_left",
-                   chromaloc_s: str = "left",
-                   reference: Optional[vs.VideoNode] = None,
-                   target_nits: float = 203.0,
-                   libplacebo: bool = True,
-                   placebo_opts: Optional[PlaceboTonemapOpts] = None) -> vs.VideoNode:
+def DynamicTonemap(
+    clip: vs.VideoNode,
+    src_fmt: bool = False,
+    adjust_gamma: bool = False,
+    chromaloc_in_s: str = "top_left",
+    chromaloc_s: str = "left",
+    reference: Optional[vs.VideoNode] = None,
+    target_nits: float = 203.0,
+    libplacebo: bool = True,
+    placebo_opts: Optional[PlaceboTonemapOpts] = None,
+) -> vs.VideoNode:
     """
     Without libplacebo:
         The clip (or reference) is measured using `add_hdr_measurement_props`.
@@ -1030,27 +1041,30 @@ def DynamicTonemap(clip: vs.VideoNode,
     """
 
     def __dt(
-            n: int,  # pylint: disable=unused-argument
-            f: vs.VideoFrame,
-            clip: vs.VideoNode,
-            adjust_gamma: bool) -> vs.VideoNode:
-        peak = f.props['HDRMax']
+        n: int,
+        f: vs.VideoFrame,
+        clip: vs.VideoNode,
+        adjust_gamma: bool,
+    ) -> vs.VideoNode:
+        peak = f.props["HDRMax"]
 
         # Tonemap
-        clip = core.resize.Spline36(clip,
-                                    matrix_in_s="rgb",
-                                    matrix_s="709",
-                                    transfer_in_s="st2084",
-                                    transfer_s="709",
-                                    primaries_in_s="xyz",
-                                    primaries_s="709",
-                                    range_in_s="full",
-                                    range_s="limited",
-                                    dither_type="none",
-                                    nominal_luminance=peak,
-                                    format=vs.YUV444P16)
+        clip = core.resize.Spline36(
+            clip,
+            matrix_in_s="rgb",
+            matrix_s="709",
+            transfer_in_s="st2084",
+            transfer_s="709",
+            primaries_in_s="xyz",
+            primaries_s="709",
+            range_in_s="full",
+            range_s="limited",
+            dither_type="none",
+            nominal_luminance=peak,
+            format=vs.YUV444P16,
+        )
 
-        do_adjust = (adjust_gamma and peak >= 256 and HasLoadedPlugin("moe.kageru.adaptivegrain"))
+        do_adjust = adjust_gamma and peak >= 256 and HasLoadedPlugin("moe.kageru.adaptivegrain")
 
         gamma_adjust = None
         luma_scaling = None
@@ -1088,55 +1102,53 @@ def DynamicTonemap(clip: vs.VideoNode,
         if not placebo_opts_final:
             placebo_opts_final = PlaceboTonemapOpts()
 
-        clip = core.resize.Spline36(clip,
-                                    format=vs.YUV444P16,
-                                    chromaloc_in_s=chromaloc_in_s,
-                                    chromaloc_s=chromaloc_in_s)
+        clip = core.resize.Spline36(
+            clip, format=vs.YUV444P16, chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_in_s
+        )
 
         pl_tm_params = placebo_opts_final.vsplacebo_dict()
-        pl_tm_params['dst_max'] = target_nits
+        pl_tm_params["dst_max"] = target_nits
 
         if placebo_opts_final.peak_detect:
             # Tonemap
             tonemapped_clip = core.placebo.Tonemap(clip, **pl_tm_params)
         else:
             if not placebo_opts_final.is_hdr10_src():
-                raise ValueError('Dynamic tonemapping using PlaneStats only supports HDR10 input clips')
+                raise ValueError("Dynamic tonemapping using PlaneStats only supports HDR10 input clips")
 
-            rename_measure_props = {'HDRMax': 'PLSceneMax', 'HDRFALL': 'PLSceneAvg'}
-            measured_clip = add_hdr_measurement_props(clip,
-                                                      percentile=99.995,
-                                                      rename_props=rename_measure_props,
-                                                      reference=reference)
+            rename_measure_props = {"HDRMax": "PLSceneMax", "HDRFALL": "PLSceneAvg"}
+            measured_clip = add_hdr_measurement_props(
+                clip, percentile=99.995, rename_props=rename_measure_props, reference=reference
+            )
 
             tonemapped_clip = core.placebo.Tonemap(measured_clip, **pl_tm_params)
 
         if tonemapped_clip.format.color_family == vs.YUV:
             tonemapped_clip = core.std.SetFrameProps(tonemapped_clip, _Matrix=1, _Primaries=1, _Transfer=1)
     else:
-        clip = core.resize.Spline36(clip,
-                                    format=vs.RGB48,
-                                    range_in_s="limited",
-                                    range_s="full",
-                                    matrix_in_s="2020ncl",
-                                    matrix_s="rgb",
-                                    primaries_in_s="2020",
-                                    primaries_s="xyz",
-                                    dither_type="none",
-                                    chromaloc_in_s=chromaloc_in_s,
-                                    chromaloc_s=chromaloc_in_s)
+        clip = core.resize.Spline36(
+            clip,
+            format=vs.RGB48,
+            range_in_s="limited",
+            range_s="full",
+            matrix_in_s="2020ncl",
+            matrix_s="rgb",
+            primaries_in_s="2020",
+            primaries_s="xyz",
+            dither_type="none",
+            chromaloc_in_s=chromaloc_in_s,
+            chromaloc_s=chromaloc_in_s,
+        )
 
         measured_clip = add_hdr_measurement_props(clip, percentile=99.995, reference=reference)
 
-        tonemapped_clip = core.std.FrameEval(clip,
-                                             partial(__dt, clip=clip, adjust_gamma=adjust_gamma),
-                                             prop_src=measured_clip)
+        tonemapped_clip = core.std.FrameEval(
+            clip, partial(__dt, clip=clip, adjust_gamma=adjust_gamma), prop_src=measured_clip
+        )
 
-    tonemapped_clip = core.resize.Spline36(tonemapped_clip,
-                                           format=vs.YUV444P16,
-                                           matrix_s="709",
-                                           chromaloc_in_s=chromaloc_in_s,
-                                           chromaloc_s=chromaloc_s)
+    tonemapped_clip = core.resize.Spline36(
+        tonemapped_clip, format=vs.YUV444P16, matrix_s="709", chromaloc_in_s=chromaloc_in_s, chromaloc_s=chromaloc_s
+    )
 
     final_clip = None
     if src_fmt:
@@ -1153,13 +1165,15 @@ def DynamicTonemap(clip: vs.VideoNode,
     return final_clip
 
 
-def FillBorders(clip: vs.VideoNode,
-                left: int = 0,
-                right: int = 0,
-                top: int = 0,
-                bottom: int = 0,
-                planes: Optional[Union[int, List[int]]] = None,
-                mode: str = 'fixborders') -> vs.VideoNode:
+def FillBorders(
+    clip: vs.VideoNode,
+    left: int = 0,
+    right: int = 0,
+    top: int = 0,
+    bottom: int = 0,
+    planes: Optional[Union[int, List[int]]] = None,
+    mode: str = "fixborders",
+) -> vs.VideoNode:
     """
     FillBorders wrapper that automatically sets fixborders mode.
     If the chroma is subsampled, ceils the number of chroma rows to fill.
@@ -1198,10 +1212,9 @@ def FillBorders(clip: vs.VideoNode,
 #####################
 
 
-def SelectRangeEvery(clip: vs.VideoNode,
-                     every: int,
-                     length: int,
-                     offset: Optional[Union[int, List[int]]] = None) -> vs.VideoNode:
+def SelectRangeEvery(
+    clip: vs.VideoNode, every: int, length: int, offset: Optional[Union[int, List[int]]] = None
+) -> vs.VideoNode:
     """
     SelectRangeEvery, port from Avisynth's function.
     Offset can be an array with the first entry being the offset from the start and the second from the end.
@@ -1222,11 +1235,9 @@ def SelectRangeEvery(clip: vs.VideoNode,
     return select
 
 
-def FrameInfo(clip: vs.VideoNode,
-              title: str,
-              style: str = SUBTITLE_DEFAULT_STYLE,
-              newlines: int = 3,
-              pad_info: bool = False) -> vs.VideoNode:
+def FrameInfo(
+    clip: vs.VideoNode, title: str, style: str = SUBTITLE_DEFAULT_STYLE, newlines: int = 3, pad_info: bool = False
+) -> vs.VideoNode:
     """
     FrameInfo. Frame number, frame type and title for the clip
 
@@ -1253,10 +1264,10 @@ def FrameInfo(clip: vs.VideoNode,
     padding_info: Optional[str] = None
 
     if pad_info:
-        padding_info = " " + "".join(['\n'] * newlines)
-        padding_title = " " + "".join(['\n'] * (newlines + 4))
+        padding_info = " " + "".join(["\n"] * newlines)
+        padding_title = " " + "".join(["\n"] * (newlines + 4))
     else:
-        padding_title = " " + "".join(['\n'] * newlines)
+        padding_title = " " + "".join(["\n"] * newlines)
 
     clip = core.std.FrameEval(clip, partial(FrameProps, clip=clip, padding=padding_info), prop_src=clip)
     clip = core.sub.Subtitle(clip, text=[padding_title + title], style=style)
@@ -1264,13 +1275,15 @@ def FrameInfo(clip: vs.VideoNode,
     return clip
 
 
-def InterleaveDir(folder: str,
-                  PrintInfo: bool = False,
-                  DelProp: bool = False,
-                  first: Optional[vs.VideoNode] = None,
-                  repeat: bool = False,
-                  tonemap: bool = False,
-                  source_filter: Optional[Callable[[Union[str, PathLike]], vs.VideoNode]] = None) -> vs.VideoNode:
+def InterleaveDir(
+    folder: str,
+    PrintInfo: bool = False,
+    DelProp: bool = False,
+    first: Optional[vs.VideoNode] = None,
+    repeat: bool = False,
+    tonemap: bool = False,
+    source_filter: Optional[Callable[[Union[str, PathLike]], vs.VideoNode]] = None,
+) -> vs.VideoNode:
     """
     InterleaveDir, load all mkv files located in a directory and interleave them.
     > Usage: InterleaveDir(folder, PrintInfo, DelProp, first, repeat)
@@ -1300,11 +1313,10 @@ def InterleaveDir(folder: str,
     for file in files:
         filename = file.name
 
-        if file.is_file() and '.mkv' == file.suffix:
-
+        if file.is_file() and ".mkv" == file.suffix:
             j = j + 1
             sources.append(0)
-            sources[j] = source_filter(folder + '/' + filename)
+            sources[j] = source_filter(folder + "/" + filename)
 
             if first is not None:
                 sources[j] = core.std.AssumeFPS(clip=sources[j], src=first)
@@ -1315,19 +1327,19 @@ def InterleaveDir(folder: str,
             if PrintInfo:
                 sources[j] = FrameInfo(clip=sources[j], title=filename)
             elif PrintInfo is not False:
-                raise TypeError('InterleaveDir: PrintInfo must be a boolean.')
+                raise TypeError("InterleaveDir: PrintInfo must be a boolean.")
 
             if DelProp is True:
                 sources[j] = core.std.RemoveFrameProps(sources[j], props=["_Primaries", "_Matrix", "_Transfer"])
             elif DelProp is not False:
-                raise TypeError('InterleaveDir: DelProp must be a boolean.')
+                raise TypeError("InterleaveDir: DelProp must be a boolean.")
 
             if first is not None and repeat:
                 j = j + 1
                 sources.append(0)
                 sources[j] = first
             elif first is not None and repeat is not False:
-                raise TypeError('InterleaveDir: repeat must be a boolean.')
+                raise TypeError("InterleaveDir: repeat must be a boolean.")
 
     return core.std.Interleave(sources)
 
@@ -1346,7 +1358,7 @@ def ExtractFramesReader(clip: vs.VideoNode, csvfile: Union[str, PathLike]) -> vs
     selec = core.std.BlankClip(clip=clip, length=1)
 
     with open(csvfile) as framescsv:
-        csvzones = csv.reader(framescsv, delimiter=' ')
+        csvzones = csv.reader(framescsv, delimiter=" ")
         for row in csvzones:
             start = row[0]
             end = row[1]
@@ -1358,14 +1370,16 @@ def ExtractFramesReader(clip: vs.VideoNode, csvfile: Union[str, PathLike]) -> vs
     return selec
 
 
-def fixlvls(clip: vs.VideoNode,
-            gamma: float = 0.88,
-            min_in: Optional[Union[int, List[Union[int, float]]]] = None,
-            max_in: Optional[Union[int, List[Union[int, float]]]] = None,
-            min_out: Optional[Union[int, List[Union[int, float]]]] = None,
-            max_out: Optional[Union[int, List[Union[int, float]]]] = None,
-            planes: Optional[Union[int, List[Union[int, float]]]] = None,
-            input_depth: int = 8) -> vs.VideoNode:
+def fixlvls(
+    clip: vs.VideoNode,
+    gamma: float = 0.88,
+    min_in: Optional[Union[int, List[Union[int, float]]]] = None,
+    max_in: Optional[Union[int, List[Union[int, float]]]] = None,
+    min_out: Optional[Union[int, List[Union[int, float]]]] = None,
+    max_out: Optional[Union[int, List[Union[int, float]]]] = None,
+    planes: Optional[Union[int, List[Union[int, float]]]] = None,
+    input_depth: int = 8,
+) -> vs.VideoNode:
     """
     A wrapper around std.Levels to fix what's commonly known as the gamma bug.
     :param clip: Processed clip.
@@ -1397,7 +1411,7 @@ def fixlvls(clip: vs.VideoNode,
 
     vals = [min_in.copy(), max_in.copy(), min_out.copy(), max_out.copy()]
 
-    for (i, _) in enumerate(vals):
+    for i, _ in enumerate(vals):
         if not isinstance(vals[i], list):
             vals[i] = [vals[i], vals[i]]
         for j in range(2):
@@ -1408,22 +1422,20 @@ def fixlvls(clip: vs.VideoNode,
 
     chroma = planes.copy()
     if 0 in planes:
-        clip = core.std.Levels(clip,
-                               gamma=gamma,
-                               min_in=vals[0][0],
-                               max_in=vals[1][0],
-                               min_out=vals[2][0],
-                               max_out=vals[3][0],
-                               planes=0)
+        clip = core.std.Levels(
+            clip, gamma=gamma, min_in=vals[0][0], max_in=vals[1][0], min_out=vals[2][0], max_out=vals[3][0], planes=0
+        )
         chroma.remove(0)
     if chroma:
-        clip = core.std.Levels(clip,
-                               gamma=gamma,
-                               min_in=vals[0][1],
-                               max_in=vals[1][1],
-                               min_out=vals[2][1],
-                               max_out=vals[3][1],
-                               planes=chroma)
+        clip = core.std.Levels(
+            clip,
+            gamma=gamma,
+            min_in=vals[0][1],
+            max_in=vals[1][1],
+            min_out=vals[2][1],
+            max_out=vals[3][1],
+            planes=chroma,
+        )
 
     return Depth(clip, o_depth)
 
@@ -1450,7 +1462,7 @@ def mt_lut(clip: vs.VideoNode, expr: str, planes: Optional[List[int]] = None) ->
     return core.std.Lut(clip=clip, function=clampexpr, planes=planes)
 
 
-def UpscaleCheck(clip: vs.VideoNode, height: int = 720, kernel: str = 'spline36', interleave: bool = True, **kwargs):
+def UpscaleCheck(clip: vs.VideoNode, height: int = 720, kernel: str = "spline36", interleave: bool = True, **kwargs):
     """
     Quick port of https://gist.github.com/pcroland/c1f1e46cd3e36021927eb033e5161298
     Really dumb "detail check" that exists because descaling
@@ -1484,13 +1496,15 @@ def UpscaleCheck(clip: vs.VideoNode, height: int = 720, kernel: str = 'spline36'
     return Depth(resample, clip.format.bits_per_sample)
 
 
-def RescaleCheck(clip: vs.VideoNode,
-                 res: int = 720,
-                 kernel: str = "bicubic",
-                 b: Optional[float] = None,
-                 c: Optional[float] = None,
-                 taps: Optional[int] = None,
-                 bits: Optional[int] = None) -> vs.VideoNode:
+def RescaleCheck(
+    clip: vs.VideoNode,
+    res: int = 720,
+    kernel: str = "bicubic",
+    b: Optional[float] = None,
+    c: Optional[float] = None,
+    taps: Optional[int] = None,
+    bits: Optional[int] = None,
+) -> vs.VideoNode:
     """
     Requires vapoursynth-descale: https://github.com/Irrational-Encoding-Wizardry/vapoursynth-descale
     :param res: Target resolution (720, 576, 480, ...)
@@ -1500,13 +1514,13 @@ def RescaleCheck(clip: vs.VideoNode,
     :return: Clip resampled to target resolution and back
     """
     DESCALEDICT: Dict = {
-        'bilinear': core.descale.Debilinear,
-        'bicubic': core.descale.Debicubic,
-        'point': core.resize.Point,
-        'lanczos': core.descale.Delanczos,
-        'spline16': core.descale.Despline16,
-        'spline36': core.descale.Despline36,
-        'spline64': core.descale.Despline64
+        "bilinear": core.descale.Debilinear,
+        "bicubic": core.descale.Debicubic,
+        "point": core.resize.Point,
+        "lanczos": core.descale.Delanczos,
+        "spline16": core.descale.Despline16,
+        "spline36": core.descale.Despline36,
+        "spline64": core.descale.Despline64,
     }
 
     has_descale = HasLoadedPlugin("tegaf.asi.xe")
@@ -1519,7 +1533,7 @@ def RescaleCheck(clip: vs.VideoNode,
     if src.format.color_family not in [vs.YUV, vs.GRAY, vs.RGB]:
         raise TypeError("UpscaleCheck: Only supports YUV, GRAY or RGB input!")
 
-    clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s='709')
+    clip = core.resize.Spline36(src, format=vs.YUV444P16, matrix_s="709")
 
     if src.format.color_family is vs.RGB and src.format.bits_per_sample == 8:
         bits = 8
@@ -1528,9 +1542,9 @@ def RescaleCheck(clip: vs.VideoNode,
 
     txt = kernel
     if taps:
-        txt += (f", taps={taps}")
+        txt += f", taps={taps}"
     elif b or c:
-        txt += (f", b={b}, c={c}")
+        txt += f", b={b}, c={c}"
 
     if taps:
         b = taps
@@ -1542,7 +1556,7 @@ def RescaleCheck(clip: vs.VideoNode,
     b32 = Depth(clip, 32)
 
     lma = core.std.ShufflePlanes(b32, 0, vs.GRAY)
-    dwn = zresize(lma, preset=res, kernel='point')  # lol
+    dwn = zresize(lma, preset=res, kernel="point")  # lol
     w, h = dwn.width, dwn.height
 
     rsz = DESCALEDICT[kernel.lower()]
@@ -1579,17 +1593,17 @@ def Import(file: str, output_key: int = 0) -> vs.VideoNode:
     import inspect
     from importlib import machinery, util
 
-    if file.endswith('.vpy'):
-        loader = machinery.SourceFileLoader('script', file)
+    if file.endswith(".vpy"):
+        loader = machinery.SourceFileLoader("script", file)
         spec = util.spec_from_loader(loader.name, loader)
         module = util.module_from_spec(spec)
         loader.exec_module(module)
 
         script_imports = inspect.getmembers(module, inspect.ismodule)
-        imported_vs = any(info[0] == 'vs' and info[1].__name__ == 'vapoursynth' for info in script_imports)
+        imported_vs = any(info[0] == "vs" and info[1].__name__ == "vapoursynth" for info in script_imports)
 
         if not imported_vs:
-            raise ValueError('The script does not import vapoursynth as vs')
+            raise ValueError("The script does not import vapoursynth as vs")
 
         outputs: dict = module.vs.get_outputs()
         if outputs and output_key in outputs:
@@ -1603,7 +1617,7 @@ def Import(file: str, output_key: int = 0) -> vs.VideoNode:
             except AttributeError:
                 return output
         else:
-            raise ValueError(f'No outputs or invalid output key. Outputs: {[*outputs]}')
+            raise ValueError(f"No outputs or invalid output key. Outputs: {[*outputs]}")
     else:
         raise TypeError("Import: Only .vpy is supported!")
 
@@ -1620,15 +1634,17 @@ def saturation(clip: vs.VideoNode, sat: float, dither_type: str = "error_diffusi
     return core.resize.Point(clip.std.Expr(["", expr]), format=sfmt, dither_type=dither_type)
 
 
-def BorderResize(clip: vs.VideoNode,
-                 ref: vs.VideoNode,
-                 left: int = 0,
-                 right: int = 0,
-                 top: int = 0,
-                 bottom: int = 0,
-                 bb: List[int] = None,
-                 planes: Optional[List[int]] = None,
-                 sat: Optional[List[float]] = None) -> vs.VideoNode:
+def BorderResize(
+    clip: vs.VideoNode,
+    ref: vs.VideoNode,
+    left: int = 0,
+    right: int = 0,
+    top: int = 0,
+    bottom: int = 0,
+    bb: List[int] = None,
+    planes: Optional[List[int]] = None,
+    sat: Optional[List[float]] = None,
+) -> vs.VideoNode:
     """
     A wrapper to resize clips with borders.  This is meant for scenefiltering differing crops.
     :param ref: Reference resized clip, used purely to determine dimensions.
@@ -1662,14 +1678,16 @@ def BorderResize(clip: vs.VideoNode,
 
     # optional bb call
     if bb:
-        clip = bbmod(clip,
-                     left=bb[0],
-                     right=bb[1],
-                     top=bb[2],
-                     bottom=bb[3],
-                     thresh=bb[4] if len(bb) > 4 else None,
-                     blur=bb[5] if len(bb) > 4 else 999,
-                     planes=bb[6] if len(bb) == 7 else None)
+        clip = bbmod(
+            clip,
+            left=bb[0],
+            right=bb[1],
+            top=bb[2],
+            bottom=bb[3],
+            thresh=bb[4] if len(bb) > 4 else None,
+            blur=bb[5] if len(bb) > 4 else 999,
+            planes=bb[6] if len(bb) == 7 else None,
+        )
 
     # find new width and height
     nw = rw / ow * (ow - left - right)
@@ -1689,49 +1707,53 @@ def BorderResize(clip: vs.VideoNode,
     # shift image to top/left since we have to choose a place to shift shit to
     borders = []
     if left and right:
-        borders += ([b_hor - b_hor % 2, b_hor + b_hor % 2])
+        borders += [b_hor - b_hor % 2, b_hor + b_hor % 2]
     elif left:
-        borders += ([b_hor * 2, 0])
+        borders += [b_hor * 2, 0]
     elif right:
-        borders += ([0, b_hor * 2])
+        borders += [0, b_hor * 2]
     else:
-        borders += ([0, 0])
+        borders += [0, 0]
 
     if top and bottom:
-        borders += ([b_ver - b_ver % 2, b_ver + b_ver % 2])
+        borders += [b_ver - b_ver % 2, b_ver + b_ver % 2]
     elif top:
-        borders += ([b_ver * 2, 0])
+        borders += [b_ver * 2, 0]
     elif bottom:
-        borders += ([0, b_ver * 2])
+        borders += [0, b_ver * 2]
     else:
-        borders += ([0, 0])
+        borders += [0, 0]
 
     # add borders back
     if sat:
-        return AddBordersMod(clip,
-                             left=borders[0],
-                             right=borders[1],
-                             top=borders[2],
-                             bottom=borders[3],
-                             lsat=sat[0],
-                             rsat=sat[1],
-                             bsat=sat[2],
-                             tsat=sat[3])
+        return AddBordersMod(
+            clip,
+            left=borders[0],
+            right=borders[1],
+            top=borders[2],
+            bottom=borders[3],
+            lsat=sat[0],
+            rsat=sat[1],
+            bsat=sat[2],
+            tsat=sat[3],
+        )
 
     return clip.std.AddBorders(left=borders[0], right=borders[1], top=borders[2], bottom=borders[3])
 
 
-def RandomFrameNumbers(clip: vs.VideoNode,
-                       num: int = 6,
-                       start_offset: int = 1000,
-                       end_offset: int = 10000,
-                       output_file: Union[str, PathLike] = "screens.txt",
-                       ftypes_first: Optional[Union[str, List[str]]] = None,
-                       ftypes: Union[str, List[str]] = "B",
-                       interleaved: Optional[int] = None,
-                       clips: Optional[List[vs.VideoNode]] = None,
-                       by_blocks: bool = True,
-                       max_attempts: int = 50) -> vs.VideoNode:
+def RandomFrameNumbers(
+    clip: vs.VideoNode,
+    num: int = 6,
+    start_offset: int = 1000,
+    end_offset: int = 10000,
+    output_file: Union[str, PathLike] = "screens.txt",
+    ftypes_first: Optional[Union[str, List[str]]] = None,
+    ftypes: Union[str, List[str]] = "B",
+    interleaved: Optional[int] = None,
+    clips: Optional[List[vs.VideoNode]] = None,
+    by_blocks: bool = True,
+    max_attempts: int = 50,
+) -> vs.VideoNode:
     """
     Generates a list of random frame numbers, matched according to the specified frame types
     :param num: Amount of random frame numbers to generate
@@ -1761,11 +1783,12 @@ def RandomFrameNumbers(clip: vs.VideoNode,
 
     # filter frame types function for frameeval
     def filter_ftype(
-            n: int,  # pylint: disable=unused-argument
-            f: vs.VideoFrame,
-            clip: vs.VideoNode,
-            frame_num: int,
-            block: Dict) -> vs.VideoNode:
+        n: int,
+        f: vs.VideoFrame,
+        clip: vs.VideoNode,
+        frame_num: int,
+        block: Dict,
+    ) -> vs.VideoNode:
         match = False
 
         if isinstance(f, list):
@@ -1783,14 +1806,14 @@ def RandomFrameNumbers(clip: vs.VideoNode,
                 match = True
 
         if match:
-            block['found_frame'] = frame_num
+            block["found_frame"] = frame_num
 
         return clip
 
     src_len = len(clip)
 
     if start_offset > src_len:
-        raise ValueError(f'Invalid start offset: offset {start_offset} > {src_len} (clip len)')
+        raise ValueError(f"Invalid start offset: offset {start_offset} > {src_len} (clip len)")
     if end_offset > src_len:
         end_offset = 0
 
@@ -1821,18 +1844,20 @@ def RandomFrameNumbers(clip: vs.VideoNode,
             # Then first random is in range [start, start + block_size]
             block_start = start + (i * block_size)
 
-        generated_blocks.append({
-            'tested_frames': [],
-            'found_frame': None,
-            'block_start': block_start,
-        })
+        generated_blocks.append(
+            {
+                "tested_frames": [],
+                "found_frame": None,
+                "block_start": block_start,
+            }
+        )
 
     # Loop the number of frames we want
     for block in generated_blocks:
-        block_start = block['block_start']
-        block_end = block['block_start'] + block_size
+        block_start = block["block_start"]
+        block_end = block["block_start"] + block_size
 
-        has_multiple_clips = (clips and isinstance(clips, list))
+        has_multiple_clips = clips and isinstance(clips, list)
 
         if interleaved:
             has_multiple_clips = has_multiple_clips or interleaved > 1
@@ -1840,18 +1865,18 @@ def RandomFrameNumbers(clip: vs.VideoNode,
         # Try matching if there are multiple clips or we want specific types
         if has_multiple_clips or ftypes_first or ftypes:
             with open(os.devnull, "wb") as f:
-                while not block['found_frame']:
+                while not block["found_frame"]:
                     frame_num = random.randint(block_start, block_end)
                     clip_frames = []
 
                     if interleaved:
                         frame_num = divisible_random(block_start, block_end, interleaved)
 
-                    if frame_num in block['tested_frames']:
+                    if frame_num in block["tested_frames"]:
                         continue
 
                     # Keep tested in memory
-                    block['tested_frames'].append(frame_num)
+                    block["tested_frames"].append(frame_num)
 
                     if interleaved:
                         for i in range(0, interleaved):
@@ -1864,9 +1889,9 @@ def RandomFrameNumbers(clip: vs.VideoNode,
                                 if len(other_clip) == len(clip):
                                     clip_frames.append(other_clip[frame_num])
                                 else:
-                                    raise ValueError('All compared clips must be the same length!')
+                                    raise ValueError("All compared clips must be the same length!")
                         else:
-                            raise ValueError('Empty clips list!')
+                            raise ValueError("Empty clips list!")
 
                     if clip_frames:
                         clip_f = clip_frames[0]
@@ -1874,25 +1899,26 @@ def RandomFrameNumbers(clip: vs.VideoNode,
                         clip_f = clip[frame_num]
                         clip_frames = list(clip_f)
 
-                    clip_f = clip_f.std.FrameEval(partial(filter_ftype, clip=clip_f, frame_num=frame_num, block=block),
-                                                  prop_src=clip_frames)
+                    clip_f = clip_f.std.FrameEval(
+                        partial(filter_ftype, clip=clip_f, frame_num=frame_num, block=block), prop_src=clip_frames
+                    )
                     clip_f.output(f)
 
-                    if block['found_frame'] and interleaved:
+                    if block["found_frame"] and interleaved:
                         # Assumes the number was determined divisible already
-                        block['found_frame'] = int(frame_num / interleaved)
+                        block["found_frame"] = int(frame_num / interleaved)
 
-                    if not block['found_frame'] and len(block['tested_frames']) >= max_attempts:
-                        raise ValueError('Ended recursion because maximum matching attempts were reached')
+                    if not block["found_frame"] and len(block["tested_frames"]) >= max_attempts:
+                        raise ValueError("Ended recursion because maximum matching attempts were reached")
         else:
             # Don't try matching frame types
-            block['found_frame'] = random.randint(block_start, block_end)
+            block["found_frame"] = random.randint(block_start, block_end)
 
-    found_frames = sorted([b['found_frame'] for b in generated_blocks])
+    found_frames = sorted([b["found_frame"] for b in generated_blocks])
 
     if output_file:
         with open(output_file, "w") as txt:
-            found_frames_lines = [f'{x}\n' for x in found_frames]
+            found_frames_lines = [f"{x}\n" for x in found_frames]
             txt.writelines(found_frames_lines)
 
     return found_frames
@@ -1902,9 +1928,9 @@ def HasLoadedPlugin(identifier: str) -> bool:
     return any(p.identifier == identifier for p in core.plugins())
 
 
-def MapDolbyVision(base_layer: vs.VideoNode,
-                   enhancement_layer: vs.VideoNode,
-                   rpu: Optional[str] = None) -> vs.VideoNode:
+def MapDolbyVision(
+    base_layer: vs.VideoNode, enhancement_layer: vs.VideoNode, rpu: Optional[str] = None
+) -> vs.VideoNode:
     """
     Polynomial luma mapping, MMR chroma mapping on base layer.
     NLQ 12 bits restoration from enhancement layer.
@@ -1927,7 +1953,7 @@ def MapDolbyVision(base_layer: vs.VideoNode,
     has_vsnlq = HasLoadedPlugin("com.vsnlq")
 
     if not has_placebo:
-        raise ValueError('vs-placebo plugin must be installed!')
+        raise ValueError("vs-placebo plugin must be installed!")
     if not has_vsnlq:
         raise ValueError("vs-nlq plugin must be installed!")
 
@@ -1945,18 +1971,20 @@ def MapDolbyVision(base_layer: vs.VideoNode,
     return core.vsnlq.MapNLQ(poly_mmr, scaled_el, rpu=rpu)
 
 
-def add_hdr_measurement_props(clip: vs.VideoNode,
-                              maxrgb: bool = True,
-                              hlg: bool = False,
-                              as_nits: bool = True,
-                              measurements: Optional[List[HdrMeasurement]] = None,
-                              downscale: bool = True,
-                              percentile: float = 100.0,
-                              store_float: bool = False,
-                              no_planestats: bool = False,
-                              rename_props: Optional[Dict[str, str]] = None,
-                              reference: Optional[vs.VideoNode] = None,
-                              max_luminance: bool = False):
+def add_hdr_measurement_props(
+    clip: vs.VideoNode,
+    maxrgb: bool = True,
+    hlg: bool = False,
+    as_nits: bool = True,
+    measurements: Optional[List[HdrMeasurement]] = None,
+    downscale: bool = True,
+    percentile: float = 100.0,
+    store_float: bool = False,
+    no_planestats: bool = False,
+    rename_props: Optional[Dict[str, str]] = None,
+    reference: Optional[vs.VideoNode] = None,
+    max_luminance: bool = False,
+):
     """
     Measures the brightness of the frame using PlaneStats.
     Adds the info into props, and a list if available.
@@ -1998,16 +2026,22 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
 
     prop_names: Dict[str, str] = rename_props if isinstance(rename_props, dict) else {}
 
-    min_prop_name = prop_names.get('HDRMin', 'HDRMin')
-    max_prop_name = prop_names.get('HDRMax', 'HDRMax')
-    avg_prop_name = prop_names.get('HDRAvg', 'HDRAvg')
-    fall_prop_name = prop_names.get('HDRFALL', 'HDRFALL')
-    max_stdev_prop_name = prop_names.get('HDRMaxStd', 'HDRMaxStd')
+    min_prop_name = prop_names.get("HDRMin", "HDRMin")
+    max_prop_name = prop_names.get("HDRMax", "HDRMax")
+    avg_prop_name = prop_names.get("HDRAvg", "HDRAvg")
+    fall_prop_name = prop_names.get("HDRFALL", "HDRFALL")
+    max_stdev_prop_name = prop_names.get("HDRMaxStd", "HDRMaxStd")
 
     bt2020_coeffs = np.array([0.2627, 0.6780, 0.0593])
 
-    def pq_props(n: int, f: list[vs.VideoFrame], maxrgb: bool, as_nits: bool, measurements: List[HdrMeasurement],
-                 percentile: float):
+    def pq_props(
+        n: int,
+        f: list[vs.VideoFrame],
+        maxrgb: bool,
+        as_nits: bool,
+        measurements: List[HdrMeasurement],
+        percentile: float,
+    ):
         fout = f[0].copy()
         prop_src = f[1:]
 
@@ -2101,12 +2135,9 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
                 if max_stdev_pq is not None:
                     max_stdev_pq /= 65535.0
 
-            measurement = HdrMeasurement(frame=n,
-                                         min=min_pq,
-                                         max=max_pq,
-                                         avg=avg_pq,
-                                         fall=fall_pq,
-                                         max_stdev=max_stdev_pq)
+            measurement = HdrMeasurement(
+                frame=n, min=min_pq, max=max_pq, avg=avg_pq, fall=fall_pq, max_stdev=max_stdev_pq
+            )
             measurements.append(measurement)
 
         return fout
@@ -2131,27 +2162,29 @@ def add_hdr_measurement_props(clip: vs.VideoNode,
 
     target_prim = "2020" if max_luminance else "xyz"
 
-    scaled = core.resize.Bicubic(measured_clip,
-                                 width=final_w,
-                                 height=final_h,
-                                 range_in_s="limited",
-                                 range_s="full",
-                                 transfer_in_s="st2084",
-                                 transfer_s="st2084",
-                                 primaries_in_s="2020",
-                                 primaries_s=target_prim,
-                                 dither_type="none",
-                                 chromaloc_in_s="top_left",
-                                 format=scaled_format)
+    scaled = core.resize.Bicubic(
+        measured_clip,
+        width=final_w,
+        height=final_h,
+        range_in_s="limited",
+        range_s="full",
+        transfer_in_s="st2084",
+        transfer_s="st2084",
+        primaries_in_s="2020",
+        primaries_s=target_prim,
+        dither_type="none",
+        chromaloc_in_s="top_left",
+        format=scaled_format,
+    )
 
     if no_numpy:
         if maxrgb:
-            r_props = core.std.PlaneStats(scaled, plane=0, prop='pq')
-            g_props = core.std.PlaneStats(scaled, plane=1, prop='pq')
-            b_props = core.std.PlaneStats(scaled, plane=2, prop='pq')
+            r_props = core.std.PlaneStats(scaled, plane=0, prop="pq")
+            g_props = core.std.PlaneStats(scaled, plane=1, prop="pq")
+            b_props = core.std.PlaneStats(scaled, plane=2, prop="pq")
             prop_src = [r_props, g_props, b_props]
         else:
-            y_props = core.std.PlaneStats(scaled, plane=0, prop='pq')
+            y_props = core.std.PlaneStats(scaled, plane=0, prop="pq")
             prop_src = [y_props]
     else:
         prop_src = [scaled]

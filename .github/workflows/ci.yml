@@ -19,12 +19,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install vapoursynth-portable==57 pylint yapf vermin toml
+          pip install vapoursynth-portable==57 ruff vermin toml
           pip install .
 
       - name: Format
-        run: yapf -q -r ./src/awsmfunc
+        run: ruff format --check ./src/awsmfunc
       - name: Lint
-        run: pylint --rcfile ./.pylintrc ./src/awsmfunc
+        run: ruff check ./src/awsmfunc
       - name: Backwards compatibility
         run: vermin --quiet -vvv --target=3.9 --violations ./src/awsmfunc

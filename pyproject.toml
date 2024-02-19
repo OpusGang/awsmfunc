@@ -28,4 +28,11 @@ Homepage = "https://github.com/OpusGang/awsmfunc"
 awsmfunc = ["py.typed"]
 
 [project.optional-dependencies]
-dev = ["pylint", "toml", "yapf"]
+dev = ["ruff", "toml"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = ["E501"]
