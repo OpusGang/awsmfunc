@@ -11,7 +11,7 @@ from vsutil import depth as vsuDepth
 from vsutil import get_depth, join, scale_value, split
 
 from .types.dovi import HdrMeasurement
-from .types.misc import ST2084_PEAK_LUMINANCE, st2084_eotf, st2084_inverse_eotf
+from .types.misc import ST2084_PEAK_LUMINANCE, Hdr10PlusHistogram, st2084_eotf, st2084_inverse_eotf
 from .types.placebo import PlaceboTonemapOpts
 
 SUBTITLE_DEFAULT_STYLE: str = (
@@ -1984,6 +1984,7 @@ def add_hdr_measurement_props(
     rename_props: Optional[Dict[str, str]] = None,
     reference: Optional[vs.VideoNode] = None,
     max_luminance: bool = False,
+    compute_hdr10plus: bool = False,
 ):
     """
     Measures the brightness of the frame using PlaneStats.
@@ -2019,6 +2020,7 @@ def add_hdr_measurement_props(
     :param reference: Reference clip to use to measure brightness
     :param max_luminance: Use luminance for HDRMax instead of the max subpixel value.
         - Equivalent to `maxrgb=False` except MaxFALL is available.
+    :param compute_hdr10plus: Store HDR10+ histogram metadata in the output measurements.
     """
     import numpy as np
 
@@ -2049,6 +2051,8 @@ def add_hdr_measurement_props(
         fall_prop = None
         max_stdev_pq = None
         max_stdev_prop = None
+        hdr10plus_maxscl = None
+        hdr10plus_histogram = None
 
         if no_numpy:
             # Using PlaneStats
@@ -2081,8 +2085,10 @@ def add_hdr_measurement_props(
                 min_pq = np.min(minrgb_pixels)
                 avg_pq = np.mean(rgb_pixels)
 
-                if max_luminance:
+                if max_luminance or compute_hdr10plus:
                     rgb_pixels = [r_pixels.flatten(), g_pixels.flatten(), b_pixels.flatten()]
+
+                if max_luminance:
                     luminance_pixels = bt2020_coeffs.dot(rgb_pixels)
                     max_pq = np.percentile(luminance_pixels, percentile)
                 else:
@@ -2092,6 +2098,25 @@ def add_hdr_measurement_props(
                 fall_prop = fall_pq / 65535.0
                 max_stdev_pq = np.std(maxrgb_pixels)
                 max_stdev_prop = max_stdev_pq / 65535.0
+
+                if compute_hdr10plus:
+                    hdr10plus_maxscl = [x / 65535.0 for x in np.max(rgb_pixels, axis=1)]
+                    percentiles_int = np.percentile(maxrgb_pixels, [1.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.98, 99.99])
+                    percentiles = [x / 65535.0 for x in percentiles_int]
+
+                    distribution_y_100nit = np.count_nonzero((maxrgb_pixels <= 33297.0)) / maxrgb_pixels.size
+
+                    hdr10plus_histogram = Hdr10PlusHistogram(
+                        percentile_1=percentiles[0],
+                        percentile_25=percentiles[1],
+                        percentile_50=percentiles[2],
+                        percentile_75=percentiles[3],
+                        percentile_90=percentiles[4],
+                        percentile_95=percentiles[5],
+                        percentile_99_98=percentiles[6],
+                        distribution_y_99=percentiles[7],
+                        distribution_y_100nit=distribution_y_100nit,
+                    )
             else:
                 y_pixels = np.asarray(prop_src[0])
 
@@ -2112,6 +2137,10 @@ def add_hdr_measurement_props(
                 fall_prop = st2084_eotf(fall_prop) * ST2084_PEAK_LUMINANCE
             if max_stdev_prop is not None:
                 max_stdev_prop = st2084_eotf(max_stdev_prop) * ST2084_PEAK_LUMINANCE
+            if hdr10plus_maxscl is not None:
+                hdr10plus_maxscl = [st2084_eotf(x) * ST2084_PEAK_LUMINANCE for x in hdr10plus_maxscl]
+            if hdr10plus_histogram is not None:
+                hdr10plus_histogram = hdr10plus_histogram.to_nits()
 
         fout.props[min_prop_name] = min_prop
         fout.props[max_prop_name] = max_prop
@@ -2136,7 +2165,14 @@ def add_hdr_measurement_props(
                     max_stdev_pq /= 65535.0
 
             measurement = HdrMeasurement(
-                frame=n, min=min_pq, max=max_pq, avg=avg_pq, fall=fall_pq, max_stdev=max_stdev_pq
+                frame=n,
+                min=min_pq,
+                max=max_pq,
+                avg=avg_pq,
+                fall=fall_pq,
+                max_stdev=max_stdev_pq,
+                hdr10plus_maxscl=hdr10plus_maxscl,
+                hdr10plus_histogram=hdr10plus_histogram,
             )
             measurements.append(measurement)
 

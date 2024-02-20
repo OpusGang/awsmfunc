@@ -752,6 +752,7 @@ def measure_hdr10_content_light_level(
     hlg: bool = False,
     max_percentile: Optional[float] = None,
     max_luminance: bool = False,
+    compute_hdr10plus: bool = False,
 ) -> List[HdrMeasurement]:
     """
     Measure the clip to extract the global MaxCLL and MaxFALL brightness values.
@@ -762,6 +763,7 @@ def measure_hdr10_content_light_level(
     :param hlg: Same as `add_hdr_measurement_props`
     :param max_percentile: Same as `add_hdr_measurement_props` percentile
     :param max_luminance: Same as `add_hdr_measurement_props`
+    :param compute_hdr10plus: Same as `add_hdr_measurement_props`
     """
     import numpy as np
 
@@ -787,6 +789,7 @@ def measure_hdr10_content_light_level(
         hlg=hlg,
         max_luminance=max_luminance,
         no_planestats=True,
+        compute_hdr10plus=compute_hdr10plus,
     )
 
     def do_it(_detections: Set[int]):
