@@ -69,8 +69,10 @@ def generate_hdr10plus_json(
 
         measurements_len = float(len(measurements_for_scene))
 
-        average_rgb_pq = sum(m.avg for m in measurements_for_scene) / measurements_len
-        shot["average_rgb"] = int(round(st2084_eotf(average_rgb_pq) * ST2084_PEAK_LUMINANCE) * 10)
+        average_maxrgb_pq = (
+            sum(m.fall if m.fall is not None else 0.0 for m in measurements_for_scene) / measurements_len
+        )
+        shot["average_maxrgb"] = int(round(st2084_eotf(average_maxrgb_pq) * ST2084_PEAK_LUMINANCE) * 10)
 
         # Histogram for the brightest frame in shot
         distribution_values = max_measurement.hdr10plus_histogram.to_hdr10plus_distribution()
@@ -99,7 +101,7 @@ def generate_hdr10plus_json(
         for shot_frame_index in range(0, shot["duration"]):
             frame_info = {
                 "LuminanceParameters": {
-                    "AverageRGB": shot["average_rgb"],
+                    "AverageRGB": shot["average_maxrgb"],
                     "LuminanceDistributions": {
                         "DistributionIndex": HDR10PLUS_DISTRIBUTION_INDEX_LIST,
                         "DistributionValues": shot["distribution_values"],

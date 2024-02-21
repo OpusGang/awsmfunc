@@ -2087,9 +2087,9 @@ def add_hdr_measurement_props(
 
                 if max_luminance or compute_hdr10plus:
                     rgb_pixels = [r_pixels.flatten(), g_pixels.flatten(), b_pixels.flatten()]
+                    luminance_pixels = bt2020_coeffs.dot(rgb_pixels)
 
                 if max_luminance:
-                    luminance_pixels = bt2020_coeffs.dot(rgb_pixels)
                     max_pq = np.percentile(luminance_pixels, percentile)
                 else:
                     max_pq = np.percentile(maxrgb_pixels, percentile)
@@ -2101,10 +2101,13 @@ def add_hdr_measurement_props(
 
                 if compute_hdr10plus:
                     hdr10plus_maxscl = [x / 65535.0 for x in np.max(rgb_pixels, axis=1)]
-                    percentiles_int = np.percentile(maxrgb_pixels, [1.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.98, 99.99])
+
+                    # Supposedly percentile maxRGB
+                    # We use luminance to avoid DistributionY99 being lower than 99.98
+                    percentiles_int = np.percentile(luminance_pixels, [1.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.98, 99.99])
                     percentiles = [x / 65535.0 for x in percentiles_int]
 
-                    distribution_y_100nit = np.count_nonzero((maxrgb_pixels <= 33297.0)) / maxrgb_pixels.size
+                    distribution_y_100nit = np.count_nonzero(luminance_pixels <= 33297.0) / luminance_pixels.size
 
                     hdr10plus_histogram = Hdr10PlusHistogram(
                         percentile_1=percentiles[0],
