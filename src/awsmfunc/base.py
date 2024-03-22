@@ -1248,7 +1248,11 @@ def FrameInfo(
 
     def FrameProps(n: int, f: vs.VideoFrame, clip: vs.VideoNode, padding: Optional[str]) -> vs.VideoNode:
         if "_PictType" in f.props:
-            info = f"Frame {n} of {clip.num_frames}\nPicture type: {f.props['_PictType'].decode()}"
+            pict_type = f.props["_PictType"]
+            if not isinstance(pict_type, str):
+                pict_type = str(pict_type, "utf-8")
+
+            info = f"Frame {n} of {clip.num_frames}\nPicture type: {pict_type}"
         else:
             info = f"Frame {n} of {clip.num_frames}\nPicture type: N/A"
 
@@ -1775,11 +1779,19 @@ def RandomFrameNumbers(
     if ftypes_first is None:
         ftypes_first = ["P", "B"]
 
+    ftypes_first: Union[str, List[str]] = ftypes_first
+
     def divisible_random(a: int, b: int, n: int) -> int:
         if not a % n:
             return random.choice(range(a, b, n))
 
         return random.choice(range(a + n - (a % n), b, n))
+
+    def decode_pict_type(v: Union[str, bytes]) -> str:
+        if isinstance(v, str):
+            return v
+
+        return str(v, "utf-8")
 
     # filter frame types function for frameeval
     def filter_ftype(
@@ -1793,7 +1805,7 @@ def RandomFrameNumbers(
 
         if isinstance(f, list):
             for i, p_src in enumerate(f):
-                f_type = p_src.props["_PictType"].decode()
+                f_type = decode_pict_type(p_src.props["_PictType"])
 
                 if i == 0:
                     if f_type in ftypes_first:
@@ -1802,7 +1814,7 @@ def RandomFrameNumbers(
                     match = False
         else:
             # Single clip
-            if f.props["_PictType"].decode() in ftypes_first:
+            if decode_pict_type(f.props["_PictType"]) in ftypes_first:
                 match = True
 
         if match:
