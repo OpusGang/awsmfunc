@@ -727,9 +727,8 @@ def run_scenechange_detect(
             source_colorspace=placebo.PlaceboColorSpace.HDR10,
             target_colorspace=placebo.PlaceboColorSpace.SDR,
             peak_detect=True,
-            gamut_mode=placebo.PlaceboGamutMode.Clip,
+            gamut_mapping=placebo.PlaceboGamutMapping.Clip,
             tone_map_function=placebo.PlaceboTonemapFunction.Spline,
-            tone_map_mode=placebo.PlaceboTonemapMode.Hybrid,
             use_dovi=False,
         ).with_static_peak_detect()
         clip = DynamicTonemap(clip, src_fmt=True, libplacebo=True, target_nits=203, placebo_opts=pl_opts)
