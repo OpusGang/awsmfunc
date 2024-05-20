@@ -40,11 +40,58 @@ class PlaceboTonemapFunctionName(str, Enum):
     Linear = "linear"
 
 
-class PlaceboGamutMode(IntEnum):
+class PlaceboGamutMapping(IntEnum):
+    """
+    Gamut mapping function to use to handle out-of-gamut colors,
+    including colors which are out-of-gamut as a consequence of tone mapping.
+    """
+
     Clip = 0
-    Warn = 1
-    Darken = 2
-    Desaturate = 3
+    """Performs no gamut-mapping, just hard clips out-of-range colors per-channel."""
+
+    Perceptual = 1
+    """
+    Performs a perceptually balanced (saturation) gamut mapping, using a soft knee function to preserve in-gamut colors, 
+    followed by a final softclip operation. This works bidirectionally, meaning it can both compress and expand the gamut. 
+    Behaves similar to a blend of `Saturation` and `Softclip`.
+    """  # noqa: E501
+
+    Softclip = 2
+    """
+    Performs a perceptually balanced gamut mapping using a soft knee function to roll-off clipped regions, 
+    and a hue shifting function to preserve saturation.
+    """
+
+    Relative = 3
+    """
+    Performs relative colorimetric clipping, 
+    while maintaining an exponential relationship between brightness and chromaticity.
+    """
+
+    Saturation = 4
+    """
+    Performs simple RGB->RGB saturation mapping. 
+    The input R/G/B channels are mapped directly onto the output R/G/B channels. 
+    Will never clip, but will distort all hues and/or result in a faded look.
+    """
+
+    Absolute = 5
+    """Performs absolute colorimetric clipping. Like `Relative`, but does not adapt the white point."""
+
+    Desaturate = 6
+    """Performs constant-luminance colorimetric clipping, desaturing colors towards white until they're in-range."""
+
+    Darken = 7
+    """
+    Uniformly darkens the input slightly to prevent clipping on blown-out highlights, 
+    then clamps colorimetrically to the input gamut boundary, biased slightly to preserve chromaticity over luminance.
+    """
+
+    Highlight = 8
+    """Performs no gamut mapping, but simply highlights out-of-gamut pixels."""
+
+    Linear = 9
+    """Linearly/uniformly desaturates the image in order to bring the entire image into the target gamut."""
 
 
 class PlaceboTonemapMode(IntEnum):
@@ -77,7 +124,7 @@ class PlaceboTonemapOpts(NamedTuple):
         `dst_max`: Output maximum brightness. Defaults to 203 nits.
         `dst_min`: Output minimum brightness. Defaults to 1000:1 contrast.
         `peak_detect`: Use libplacebo's dynamic peak detection instead of FrameEval
-        `gamut_mode`: How to handle out-of-gamut colors when changing the content primaries
+        `gamut_mapping`: How to handle out-of-gamut colors
         `tone_map_function`: Tone map function to use for luma
         `tone_map_param`: Parameter for the tone map function
         `tone_map_mode`: Tone map mode to map colours/chroma
@@ -103,7 +150,7 @@ class PlaceboTonemapOpts(NamedTuple):
 
     peak_detect: bool = True
     """Use libplacebo's dynamic peak detection instead of FrameEval"""
-    gamut_mode: Optional[PlaceboGamutMode] = None
+    gamut_mapping: Optional[PlaceboGamutMapping] = None
     """How to handle out-of-gamut colors when changing the content primaries"""
     tone_map_function: Optional[PlaceboTonemapFunction] = None
     """Tone map function to use for luma"""
@@ -151,7 +198,7 @@ class PlaceboTonemapOpts(NamedTuple):
             "dst_max": self.dst_max,
             "dst_min": self.dst_min,
             "dynamic_peak_detection": self.peak_detect,
-            "gamut_mode": self.gamut_mode,
+            "gamut_mapping": self.gamut_mapping,
             "tone_mapping_function": self.tone_map_function,
             "tone_mapping_function_s": self.tone_map_function_s,
             "tone_mapping_param": self.tone_map_param,
