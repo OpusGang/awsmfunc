@@ -94,14 +94,6 @@ class PlaceboGamutMapping(IntEnum):
     """Linearly/uniformly desaturates the image in order to bring the entire image into the target gamut."""
 
 
-class PlaceboTonemapMode(IntEnum):
-    Auto = 0
-    RGB = 1
-    Max = 2
-    Hybrid = 3
-    Luma = 4
-
-
 class PlaceboHdrMetadataType(IntEnum):
     Any = 0
     """Use any available metadata"""
@@ -127,7 +119,6 @@ class PlaceboTonemapOpts(NamedTuple):
         `gamut_mapping`: How to handle out-of-gamut colors
         `tone_map_function`: Tone map function to use for luma
         `tone_map_param`: Parameter for the tone map function
-        `tone_map_mode`: Tone map mode to map colours/chroma
         `tone_map_crosstalk`: Extra crosstalk factor to apply before tone mapping
         `use_dovi`: Whether to use the Dolby Vision RPU for ST2086 metadata
             This does not do extra processing, only uses the RPU for extra metadata
@@ -158,8 +149,6 @@ class PlaceboTonemapOpts(NamedTuple):
     """Tone map function to use for luma, string name version"""
     tone_map_param: Optional[float] = None
     """Parameter for the tone map function"""
-    tone_map_mode: Optional[PlaceboTonemapMode] = None
-    """Tone map mode to map colours/chroma"""
     tone_map_crosstalk: Optional[float] = None
     """Extra crosstalk factor to apply before tone mapping"""
     hdr_metadata_type: Optional[PlaceboHdrMetadataType] = None
@@ -202,7 +191,6 @@ class PlaceboTonemapOpts(NamedTuple):
             "tone_mapping_function": self.tone_map_function,
             "tone_mapping_function_s": self.tone_map_function_s,
             "tone_mapping_param": self.tone_map_param,
-            "tone_mapping_mode": self.tone_map_mode,
             "tone_mapping_crosstalk": self.tone_map_crosstalk,
             "use_dovi": self.use_dovi,
             "smoothing_period": self.smoothing_period,
