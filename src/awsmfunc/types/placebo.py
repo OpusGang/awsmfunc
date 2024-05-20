@@ -148,6 +148,11 @@ class PlaceboTonemapOpts(NamedTuple):
     """Tone map function to use for luma, string name version"""
     tone_map_param: Optional[float] = None
     """Parameter for the tone map function"""
+    contrast_recovery: Optional[float] = None
+    """
+    HDR contrast recovery strength. 
+    Can bring back some high-frequency detail and in return cause ringing artifacts.
+    """
     hdr_metadata_type: Optional[PlaceboHdrMetadataType] = None
     """HDR metadata type to use"""
 
@@ -196,6 +201,7 @@ class PlaceboTonemapOpts(NamedTuple):
             "percentile": self.percentile,
             "metadata": self.hdr_metadata_type,
             "visualize_lut": self.visualize_lut,
+            "contrast_recovery": self.contrast_recovery,
         }
 
         return {k: v for k, v in all_args.items() if v is not None}
