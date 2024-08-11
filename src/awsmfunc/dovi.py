@@ -40,6 +40,7 @@ def generate_dovi_config(
     """
 
     shots = []
+    has_fall = measurements and measurements[0].fall is not None
 
     l4_dict = None
     if with_l4:
@@ -81,7 +82,7 @@ def generate_dovi_config(
         avg_pq = None
 
         # Use FALL if available
-        if measurements_for_scene[0].fall is not None:
+        if has_fall:
             avg_pq = sum(m.fall if m.fall is not None else 0.0 for m in measurements_for_scene) / measurements_len
         else:
             avg_pq = sum(m.avg for m in measurements_for_scene) / measurements_len
@@ -116,7 +117,11 @@ def generate_dovi_config(
         maxcll /= 65535.0
 
     maxcll = st2084_eotf(maxcll) * ST2084_PEAK_LUMINANCE
-    maxfall = st2084_eotf(max(measurements, key=lambda m: m.avg).avg) * ST2084_PEAK_LUMINANCE
+
+    if has_fall:
+        maxfall = st2084_eotf(max(measurements, key=lambda m: m.fall).fall) * ST2084_PEAK_LUMINANCE
+    else:
+        maxfall = st2084_eotf(max(measurements, key=lambda m: m.avg).avg) * ST2084_PEAK_LUMINANCE
 
     shots = sorted(shots, key=lambda s: s["start"])
 

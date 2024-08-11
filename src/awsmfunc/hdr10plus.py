@@ -38,6 +38,7 @@ def generate_hdr10plus_json(
     """
 
     shots = []
+    has_fall = measurements and measurements[0].fall is not None
 
     if scene_changes and scene_changes[0] != 0:
         scene_changes.insert(0, 0)
@@ -68,10 +69,8 @@ def generate_hdr10plus_json(
 
         measurements_len = float(len(measurements_for_scene))
 
-        average_maxrgb_pq = (
-            sum(m.fall if m.fall is not None else 0.0 for m in measurements_for_scene) / measurements_len
-        )
-        shot["average_maxrgb"] = int(round(st2084_eotf(average_maxrgb_pq) * ST2084_PEAK_LUMINANCE) * 10)
+        average_maxrgb_pq = sum(m.fall if has_fall else m.avg for m in measurements_for_scene) / measurements_len
+        shot["average_maxrgb"] = int(round((st2084_eotf(average_maxrgb_pq) * ST2084_PEAK_LUMINANCE) * 10))
 
         # Histogram for the brightest frame in shot
         distribution_values = max_measurement.hdr10plus_histogram.to_hdr10plus_distribution()
