@@ -781,7 +781,6 @@ def measure_hdr10_content_light_level(
     clip = add_hdr_measurement_props(
         clip,
         measurements=measurements,
-        store_float=True,
         as_nits=False,
         percentile=percentile,
         downscale=downscale,

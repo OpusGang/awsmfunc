@@ -1,7 +1,7 @@
+from importlib.metadata import version
 from typing import Any, List
 
 import vapoursynth as vs
-from importlib.metadata import version
 
 from .base import ST2084_PEAK_LUMINANCE, st2084_eotf
 from .types.dovi import HdrMeasurement
@@ -27,7 +27,6 @@ def generate_hdr10plus_json(
     >>>     clip,
     >>>     measurements=measurements,
     >>>     no_planestats=True,
-    >>>     store_float=True,
     >>>     as_nits=False,
     >>>     compute_hdr10plus=True
     >>> )

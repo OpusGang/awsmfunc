@@ -1991,12 +1991,12 @@ def add_hdr_measurement_props(
     measurements: Optional[List[HdrMeasurement]] = None,
     downscale: bool = True,
     percentile: float = 100.0,
-    store_float: bool = False,
     no_planestats: bool = False,
     rename_props: Optional[Dict[str, str]] = None,
     reference: Optional[vs.VideoNode] = None,
     max_luminance: bool = False,
     compute_hdr10plus: bool = False,
+    linearized: bool = True,
 ):
     """
     Measures the brightness of the frame using PlaneStats.
@@ -2022,10 +2022,9 @@ def add_hdr_measurement_props(
     :param hlg: Whether the input clip is HLG
     :param as_nits: Set the prop to nits values instead of PQ codes
     :param measurements: List to store the measurements
+        The measurement values are always PQ encoded in rage [0.0, 1.0]
     :param downscale: Downscale input by 2x both horizontally and vertically
     :param percentile: Compute percentile of the frame's max brightness (defaults to 100.0, actual max)
-    :param store_float: If passing a list in `measurements`,
-        whether to store the values as normalized float or int (16 bit)
     :param no_planestats: Always use the frame pixels and numpy to measure
     :param rename_props: Dict of desired prop names to use instead of `HDR` prefixed ones.
         - Must be a mapping of original name -> desired name, i.e {'HDRMax': 'MaxProp'}
@@ -2048,6 +2047,14 @@ def add_hdr_measurement_props(
 
     bt2020_coeffs = np.array([0.2627, 0.6780, 0.0593])
 
+    def pq_conv_fn(v: float, normalized=False):
+        v = v if normalized else v / 65535.0
+
+        if linearized:
+            return st2084_inverse_eotf(v * ST2084_PEAK_LUMINANCE)
+
+        return v
+
     def pq_props(
         n: int,
         f: list[vs.VideoFrame],
@@ -2059,29 +2066,36 @@ def add_hdr_measurement_props(
         fout = f[0].copy()
         prop_src = f[1:]
 
-        fall_pq = None
-        fall_prop = None
-        max_stdev_pq = None
-        max_stdev_prop = None
+        min_value: float = 0
+        max_value: float = 0
+        avg_value: float = 0
+        min_prop: float = 0
+        max_prop: float = 0
+        avg_prop: float = 0
+
+        fall_value: Optional[float] = None
+        fall_prop: Optional[float] = None
+        max_stdev_value: Optional[float] = None
+        max_stdev_prop: Optional[float] = None
         hdr10plus_maxscl = None
         hdr10plus_histogram = None
 
         if no_numpy:
             # Using PlaneStats
             if maxrgb:
-                min_pq = min(cmp.props["pqMin"] for cmp in prop_src)
-                max_pq = max(cmp.props["pqMax"] for cmp in prop_src)
-                avg_pq = max(cmp.props["pqAverage"] for cmp in prop_src)
+                min_value = min(cmp.props["pqMin"] for cmp in prop_src)
+                max_value = max(cmp.props["pqMax"] for cmp in prop_src)
+                avg_value = max(cmp.props["pqAverage"] for cmp in prop_src)
             else:
                 prop_src = prop_src[0]
 
-                min_pq = prop_src.props["pqMin"]
-                max_pq = prop_src.props["pqMax"]
-                avg_pq = prop_src.props["pqAverage"]
+                min_value = prop_src.props["pqMin"]
+                max_value = prop_src.props["pqMax"]
+                avg_value = prop_src.props["pqAverage"]
 
-            min_prop = min_pq / 65535.0
-            max_prop = max_pq / 65535.0
-            avg_prop = avg_pq
+            min_prop = min_value / 65535.0
+            max_prop = max_value / 65535.0
+            avg_prop = avg_value
         else:
             prop_src = prop_src[0]
 
@@ -2094,69 +2108,94 @@ def add_hdr_measurement_props(
                 minrgb_pixels = np.minimum.reduce(rgb_pixels)
                 maxrgb_pixels = np.maximum.reduce(rgb_pixels)
 
-                min_pq = np.min(minrgb_pixels)
-                avg_pq = np.mean(rgb_pixels)
+                min_value = np.min(minrgb_pixels)
+                avg_value = np.mean(rgb_pixels)
 
                 if max_luminance or compute_hdr10plus:
                     rgb_pixels = [r_pixels.flatten(), g_pixels.flatten(), b_pixels.flatten()]
                     luminance_pixels = bt2020_coeffs.dot(rgb_pixels)
 
                 if max_luminance:
-                    max_pq = np.percentile(luminance_pixels, percentile)
+                    max_value = np.percentile(luminance_pixels, percentile)
                 else:
-                    max_pq = np.percentile(maxrgb_pixels, percentile)
+                    max_value = np.percentile(maxrgb_pixels, percentile)
 
-                fall_pq = np.mean(maxrgb_pixels)
-                fall_prop = fall_pq / 65535.0
-                max_stdev_pq = np.std(maxrgb_pixels)
-                max_stdev_prop = max_stdev_pq / 65535.0
+                fall_value = np.mean(maxrgb_pixels)
+                max_stdev_value = np.std(maxrgb_pixels)
 
-                if compute_hdr10plus:
-                    hdr10plus_maxscl = [x / 65535.0 for x in np.max(rgb_pixels, axis=1)]
+                if compute_hdr10plus and measurements is not None:
+                    hdr10plus_maxscl = np.max(rgb_pixels, axis=1)
 
                     # Supposedly percentile maxRGB
                     # We use luminance to avoid DistributionY99 being lower than 99.98
                     percentiles_int = np.percentile(luminance_pixels, [1.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.98, 99.99])
-                    percentiles = [x / 65535.0 for x in percentiles_int]
+                    percentiles_pq = [pq_conv_fn(x) for x in percentiles_int]
 
-                    distribution_y_100nit = np.count_nonzero(luminance_pixels <= 33297.0) / luminance_pixels.size
+                    nits_100_cutoff = 655.35 if linearized else 33297.0
+                    distribution_y_100nit = (
+                        np.count_nonzero(luminance_pixels <= nits_100_cutoff) / luminance_pixels.size
+                    )
 
                     hdr10plus_histogram = Hdr10PlusHistogram(
-                        percentile_1=percentiles[0],
-                        percentile_25=percentiles[1],
-                        percentile_50=percentiles[2],
-                        percentile_75=percentiles[3],
-                        percentile_90=percentiles[4],
-                        percentile_95=percentiles[5],
-                        percentile_99_98=percentiles[6],
-                        distribution_y_99=percentiles[7],
+                        percentile_1=percentiles_pq[0],
+                        percentile_25=percentiles_pq[1],
+                        percentile_50=percentiles_pq[2],
+                        percentile_75=percentiles_pq[3],
+                        percentile_90=percentiles_pq[4],
+                        percentile_95=percentiles_pq[5],
+                        percentile_99_98=percentiles_pq[6],
+                        distribution_y_99=percentiles_pq[7],
                         distribution_y_100nit=distribution_y_100nit,
                     )
             else:
                 y_pixels = np.asarray(prop_src[0])
 
-                min_pq = np.min(y_pixels)
-                max_pq = np.percentile(y_pixels, percentile)
-                avg_pq = np.mean(y_pixels)
+                min_value = np.min(y_pixels)
+                max_value = np.percentile(y_pixels, percentile)
+                avg_value = np.mean(y_pixels)
 
-            min_prop = min_pq / 65535.0
-            max_prop = max_pq / 65535.0
-            avg_prop = avg_pq / 65535.0
+            min_prop = min_value / 65535.0
+            max_prop = max_value / 65535.0
+            avg_prop = avg_value / 65535.0
 
-        if as_nits:
-            min_prop = st2084_eotf(min_prop) * ST2084_PEAK_LUMINANCE
-            max_prop = st2084_eotf(max_prop) * ST2084_PEAK_LUMINANCE
-            avg_prop = st2084_eotf(avg_prop) * ST2084_PEAK_LUMINANCE
+        if linearized:
+            # Scale to 0-10000 nits
+            min_prop *= ST2084_PEAK_LUMINANCE
+            max_prop *= ST2084_PEAK_LUMINANCE
+            avg_prop *= ST2084_PEAK_LUMINANCE
 
-            if fall_prop is not None:
-                fall_prop = st2084_eotf(fall_prop) * ST2084_PEAK_LUMINANCE
-            if max_stdev_prop is not None:
-                max_stdev_prop = st2084_eotf(max_stdev_prop) * ST2084_PEAK_LUMINANCE
-            if hdr10plus_maxscl is not None:
-                hdr10plus_maxscl = [st2084_eotf(x) * ST2084_PEAK_LUMINANCE for x in hdr10plus_maxscl]
-            if hdr10plus_histogram is not None:
-                hdr10plus_histogram = hdr10plus_histogram.to_nits()
+            if fall_value is not None:
+                fall_prop = (fall_value / 65535.0) * ST2084_PEAK_LUMINANCE
+            if max_stdev_value is not None:
+                max_stdev_prop = (max_stdev_value / 65535.0) * ST2084_PEAK_LUMINANCE
 
+            # Convert back to PQ encoded
+            if not as_nits:
+                min_prop = st2084_inverse_eotf(min_prop)
+                max_prop = st2084_inverse_eotf(max_prop)
+                avg_prop = st2084_inverse_eotf(avg_prop)
+
+                if fall_prop is not None:
+                    fall_prop = st2084_inverse_eotf(fall_prop)
+                if max_stdev_prop is not None:
+                    max_stdev_prop = st2084_inverse_eotf(max_stdev_prop)
+        else:
+            if fall_value is not None:
+                fall_prop = fall_value / 65535.0
+            if max_stdev_value is not None:
+                max_stdev_prop = max_stdev_value / 65535.0
+
+            if as_nits:
+                min_prop = st2084_eotf(min_prop) * ST2084_PEAK_LUMINANCE
+                max_prop = st2084_eotf(max_prop) * ST2084_PEAK_LUMINANCE
+                avg_prop = st2084_eotf(avg_prop) * ST2084_PEAK_LUMINANCE
+
+                if fall_prop is not None:
+                    fall_prop = st2084_eotf(fall_prop) * ST2084_PEAK_LUMINANCE
+                if max_stdev_prop is not None:
+                    max_stdev_prop = st2084_eotf(max_stdev_prop) * ST2084_PEAK_LUMINANCE
+
+        # Set props
         fout.props[min_prop_name] = min_prop
         fout.props[max_prop_name] = max_prop
         fout.props[avg_prop_name] = avg_prop
@@ -2166,26 +2205,26 @@ def add_hdr_measurement_props(
         if max_stdev_prop is not None:
             fout.props[max_stdev_prop_name] = max_stdev_prop
 
+        # Store measurements in float PQ
         if measurements is not None:
-            if store_float:
-                min_pq /= 65535.0
-                max_pq /= 65535.0
+            min_value = pq_conv_fn(min_value)
+            max_value = pq_conv_fn(max_value)
+            avg_value = pq_conv_fn(avg_value, normalized=no_numpy)  # PlaneStats avg is already normalized
 
-                # PlaneStats avg is already normalized
-                if not no_numpy:
-                    avg_pq /= 65535.0
-                if fall_pq is not None:
-                    fall_pq /= 65535.0
-                if max_stdev_pq is not None:
-                    max_stdev_pq /= 65535.0
+            if fall_value is not None:
+                fall_value = pq_conv_fn(fall_value)
+            if max_stdev_value is not None:
+                max_stdev_value = pq_conv_fn(max_stdev_value)
+            if hdr10plus_maxscl is not None:
+                hdr10plus_maxscl = [pq_conv_fn(x) for x in hdr10plus_maxscl]
 
             measurement = HdrMeasurement(
                 frame=n,
-                min=min_pq,
-                max=max_pq,
-                avg=avg_pq,
-                fall=fall_pq,
-                max_stdev=max_stdev_pq,
+                min=min_value,
+                max=max_value,
+                avg=avg_value,
+                fall=fall_value,
+                max_stdev=max_stdev_value,
                 hdr10plus_maxscl=hdr10plus_maxscl,
                 hdr10plus_histogram=hdr10plus_histogram,
             )
@@ -2194,12 +2233,13 @@ def add_hdr_measurement_props(
         return fout
 
     if hlg:
+        if linearized:
+            raise ValueError("Linearized is not supported for HLG")
+
         clip = core.resize.Spline36(clip, transfer_in_s="std-b67", transfer_s="st2084")
 
-    if maxrgb:
-        scaled_format = vs.RGB48
-    else:
-        scaled_format = vs.YUV420P16
+    scaled_format = vs.RGB48 if maxrgb else vs.YUV420P16
+    scaled_transfer = "linear" if linearized else "st2084"
 
     measured_clip = reference if reference else clip
     final_w = measured_clip.width
@@ -2211,8 +2251,6 @@ def add_hdr_measurement_props(
 
     percentile = np.clip(percentile, 0.0, 100.0)
 
-    target_prim = "2020" if max_luminance else "xyz"
-
     scaled = core.resize.Bicubic(
         measured_clip,
         width=final_w,
@@ -2220,11 +2258,12 @@ def add_hdr_measurement_props(
         range_in_s="limited",
         range_s="full",
         transfer_in_s="st2084",
-        transfer_s="st2084",
+        transfer_s=scaled_transfer,
         primaries_in_s="2020",
-        primaries_s=target_prim,
+        primaries_s="2020",
         dither_type="none",
         chromaloc_in_s="top_left",
+        nominal_luminance=ST2084_PEAK_LUMINANCE,
         format=scaled_format,
     )
 
