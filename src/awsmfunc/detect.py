@@ -40,7 +40,7 @@ def awf_vs_out_updated(current: int, total: int, state: Optional[DetectProgressS
         if elapsed_from_start > 8:
             state["fps"] = state["frames_done"] / elapsed_from_start
 
-            progress += f' ({state["fps"]:0.2f} fps)'
+            progress += f" ({state['fps']:0.2f} fps)"
 
     progress += f" {ratio:0.2%}"
 
@@ -752,6 +752,7 @@ def measure_hdr10_content_light_level(
     max_percentile: Optional[float] = None,
     max_luminance: bool = False,
     compute_hdr10plus: bool = False,
+    linearized: bool = True,
 ) -> List[HdrMeasurement]:
     """
     Measure the clip to extract the global MaxCLL and MaxFALL brightness values.
@@ -788,6 +789,7 @@ def measure_hdr10_content_light_level(
         max_luminance=max_luminance,
         no_planestats=True,
         compute_hdr10plus=compute_hdr10plus,
+        linearized=linearized,
     )
 
     def do_it(_detections: Set[int]):
@@ -816,8 +818,7 @@ def measure_hdr10_content_light_level(
         f"\n  Max brightness frame: {maxcll_measurement.frame}, PQ value: {maxcll_measurement.max}"
     )
     print(
-        f"MaxFALL: {maxfall_nits:0.2f} nits"
-        f"\n  Frame: {maxfall_measurement.frame}, PQ value: {maxfall_measurement.fall}"
+        f"MaxFALL: {maxfall_nits:0.2f} nits\n  Frame: {maxfall_measurement.frame}, PQ value: {maxfall_measurement.fall}"
     )
     print(f"Note: Max PQ values according to {percentile}% percentile of the frame's MaxRGB values")
 
