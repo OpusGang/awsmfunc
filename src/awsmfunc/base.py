@@ -15,7 +15,7 @@ from .types.misc import ST2084_PEAK_LUMINANCE, Hdr10PlusHistogram, st2084_eotf, 
 from .types.placebo import PlaceboTonemapOpts
 
 SUBTITLE_DEFAULT_STYLE: str = (
-    "sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000," "0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1"
+    "sans-serif,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,7,10,10,10,1"
 )
 
 
