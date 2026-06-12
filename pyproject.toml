@@ -12,10 +12,10 @@ authors = [
 ]
 readme = "README.md"
 
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 
 dependencies = [
-  "VapourSynth >= 57",
+  "VapourSynth >= 74",
   "numpy",
   "vs-rekt >= 1.0.0",
   "vsutil >= 0.7.0"
@@ -28,10 +28,10 @@ Homepage = "https://github.com/OpusGang/awsmfunc"
 awsmfunc = ["py.typed"]
 
 [project.optional-dependencies]
+fpng = ["vsfpng"]
 dev = ["ruff", "toml"]
 
 [tool.ruff]
-target-version = "py39"
 line-length = 120
 
 [tool.ruff.lint]

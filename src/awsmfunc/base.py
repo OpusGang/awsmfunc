@@ -872,13 +872,10 @@ class ScreenGenPrefix(str, Enum):
 
 
 class ScreenGenEncoder(str, Enum):
-    imwri = "imwri"
     fpng = "fpng"
 
     def write_frame(self, clip: vs.VideoNode, frame_num: int, path: PathLike, compression: Optional[int] = None):
-        if self == self.imwri:
-            core.imwri.Write(clip, "PNG24", path, overwrite=True).get_frame(frame_num)
-        elif self == self.fpng:
+        if self == self.fpng:
             core.fpng.Write(clip, filename=path, overwrite=True, compression=compression).get_frame(frame_num)
 
 
@@ -890,7 +887,7 @@ def ScreenGen(
     frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
     start: int = 1,
     delim: str = " ",
-    encoder: Union[ScreenGenEncoder, str] = ScreenGenEncoder.fpng,
+    encoder: ScreenGenEncoder = ScreenGenEncoder.fpng,
     fpng_compression: int = 1,
     callback: Optional[Callable[[str], None]] = None,
 ) -> None:
@@ -907,9 +904,8 @@ def ScreenGen(
     :param start: is the number at which the filenames start
     :param encoder: plugin to use to write the PNG. Defaults to fpng if present.
         Must match `ScreenGenEncoder` enum.
-          - imwri: https://github.com/vapoursynth/vs-imwri
           - fpng: https://github.com/Mikewando/vsfpng
-    :param fpng_compression: Compression level to use for fpng. imwri compresses by default
+    :param fpng_compression: Compression level to use for fpng.
         0 - fast compression
         1 - slow compression (Default)
         2 - uncompressed
@@ -922,6 +918,11 @@ def ScreenGen(
     >>> ScreenGen([src, enc], "Screenshots") # equivalent: src is a, enc is b
     """
     from pathlib import Path
+
+    has_vsfpng_plugin = HasLoadedPlugin("tools.mike.fpng")
+
+    if not has_vsfpng_plugin and encoder == ScreenGenEncoder.fpng:
+        raise ValueError("ScreenGen: fpng plugin not found!")
 
     folder_path = Path(folder).resolve()
 
@@ -967,12 +968,6 @@ def ScreenGen(
         if not folder_path.is_dir():
             folder_path.mkdir()
 
-        encoder_final = encoder
-        has_vsfpng_plugin = HasLoadedPlugin("tools.mike.fpng")
-
-        if not has_vsfpng_plugin and encoder_final == ScreenGenEncoder.fpng:
-            encoder_final = ScreenGenEncoder.imwri
-
         for info in clip_infos:
             clip = info["clip"]
             suffix = info["suffix"]
@@ -999,10 +994,10 @@ def ScreenGen(
                     print(end=log_str)
 
                 try:
-                    encoder_final.write_frame(rgb_clip, num, final_path, fpng_compression)
+                    encoder.write_frame(rgb_clip, num, final_path, fpng_compression)
                 except vs.Error:
                     new_path = folder_path.joinpath(f"%d{suffix}.png").resolve()
-                    encoder_final.write_frame(rgb_clip, num, new_path, fpng_compression)
+                    encoder.write_frame(rgb_clip, num, new_path, fpng_compression)
 
     else:
         raise ValueError("ScreenGen: No screenshots to write to disk")

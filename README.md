@@ -1,7 +1,7 @@
 # awsmfunc
 
 ### Requirements
-* Python 3.9 minimum
+* Python 3.12 minimum
 * [vapoursynth](http://www.vapoursynth.com/)
 * [numpy](https://numpy.org/)
 * [subtext plugin](https://github.com/vapoursynth/subtext)
