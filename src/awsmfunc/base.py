@@ -1973,7 +1973,7 @@ def MapDolbyVision(
     )
     poly_mmr = core.resize.Spline36(poly_mmr, format=vs.YUV420P16, chromaloc_in_s="top_left", chromaloc_s="top_left")
 
-    scaled_el = core.resize.Point(enhancement_layer, width=base_layer.width, height=base_layer.height)
+    scaled_el = core.resize.Spline36(enhancement_layer, width=base_layer.width, height=base_layer.height)
 
     return core.vsnlq.MapNLQ(poly_mmr, scaled_el, rpu=rpu)
 
