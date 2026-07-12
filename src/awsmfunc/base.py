@@ -1945,37 +1945,31 @@ def MapDolbyVision(
     Input must be limited range, output is limited range.
     Both clips must have the same aspect ratio.
 
-    Requires DolbyVisionRPU frame props to exist in both clips.
+    Requires DolbyVisionRPU frame props to exist in both clips.  
     Clips:
-        `base_layer` clip: Profile 7 (BL+EL+RPU).
-        `enhancement_layer` clip: Profile 7 (EL+RPU).
+      - `base_layer` clip: Profile 7 (BL or BL+EL+RPU).
+      - `enhancement_layer` clip: Profile 7 (EL+RPU).
 
-    Output: 12 bits mapped clip.
+    Output: 16 bits mapped clip.
 
-    Plugins needed: vs-placebo, vs-nlq.
-    vs-placebo must be built with libdovi.
+    Plugins needed:
+      - vs-placebo v2.0.3, must be built with libdovi.
     """
 
     has_placebo = HasLoadedPlugin("com.vs.placebo")
-    has_vsnlq = HasLoadedPlugin("com.vsnlq")
 
     if not has_placebo:
         raise ValueError("vs-placebo plugin must be installed!")
-    if not has_vsnlq:
-        raise ValueError("vs-nlq plugin must be installed!")
 
     base_16 = Depth(base_layer, 16)
+    el_16 = Depth(enhancement_layer, 16)
 
-    poly_mmr = core.placebo.Tonemap(
+    return core.placebo.Tonemap(
         base_16,
         src_csp=3,
         dst_csp=1,
+        dovi_el=el_16
     )
-    poly_mmr = core.resize.Spline36(poly_mmr, format=vs.YUV420P16, chromaloc_in_s="top_left", chromaloc_s="top_left")
-
-    scaled_el = core.resize.Spline36(enhancement_layer, width=base_layer.width, height=base_layer.height)
-
-    return core.vsnlq.MapNLQ(poly_mmr, scaled_el, rpu=rpu)
 
 
 def add_hdr_measurement_props(
