@@ -1945,7 +1945,7 @@ def MapDolbyVision(
     Input must be limited range, output is limited range.
     Both clips must have the same aspect ratio.
 
-    Requires DolbyVisionRPU frame props to exist in both clips.  
+    Requires DolbyVisionRPU frame props to exist in both clips.
     Clips:
       - `base_layer` clip: Profile 7 (BL or BL+EL+RPU).
       - `enhancement_layer` clip: Profile 7 (EL+RPU).
@@ -1964,12 +1964,7 @@ def MapDolbyVision(
     base_16 = Depth(base_layer, 16)
     el_16 = Depth(enhancement_layer, 16)
 
-    return core.placebo.Tonemap(
-        base_16,
-        src_csp=3,
-        dst_csp=1,
-        dovi_el=el_16
-    )
+    return core.placebo.Tonemap(base_16, src_csp=3, dst_csp=1, dovi_el=el_16)
 
 
 def add_hdr_measurement_props(
