@@ -1,18 +1,18 @@
 import enum
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 from typing import NamedTuple
 
 
-class PlaceboColorSpace(IntEnum, start=0):
-    SDR = enum.auto()
+class PlaceboColorSpace(IntEnum):
+    SDR = 0
     HDR10 = enum.auto()
     HLG = enum.auto()
     DOVI = enum.auto()
     """Process profile 5/7/8 Dolby Vision"""
 
 
-class PlaceboTonemapFunction(IntEnum, start=0):
-    Clip = enum.auto()
+class PlaceboTonemapFunction(IntEnum):
+    Clip = 0
     ST2094_40 = enum.auto()
     ST2094_10 = enum.auto()
     BT2390 = enum.auto()
@@ -28,7 +28,7 @@ class PlaceboTonemapFunction(IntEnum, start=0):
     Auto = Spline
 
 
-class PlaceboTonemapFunctionName(str, Enum):
+class PlaceboTonemapFunctionName(StrEnum):
     Clip = "clip"
     ST2094_40 = "st2094-40"
     ST2094_10 = "st2094-10"
@@ -42,7 +42,7 @@ class PlaceboTonemapFunctionName(str, Enum):
     Linear = "linear"
     LinearLight = "linearlight"
 
-    Auto = "spline"  # noqa: PIE796 -- backwards compatibility
+    Auto = "spline"  # backwards compatibility
 
 
 class PlaceboGamutMapping(IntEnum):
