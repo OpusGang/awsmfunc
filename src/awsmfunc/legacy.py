@@ -1,5 +1,4 @@
 from functools import partial
-from typing import List, Optional, Union
 
 import vapoursynth as vs
 from rekt import rekt_fast, rektlvls
@@ -12,10 +11,10 @@ from .base import Depth
 def LumaMaskMerge(
     clipa: vs.VideoNode,
     clipb: vs.VideoNode,
-    threshold: Optional[Union[int, float]] = None,
+    threshold: float | None = None,
     invert: bool = False,
     scale_inputs: bool = False,
-    planes: Union[int, List[int]] = 0,
+    planes: int | list[int] = 0,
 ) -> vs.VideoNode:
     """
     LumaMaskMerge, merges clips using a binary mask defined by a brightness level.
@@ -140,9 +139,9 @@ def autogma(clip: vs.VideoNode, adj: float = 1.3, thr: float = 0.40) -> vs.Video
         g = core.std.Levels(clip, gamma=adj)
 
         if f.props.PlaneStatsAverage > thr:
-            return g.std.Invert().sub.Subtitle(f"Current average: {str(f.props.PlaneStatsAverage)}")
+            return g.std.Invert().sub.Subtitle(f"Current average: {f.props.PlaneStatsAverage!s}")
 
-        return g.sub.Subtitle(f"Current average: {str(f.props.PlaneStatsAverage)}")
+        return g.sub.Subtitle(f"Current average: {f.props.PlaneStatsAverage!s}")
 
     prc = core.std.FrameEval(luma, partial(hilo, clip=luma, adj=adj, thr=thr), prop_src=s)
 
@@ -162,10 +161,10 @@ def FixRowBrightnessProtect2(clip: vs.VideoNode, row: int, adj_val: int = 0, pro
 
 def FixBrightnessProtect2(
     clip: vs.VideoNode,
-    row: Optional[Union[int, List[int]]] = None,
-    adj_row: Optional[Union[int, List[int]]] = None,
-    column: Optional[Union[int, List[int]]] = None,
-    adj_column: Optional[Union[int, List[int]]] = None,
+    row: int | list[int] | None = None,
+    adj_row: int | list[int] | None = None,
+    column: int | list[int] | None = None,
+    adj_column: int | list[int] | None = None,
     prot_val: int = 20,
 ) -> vs.VideoNode:
     return rektlvls(clip, rownum=row, rowval=adj_row, colnum=column, colval=adj_column, prot_val=prot_val)

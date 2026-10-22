@@ -1,28 +1,29 @@
+import enum
 from enum import Enum, IntEnum
-from typing import Dict, NamedTuple, Optional
+from typing import NamedTuple
 
 
-class PlaceboColorSpace(IntEnum):
-    SDR = 0
-    HDR10 = 1
-    HLG = 2
-    DOVI = 3
+class PlaceboColorSpace(IntEnum, start=0):
+    SDR = enum.auto()
+    HDR10 = enum.auto()
+    HLG = enum.auto()
+    DOVI = enum.auto()
     """Process profile 5/7/8 Dolby Vision"""
 
 
-class PlaceboTonemapFunction(IntEnum):
-    Clip = 0
-    ST2094_40 = 1
-    ST2094_10 = 2
-    BT2390 = 3
-    BT2446a = 4
-    Spline = 5
-    Reinhard = 6
-    Mobius = 7
-    Hable = 8
-    Gamma = 9
-    Linear = 10
-    LinearLight = 11
+class PlaceboTonemapFunction(IntEnum, start=0):
+    Clip = enum.auto()
+    ST2094_40 = enum.auto()
+    ST2094_10 = enum.auto()
+    BT2390 = enum.auto()
+    BT2446a = enum.auto()
+    Spline = enum.auto()
+    Reinhard = enum.auto()
+    Mobius = enum.auto()
+    Hable = enum.auto()
+    Gamma = enum.auto()
+    Linear = enum.auto()
+    LinearLight = enum.auto()
 
     Auto = Spline
 
@@ -41,7 +42,7 @@ class PlaceboTonemapFunctionName(str, Enum):
     Linear = "linear"
     LinearLight = "linearlight"
 
-    Auto = "spline"
+    Auto = "spline"  # noqa: PIE796 -- backwards compatibility
 
 
 class PlaceboGamutMapping(IntEnum):
@@ -134,7 +135,7 @@ class PlaceboTonemapOpts(NamedTuple):
     target_colorspace: PlaceboColorSpace = PlaceboColorSpace.SDR
     """Output clip colorpsace. Defaults to SDR (BT.1886 + BT.709)"""
 
-    target_primaries: Optional[int] = None
+    target_primaries: int | None = None
     """Target color primaries"""
 
     dst_max: float = 203.0
@@ -144,38 +145,38 @@ class PlaceboTonemapOpts(NamedTuple):
 
     peak_detect: bool = True
     """Use libplacebo's dynamic peak detection instead of FrameEval"""
-    gamut_mapping: Optional[PlaceboGamutMapping] = None
+    gamut_mapping: PlaceboGamutMapping | None = None
     """How to handle out-of-gamut colors when changing the content primaries"""
-    tone_map_function: Optional[PlaceboTonemapFunction] = None
+    tone_map_function: PlaceboTonemapFunction | None = None
     """Tone map function to use for luma"""
-    tone_map_function_s: Optional[PlaceboTonemapFunctionName] = None
+    tone_map_function_s: PlaceboTonemapFunctionName | None = None
     """Tone map function to use for luma, string name version"""
-    tone_map_param: Optional[float] = None
+    tone_map_param: float | None = None
     """Parameter for the tone map function"""
-    contrast_recovery: Optional[float] = None
+    contrast_recovery: float | None = None
     """
     HDR contrast recovery strength. 
     Can bring back some high-frequency detail and in return cause ringing artifacts.
     """
-    hdr_metadata_type: Optional[PlaceboHdrMetadataType] = None
+    hdr_metadata_type: PlaceboHdrMetadataType | None = None
     """HDR metadata type to use"""
 
-    use_dovi: Optional[bool] = None
+    use_dovi: bool | None = None
     """Whether to use the Dolby Vision RPU for ST2086 metadata
 
         This does not do extra processing, only uses the RPU for extra metadata
     """
 
-    smoothing_period: Optional[float] = None
+    smoothing_period: float | None = None
     """Scene change smoothing period for peak detection"""
-    scene_threshold_low: Optional[float] = None
-    scene_threshold_high: Optional[float] = None
+    scene_threshold_low: float | None = None
+    scene_threshold_high: float | None = None
 
-    percentile: Optional[float] = None
+    percentile: float | None = None
     """Percentile to use for detected peak"""
-    show_clipping: Optional[bool] = None
+    show_clipping: bool | None = None
     """Highlight hard-clipped pixels from tone-mapping"""
-    visualize_lut: Optional[bool] = None
+    visualize_lut: bool | None = None
     """Display a (PQ-PQ) graph of the active tone-mapping LUT"""
 
     use_planestats: bool = True
@@ -185,7 +186,7 @@ class PlaceboTonemapOpts(NamedTuple):
         """Ignore peak detect smoothing and scene detection"""
         return self._replace(smoothing_period=0, scene_threshold_low=0, scene_threshold_high=0)
 
-    def vsplacebo_dict(self) -> Dict:
+    def vsplacebo_dict(self) -> dict:
         all_args = {
             "src_csp": self.source_colorspace,
             "dst_csp": self.target_colorspace,

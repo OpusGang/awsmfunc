@@ -10,12 +10,12 @@ ST2084_C3 = (2392.0 / 4096.0) * 32.0
 
 
 def st2084_eotf(x: float) -> float:
-    y = float(0.0)
+    y = 0.0
     if x > 0.0:
-        xpow = math.pow(x, float(1.0) / ST2084_M2)
-        num = max(xpow - ST2084_C1, float(0.0))
+        xpow = math.pow(x, 1.0 / ST2084_M2)
+        num = max(xpow - ST2084_C1, 0.0)
         den = max(ST2084_C2 - ST2084_C3 * xpow, float("-inf"))
-        y = float(math.pow(num / den, float(1.0) / ST2084_M1))
+        y = float(math.pow(num / den, 1.0 / ST2084_M1))
 
     return y
 
@@ -110,10 +110,10 @@ class Hdr10PlusHistogram(NamedTuple):
         distribution = self.to_nits().to_list() if convert_nits else self.to_list()
 
         # DistributionY100nit as percentage, rounded
-        distribution_y_100nit = int(round(distribution.pop(2) * 100.0))
+        distribution_y_100nit = round(distribution.pop(2) * 100.0)
 
         # Scale to 100_000 max, re-add DistributionY100nit
-        distribution = [int(round(x * 10.0)) for x in distribution]
+        distribution = [round(x * 10.0) for x in distribution]
         distribution.insert(2, distribution_y_100nit)
 
         return distribution

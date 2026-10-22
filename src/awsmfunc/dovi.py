@@ -1,5 +1,3 @@
-from typing import Dict, List
-
 import numpy as np
 import vapoursynth as vs
 
@@ -9,8 +7,8 @@ from .types.dovi import HdrMeasurement
 
 def generate_dovi_config(
     clip: vs.VideoNode,
-    measurements: List[HdrMeasurement],
-    scene_changes: List[int],
+    measurements: list[HdrMeasurement],
+    scene_changes: list[int],
     hlg: bool = False,
     normalized: bool = False,
     with_l4=False,
@@ -145,8 +143,8 @@ def generate_dovi_config(
 
 
 def __calc_dovi_l4(
-    clip: vs.VideoNode, measurements: List[HdrMeasurement], scene_changes: List[int], normalized: bool = False
-) -> Dict:
+    clip: vs.VideoNode, measurements: list[HdrMeasurement], scene_changes: list[int], normalized: bool = False
+) -> dict:
     framerate = clip.fps
 
     l4_norm_dict = {}

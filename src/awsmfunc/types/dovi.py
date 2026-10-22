@@ -1,4 +1,4 @@
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from .misc import ST2084_PEAK_LUMINANCE, Hdr10PlusHistogram, st2084_eotf, st2084_inverse_eotf
 
@@ -16,13 +16,13 @@ class HdrMeasurement(NamedTuple):
     """Max PQ value of the frame"""
     avg: float
     """Average PQ value of the frame"""
-    fall: Optional[float]
+    fall: float | None
     """Frame average light level, mean of the pixels' MaxRGB"""
-    max_stdev: Optional[float]
+    max_stdev: float | None
     """Standard deviation of the frame's MaxRGB"""
 
-    hdr10plus_maxscl: Optional[list[float]]
-    hdr10plus_histogram: Optional[Hdr10PlusHistogram]
+    hdr10plus_maxscl: list[float] | None
+    hdr10plus_histogram: Hdr10PlusHistogram | None
     """HDR10+ histogram metadata for the frame"""
 
     def human_readable_str(self, precision=6):

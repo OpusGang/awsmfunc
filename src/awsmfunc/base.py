@@ -1,8 +1,9 @@
 import math
+from collections.abc import Callable
 from enum import Enum
 from functools import partial
 from os import PathLike
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
 
 import vapoursynth as vs
 from rekt import rektlvls
@@ -33,8 +34,8 @@ def Depth(clip: vs.VideoNode, bits: int, **kwargs) -> vs.VideoNode:
 def ReplaceFrames(
     clipa: vs.VideoNode,
     clipb: vs.VideoNode,
-    mappings: Optional[str] = None,
-    filename: Optional[Union[str, PathLike]] = None,
+    mappings: str | None = None,
+    filename: str | PathLike | None = None,
 ) -> vs.VideoNode:
     """
     ReplaceFramesSimple wrapper that uses the RemapFrames plugin and works for different length clips.
@@ -96,17 +97,17 @@ def bbmod(
     thresh: Any = None,
     blur: int = 20,
     planes: Any = None,
-    y: Optional[bool] = None,
-    u: Optional[bool] = None,
-    v: Optional[bool] = None,
-    scale_thresh: Optional[bool] = None,
+    y: bool | None = None,
+    u: bool | None = None,
+    v: bool | None = None,
+    scale_thresh: bool | None = None,
     cpass2: bool = False,
     csize: int = 2,
     scale_offsets: bool = True,
-    cTop: Optional[int] = None,
-    cBottom: Optional[int] = None,
-    cLeft: Optional[int] = None,
-    cRight: Optional[int] = None,
+    cTop: int | None = None,
+    cBottom: int | None = None,
+    cLeft: int | None = None,
+    cRight: int | None = None,
 ) -> vs.VideoNode:
     """
     bbmod helper for a significant speedup from cropping unnecessary pixels before processing.
@@ -477,10 +478,8 @@ def bbmoda(
 
         for t in [1, 2]:
             uvexpr.append(
-                (
-                    f"{uvexpr_} x - {thresh[t]} > x {thresh[t]} + {uvexpr_} x - "
-                    f"-{thresh[t]} < x {thresh[t]} - {uvexpr_} ? ?"
-                )
+                f"{uvexpr_} x - {thresh[t]} > x {thresh[t]} + {uvexpr_} x - "
+                f"-{thresh[t]} < x {thresh[t]} - {uvexpr_} ? ?"
             )
         if c.format.sample_type == vs.INTEGER:
             exprchroma = f"x {scale128} - abs 2 *"
@@ -665,9 +664,9 @@ def AddBordersMod(
     bottom: int = 0,
     lsat: float = 0.88,
     tsat: float = 0.2,
-    rsat: Optional[float] = None,
+    rsat: float | None = None,
     bsat: float = 0.2,
-    color: Union[str, List[float]] = None,
+    color: str | list[float] | None = None,
 ) -> vs.VideoNode:
     """
     VapourSynth port of AddBordersMod.
@@ -748,9 +747,9 @@ def AddBordersMod(
 
 def zresize(
     clip: vs.VideoNode,
-    preset: Optional[int] = None,
-    width: Optional[int] = None,
-    height: Optional[int] = None,
+    preset: int | None = None,
+    width: int | None = None,
+    height: int | None = None,
     left: int = 0,
     right: int = 0,
     top: int = 0,
@@ -761,7 +760,7 @@ def zresize(
     **kwargs,
 ) -> vs.VideoNode:
     # VSEdit doesn't like the global dict
-    RESIZEDICT: Dict = {
+    RESIZEDICT: dict = {
         "bilinear": core.resize.Bilinear,
         "bicubic": core.resize.Bicubic,
         "point": core.resize.Point,
@@ -823,11 +822,11 @@ def zresize(
 
 def DebandReader(
     clip: vs.VideoNode,
-    csvfile: Union[str, PathLike],
+    csvfile: str | PathLike,
     grain: int = 64,
     f3kdb_range: int = 30,
     delimiter: str = " ",
-    mask: Optional[vs.VideoNode] = None,
+    mask: vs.VideoNode | None = None,
 ) -> vs.VideoNode:
     """
     DebandReader, read a csv file to apply a f3kdb filter for given strengths and frames.
@@ -874,22 +873,22 @@ class ScreenGenPrefix(str, Enum):
 class ScreenGenEncoder(str, Enum):
     fpng = "fpng"
 
-    def write_frame(self, clip: vs.VideoNode, frame_num: int, path: PathLike, compression: Optional[int] = None):
+    def write_frame(self, clip: vs.VideoNode, frame_num: int, path: PathLike, compression: int | None = None):
         if self == self.fpng:
             core.fpng.Write(clip, filename=path, overwrite=True, compression=compression).get_frame(frame_num)
 
 
 def ScreenGen(
-    clip: Union[vs.VideoNode, List[vs.VideoNode]],
-    folder: Union[str, PathLike],
-    suffix: Optional[Union[str, List[str]]] = None,
-    prefix: Union[ScreenGenPrefix, str] = ScreenGenPrefix.Sequential,
-    frame_numbers: Union[Union[str, PathLike], List[int]] = "screens.txt",
+    clip: vs.VideoNode | list[vs.VideoNode],
+    folder: str | PathLike,
+    suffix: str | list[str] | None = None,
+    prefix: ScreenGenPrefix | str = ScreenGenPrefix.Sequential,
+    frame_numbers: str | PathLike | list[int] = "screens.txt",
     start: int = 1,
     delim: str = " ",
     encoder: ScreenGenEncoder = ScreenGenEncoder.fpng,
     fpng_compression: int = 1,
-    callback: Optional[Callable[[str], None]] = None,
+    callback: Callable[[str], None] | None = None,
 ) -> None:
     """
     Generates screenshots from a list of frame numbers
@@ -1009,10 +1008,10 @@ def DynamicTonemap(
     adjust_gamma: bool = False,
     chromaloc_in_s: str = "top_left",
     chromaloc_s: str = "left",
-    reference: Optional[vs.VideoNode] = None,
+    reference: vs.VideoNode | None = None,
     target_nits: float = 203.0,
     libplacebo: bool = True,
-    placebo_opts: Optional[PlaceboTonemapOpts] = None,
+    placebo_opts: PlaceboTonemapOpts | None = None,
 ) -> vs.VideoNode:
     """
     Without libplacebo:
@@ -1166,7 +1165,7 @@ def FillBorders(
     right: int = 0,
     top: int = 0,
     bottom: int = 0,
-    planes: Optional[Union[int, List[int]]] = None,
+    planes: int | list[int] | None = None,
     mode: str = "fixborders",
 ) -> vs.VideoNode:
     """
@@ -1208,7 +1207,7 @@ def FillBorders(
 
 
 def SelectRangeEvery(
-    clip: vs.VideoNode, every: int, length: int, offset: Optional[Union[int, List[int]]] = None
+    clip: vs.VideoNode, every: int, length: int, offset: int | list[int] | None = None
 ) -> vs.VideoNode:
     """
     SelectRangeEvery, port from Avisynth's function.
@@ -1241,7 +1240,7 @@ def FrameInfo(
     >>> FrameInfo(clip, title)
     """
 
-    def FrameProps(n: int, f: vs.VideoFrame, clip: vs.VideoNode, padding: Optional[str]) -> vs.VideoNode:
+    def FrameProps(n: int, f: vs.VideoFrame, clip: vs.VideoNode, padding: str | None) -> vs.VideoNode:
         if "_PictType" in f.props:
             pict_type = f.props["_PictType"]
             if not isinstance(pict_type, str):
@@ -1260,7 +1259,7 @@ def FrameInfo(
 
         return clip
 
-    padding_info: Optional[str] = None
+    padding_info: str | None = None
 
     if pad_info:
         padding_info = " " + "".join(["\n"] * newlines)
@@ -1278,10 +1277,10 @@ def InterleaveDir(
     folder: str,
     PrintInfo: bool = False,
     DelProp: bool = False,
-    first: Optional[vs.VideoNode] = None,
+    first: vs.VideoNode | None = None,
     repeat: bool = False,
     tonemap: bool = False,
-    source_filter: Optional[Callable[[Union[str, PathLike]], vs.VideoNode]] = None,
+    source_filter: Callable[[str | PathLike], vs.VideoNode] | None = None,
 ) -> vs.VideoNode:
     """
     InterleaveDir, load all mkv files located in a directory and interleave them.
@@ -1343,7 +1342,7 @@ def InterleaveDir(
     return core.std.Interleave(sources)
 
 
-def ExtractFramesReader(clip: vs.VideoNode, csvfile: Union[str, PathLike]) -> vs.VideoNode:
+def ExtractFramesReader(clip: vs.VideoNode, csvfile: str | PathLike) -> vs.VideoNode:
     """
     ExtractFramesReader, reads a csv file to extract ranges of frames.
 
@@ -1372,11 +1371,11 @@ def ExtractFramesReader(clip: vs.VideoNode, csvfile: Union[str, PathLike]) -> vs
 def fixlvls(
     clip: vs.VideoNode,
     gamma: float = 0.88,
-    min_in: Optional[Union[int, List[Union[int, float]]]] = None,
-    max_in: Optional[Union[int, List[Union[int, float]]]] = None,
-    min_out: Optional[Union[int, List[Union[int, float]]]] = None,
-    max_out: Optional[Union[int, List[Union[int, float]]]] = None,
-    planes: Optional[Union[int, List[Union[int, float]]]] = None,
+    min_in: int | list[int | float] | None = None,
+    max_in: int | list[int | float] | None = None,
+    min_out: int | list[int | float] | None = None,
+    max_out: int | list[int | float] | None = None,
+    planes: int | list[int | float] | None = None,
     input_depth: int = 8,
 ) -> vs.VideoNode:
     """
@@ -1439,7 +1438,7 @@ def fixlvls(
     return Depth(clip, o_depth)
 
 
-def mt_lut(clip: vs.VideoNode, expr: str, planes: Optional[List[int]] = None) -> vs.VideoNode:
+def mt_lut(clip: vs.VideoNode, expr: str, planes: list[int] | None = None) -> vs.VideoNode:
     """
     mt_lut, port from Avisynth's function.
 
@@ -1499,10 +1498,10 @@ def RescaleCheck(
     clip: vs.VideoNode,
     res: int = 720,
     kernel: str = "bicubic",
-    b: Optional[float] = None,
-    c: Optional[float] = None,
-    taps: Optional[int] = None,
-    bits: Optional[int] = None,
+    b: float | None = None,
+    c: float | None = None,
+    taps: int | None = None,
+    bits: int | None = None,
 ) -> vs.VideoNode:
     """
     Requires vapoursynth-descale: https://github.com/Irrational-Encoding-Wizardry/vapoursynth-descale
@@ -1512,7 +1511,7 @@ def RescaleCheck(
     :param bits: Bit depth of output
     :return: Clip resampled to target resolution and back
     """
-    DESCALEDICT: Dict = {
+    DESCALEDICT: dict = {
         "bilinear": core.descale.Debilinear,
         "bicubic": core.descale.Debicubic,
         "point": core.resize.Point,
@@ -1640,9 +1639,9 @@ def BorderResize(
     right: int = 0,
     top: int = 0,
     bottom: int = 0,
-    bb: List[int] = None,
-    planes: Optional[List[int]] = None,
-    sat: Optional[List[float]] = None,
+    bb: list[int] | None = None,
+    planes: list[int] | None = None,
+    sat: list[float] | None = None,
 ) -> vs.VideoNode:
     """
     A wrapper to resize clips with borders.  This is meant for scenefiltering differing crops.
@@ -1745,11 +1744,11 @@ def RandomFrameNumbers(
     num: int = 6,
     start_offset: int = 1000,
     end_offset: int = 10000,
-    output_file: Union[str, PathLike] = "screens.txt",
-    ftypes_first: Optional[Union[str, List[str]]] = None,
-    ftypes: Union[str, List[str]] = "B",
-    interleaved: Optional[int] = None,
-    clips: Optional[List[vs.VideoNode]] = None,
+    output_file: str | PathLike = "screens.txt",
+    ftypes_first: str | list[str] | None = None,
+    ftypes: str | list[str] = "B",
+    interleaved: int | None = None,
+    clips: list[vs.VideoNode] | None = None,
     by_blocks: bool = True,
     max_attempts: int = 50,
 ) -> vs.VideoNode:
@@ -1774,7 +1773,7 @@ def RandomFrameNumbers(
     if ftypes_first is None:
         ftypes_first = ["P", "B"]
 
-    ftypes_first: Union[str, List[str]] = ftypes_first
+    allowed_clip_ftypes: str | list[str] = ftypes_first
 
     def divisible_random(a: int, b: int, n: int) -> int:
         if not a % n:
@@ -1782,7 +1781,7 @@ def RandomFrameNumbers(
 
         return random.choice(range(a + n - (a % n), b, n))
 
-    def decode_pict_type(v: Union[str, bytes]) -> str:
+    def decode_pict_type(v: str | bytes) -> str:
         if isinstance(v, str):
             return v
 
@@ -1794,7 +1793,7 @@ def RandomFrameNumbers(
         f: vs.VideoFrame,
         clip: vs.VideoNode,
         frame_num: int,
-        block: Dict,
+        block: dict,
     ) -> vs.VideoNode:
         match = False
 
@@ -1803,13 +1802,13 @@ def RandomFrameNumbers(
                 f_type = decode_pict_type(p_src.props["_PictType"])
 
                 if i == 0:
-                    if f_type in ftypes_first:
+                    if f_type in allowed_clip_ftypes:
                         match = True
                 elif ftypes and f_type not in ftypes:
                     match = False
         else:
             # Single clip
-            if decode_pict_type(f.props["_PictType"]) in ftypes_first:
+            if decode_pict_type(f.props["_PictType"]) in allowed_clip_ftypes:
                 match = True
 
         if match:
@@ -1838,7 +1837,7 @@ def RandomFrameNumbers(
         ftypes_first = [ftypes_first]
 
     # Blocks & found frames dicts
-    generated_blocks: List[Dict] = []
+    generated_blocks: list[dict] = []
     block_size = end - start
 
     if by_blocks:
@@ -1886,7 +1885,7 @@ def RandomFrameNumbers(
                     block["tested_frames"].append(frame_num)
 
                     if interleaved:
-                        for i in range(0, interleaved):
+                        for i in range(interleaved):
                             clip_frames.append(clip[frame_num + i])
                     elif clips and isinstance(clips, list):
                         if len(clips) > 0:
@@ -1935,9 +1934,7 @@ def HasLoadedPlugin(identifier: str) -> bool:
     return any(p.identifier == identifier for p in core.plugins())
 
 
-def MapDolbyVision(
-    base_layer: vs.VideoNode, enhancement_layer: vs.VideoNode, rpu: Optional[str] = None
-) -> vs.VideoNode:
+def MapDolbyVision(base_layer: vs.VideoNode, enhancement_layer: vs.VideoNode, rpu: str | None = None) -> vs.VideoNode:
     """
     Polynomial luma mapping, MMR chroma mapping on base layer.
     NLQ 12 bits restoration from enhancement layer.
@@ -1972,12 +1969,12 @@ def add_hdr_measurement_props(
     maxrgb: bool = True,
     hlg: bool = False,
     as_nits: bool = True,
-    measurements: Optional[List[HdrMeasurement]] = None,
+    measurements: list[HdrMeasurement] | None = None,
     downscale: bool = True,
     percentile: float = 100.0,
     no_planestats: bool = False,
-    rename_props: Optional[Dict[str, str]] = None,
-    reference: Optional[vs.VideoNode] = None,
+    rename_props: dict[str, str] | None = None,
+    reference: vs.VideoNode | None = None,
     max_luminance: bool = False,
     compute_hdr10plus: bool = False,
     linearized: bool = True,
@@ -2021,7 +2018,7 @@ def add_hdr_measurement_props(
 
     no_numpy = math.isclose(percentile, 100.0) and not no_planestats
 
-    prop_names: Dict[str, str] = rename_props if isinstance(rename_props, dict) else {}
+    prop_names: dict[str, str] = rename_props if isinstance(rename_props, dict) else {}
 
     min_prop_name = prop_names.get("HDRMin", "HDRMin")
     max_prop_name = prop_names.get("HDRMax", "HDRMax")
@@ -2044,7 +2041,7 @@ def add_hdr_measurement_props(
         f: list[vs.VideoFrame],
         maxrgb: bool,
         as_nits: bool,
-        measurements: List[HdrMeasurement],
+        measurements: list[HdrMeasurement],
         percentile: float,
     ):
         fout = f[0].copy()
@@ -2057,10 +2054,10 @@ def add_hdr_measurement_props(
         max_prop: float = 0
         avg_prop: float = 0
 
-        fall_value: Optional[float] = None
-        fall_prop: Optional[float] = None
-        max_stdev_value: Optional[float] = None
-        max_stdev_prop: Optional[float] = None
+        fall_value: float | None = None
+        fall_prop: float | None = None
+        max_stdev_value: float | None = None
+        max_stdev_prop: float | None = None
         hdr10plus_maxscl = None
         hdr10plus_histogram = None
 
@@ -2286,7 +2283,6 @@ borderresize = BorderResize
 
 __all__ = [
     "AddBordersMod",
-    "add_hdr_measurement_props",
     "BorderResize",
     "DebandReader",
     "Depth",
@@ -2302,10 +2298,11 @@ __all__ = [
     "ReplaceFrames",
     "RescaleCheck",
     "ScreenGen",
-    "ScreenGenPrefix",
     "ScreenGenEncoder",
+    "ScreenGenPrefix",
     "SelectRangeEvery",
     "UpscaleCheck",
+    "add_hdr_measurement_props",
     "bbmod",
     "bbmoda",
     "borderresize",

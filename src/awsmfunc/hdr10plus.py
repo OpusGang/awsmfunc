@@ -1,5 +1,5 @@
 from importlib.metadata import version
-from typing import Any, List
+from typing import Any
 
 import vapoursynth as vs
 
@@ -11,8 +11,8 @@ HDR10PLUS_DISTRIBUTION_INDEX_LIST = [1, 5, 10, 25, 50, 75, 90, 95, 99]
 
 def generate_hdr10plus_json(
     clip: vs.VideoNode,
-    measurements: List[HdrMeasurement],
-    scene_changes: List[int],
+    measurements: list[HdrMeasurement],
+    scene_changes: list[int],
 ) -> dict:
     """
     Generates a HDR10+ metadata JSON file.
@@ -61,16 +61,16 @@ def generate_hdr10plus_json(
             continue
 
         if any(m.hdr10plus_maxscl is None or m.hdr10plus_histogram is None for m in measurements_for_scene):
-            raise Exception
+            raise ValueError("expected valid HDR10+ measurements")
 
         max_measurement = max(measurements_for_scene, key=lambda m: m.hdr10plus_histogram.distribution_y_99)
         if max_measurement.hdr10plus_maxscl is None or max_measurement.hdr10plus_histogram is None:
-            raise Exception
+            raise ValueError("expected valid HDR10+ measurements")
 
         measurements_len = float(len(measurements_for_scene))
 
         average_maxrgb_pq = sum(m.fall if has_fall else m.avg for m in measurements_for_scene) / measurements_len
-        shot["average_maxrgb"] = int(round((st2084_eotf(average_maxrgb_pq) * ST2084_PEAK_LUMINANCE) * 10))
+        shot["average_maxrgb"] = round((st2084_eotf(average_maxrgb_pq) * ST2084_PEAK_LUMINANCE) * 10)
 
         # Histogram for the brightest frame in shot
         distribution_values = max_measurement.hdr10plus_histogram.to_hdr10plus_distribution()
@@ -79,7 +79,7 @@ def generate_hdr10plus_json(
         distribution_y_100nit_sum = sum(
             m.hdr10plus_histogram.distribution_y_100nit * 100.0 for m in measurements_for_scene
         )
-        distribution_values[2] = int(round(distribution_y_100nit_sum / measurements_len))
+        distribution_values[2] = round(distribution_y_100nit_sum / measurements_len)
 
         shot["distribution_values"] = distribution_values
         shot["maxscl"] = [
@@ -96,7 +96,7 @@ def generate_hdr10plus_json(
 
     sequence_frame_index = 0
     for shot_index, shot in enumerate(shots):
-        for shot_frame_index in range(0, shot["duration"]):
+        for shot_frame_index in range(shot["duration"]):
             frame_info = {
                 "LuminanceParameters": {
                     "AverageRGB": shot["average_maxrgb"],
