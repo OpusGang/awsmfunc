@@ -11,22 +11,23 @@ class PlaceboColorSpace(IntEnum):
 
 
 class PlaceboTonemapFunction(IntEnum):
-    Auto = 0
-    Clip = 1
-    ST2094_40 = 2
-    ST2094_10 = 3
-    BT2390 = 4
-    BT2446a = 5
-    Spline = 6
-    Reinhard = 7
-    Mobius = 8
-    Hable = 9
-    Gamma = 10
-    Linear = 11
+    Clip = 0
+    ST2094_40 = 1
+    ST2094_10 = 2
+    BT2390 = 3
+    BT2446a = 4
+    Spline = 5
+    Reinhard = 6
+    Mobius = 7
+    Hable = 8
+    Gamma = 9
+    Linear = 10
+    LinearLight = 11
+
+    Auto = Spline
 
 
 class PlaceboTonemapFunctionName(str, Enum):
-    Auto = "auto"
     Clip = "clip"
     ST2094_40 = "st2094-40"
     ST2094_10 = "st2094-10"
@@ -38,6 +39,9 @@ class PlaceboTonemapFunctionName(str, Enum):
     Hable = "hable"
     Gamma = "gamma"
     Linear = "linear"
+    LinearLight = "linearlight"
+
+    Auto = "spline"
 
 
 class PlaceboGamutMapping(IntEnum):
