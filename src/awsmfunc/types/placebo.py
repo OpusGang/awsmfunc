@@ -54,61 +54,61 @@ class PlaceboGamutMapping(IntEnum):
     Clip = 0
     """Performs no gamut-mapping, just hard clips out-of-range colors per-channel."""
 
-    Perceptual = 1
+    Perceptual = enum.auto()
     """
     Performs a perceptually balanced (saturation) gamut mapping, using a soft knee function to preserve in-gamut colors, 
     followed by a final softclip operation. This works bidirectionally, meaning it can both compress and expand the gamut. 
     Behaves similar to a blend of `Saturation` and `Softclip`.
     """  # noqa: E501
 
-    Softclip = 2
+    Softclip = enum.auto()
     """
     Performs a perceptually balanced gamut mapping using a soft knee function to roll-off clipped regions, 
     and a hue shifting function to preserve saturation.
     """
 
-    Relative = 3
+    Relative = enum.auto()
     """
     Performs relative colorimetric clipping, 
     while maintaining an exponential relationship between brightness and chromaticity.
     """
 
-    Saturation = 4
+    Saturation = enum.auto()
     """
     Performs simple RGB->RGB saturation mapping. 
     The input R/G/B channels are mapped directly onto the output R/G/B channels. 
     Will never clip, but will distort all hues and/or result in a faded look.
     """
 
-    Absolute = 5
+    Absolute = enum.auto()
     """Performs absolute colorimetric clipping. Like `Relative`, but does not adapt the white point."""
 
-    Desaturate = 6
+    Desaturate = enum.auto()
     """Performs constant-luminance colorimetric clipping, desaturing colors towards white until they're in-range."""
 
-    Darken = 7
+    Darken = enum.auto()
     """
     Uniformly darkens the input slightly to prevent clipping on blown-out highlights, 
     then clamps colorimetrically to the input gamut boundary, biased slightly to preserve chromaticity over luminance.
     """
 
-    Highlight = 8
+    Highlight = enum.auto()
     """Performs no gamut mapping, but simply highlights out-of-gamut pixels."""
 
-    Linear = 9
+    Linear = enum.auto()
     """Linearly/uniformly desaturates the image in order to bring the entire image into the target gamut."""
 
 
 class PlaceboHdrMetadataType(IntEnum):
     Any = 0
     """Use any available metadata"""
-    PlNone = 1
+    PlNone = enum.auto()
     """PL_HDR_METADATA_NONE"""
-    HDR10 = 2
+    HDR10 = enum.auto()
     """Static HDR10 metadata only"""
-    HDR10Plus = 3
+    HDR10Plus = enum.auto()
     """Dynamic HDR10+ metadata, scene_max and scene_avg"""
-    CIE_Y = 4
+    CIE_Y = enum.auto()
     """Dynamic PQ luminance metadata, max_pq_y and avg_pq_y"""
 
 
