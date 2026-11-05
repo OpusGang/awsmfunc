@@ -180,10 +180,6 @@ def bbmod(
             u = True
             v = False
 
-    chromaloc = None
-    if "_ChromaLocation" in clip.get_frame(0).props:
-        chromaloc = clip.get_frame(0).props["_ChromaLocation"]
-
     depth = clip.format.bits_per_sample
     if thresh is None:
         thresh = scale_value(128, 8, depth, scale_offsets=scale_offsets)
@@ -377,8 +373,7 @@ def bbmod(
 
         filtered = core.std.StackVertical(clips=[middle_clip, bottom_clip])
 
-    if chromaloc is not None:
-        filtered = filtered.std.SetFrameProp("_ChromaLocation", chromaloc)
+    filtered = filtered.std.CopyFrameProps(clip, "_ChromaLocation")
 
     return filtered
 
