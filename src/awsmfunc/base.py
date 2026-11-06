@@ -373,6 +373,8 @@ def bbmod(
 
         filtered = core.std.StackVertical(clips=[middle_clip, bottom_clip])
 
+    filtered = filtered.std.CopyFrameProps(clip, "_ChromaLocation")
+
     return filtered
 
 
